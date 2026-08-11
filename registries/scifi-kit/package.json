@@ -1,0 +1,30 @@
+{
+  "name": "@scifi-kit/registry",
+  "version": "0.0.1",
+  "description": "A production-ready sci-fi model library for Vibe3D and Three.js.",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": ["vibe3d", "vibe3d-registry", "threejs", "3d-models", "sci-fi"],
+  "vibe3d": {
+    "registry": "./dist/registry.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "bun src/build.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "devDependencies": {
+    "@vibe3djs/schema": "^0.0.1",
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "three": ">=0.185.0"
+  }
+}

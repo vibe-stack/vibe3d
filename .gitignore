@@ -1,0 +1,12 @@
+dist/
+node_modules/
+.asset-forge/
+build/assets/
+renders/*.png
+renders/*.json
+*.log
+.DS_Store
+coverage/
+*.tgz
+.release-pack/
+models.lock.json

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["scripts", "src/asset-forge", "src/core", "src/playgrounds", "src/props"],
+  "exclude": []
+}

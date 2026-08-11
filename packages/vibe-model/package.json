@@ -1,0 +1,33 @@
+{
+  "name": "vibe-model",
+  "version": "0.0.1",
+  "description": "Install and run the Vibe Model skill for reference-driven Three.js asset creation.",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "bin": {
+    "vibe-model": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --packages external && node scripts/copy-skill.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests",
+    "vibe-model": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

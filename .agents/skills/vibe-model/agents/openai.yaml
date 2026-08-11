@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vibe Model"
+  short_description: "Build reference-matched Three.js props"
+  default_prompt: "Use $vibe-model to build a direct Three.js model from a reference and iterate deterministic previews until the result reads correctly."

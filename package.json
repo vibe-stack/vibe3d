@@ -1,0 +1,62 @@
+{
+  "name": "vibe3d-monorepo",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "bun@1.3.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "registries/*"
+  ],
+  "catalog": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  },
+  "scripts": {
+    "changeset": "bunx --bun changeset",
+    "changeset:status": "bunx --bun changeset status",
+    "dev": "bun run --cwd apps/docs dev",
+    "dev:legacy": "vite",
+    "build": "bun run build:packages && bun run build:registries && bun run build:apps",
+    "build:packages": "bun run --filter '@vibe3djs/schema' build && bun run --filter '@vibe3djs/registry-sdk' build && bun run --filter '@vibe3djs/registry' build && bun run --filter '@vibe3djs/conformance' build && bun run --filter 'vibe3d' build && bun run --filter 'vibe-model' build",
+    "build:registries": "bun run --filter '@scifi-kit/registry' build",
+    "build:apps": "bun run --filter '@vibe3djs/docs' build",
+    "typecheck": "bun run build:packages && bun run typecheck:legacy && bun run --workspaces typecheck",
+    "typecheck:legacy": "bun run typecheck:browser && bun run typecheck:node",
+    "typecheck:browser": "tsc -p tsconfig.json",
+    "typecheck:node": "tsc -p tsconfig.node.json",
+    "test": "bun test",
+    "asset:forge": "node --import tsx scripts/asset-forge/cli.ts",
+    "asset:forge:test": "bun test scripts/asset-forge src/asset-forge",
+    "vibe:model": "node --import tsx scripts/asset-forge/cli.ts",
+    "audit:kit-closure": "node scripts/audit-kit-closure.mjs",
+    "preview": "bun run --cwd apps/docs preview",
+    "render:headless": "node --import tsx scripts/render-headless.ts",
+    "version-packages": "bunx --bun changeset version && bun install",
+    "release:check": "bun run build && bun run typecheck && bun run test",
+    "release:plan": "bunx --bun changeset publish-plan",
+    "release": "bun run release:check && bunx --bun changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.0",
+    "@types/node": "^26.2.0",
+    "@types/pngjs": "^6.0.5",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1"
+  },
+  "dependencies": {
+    "@types/three": "^0.185.4",
+    "pngjs": "^7.0.0",
+    "sharp": "^0.35.3",
+    "three": "^0.185.1",
+    "three-stdlib": "^2.36.1",
+    "webgpu": "0.3.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vibe3d.dev/schema/models.json",
+  "engine": "three",
+  "typescript": true,
+  "paths": {
+    "vibe3d": "src/lib/vibe3d",
+    "models": "src/models"
+  },
+  "aliases": {
+    "vibe3d": "@/lib/vibe3d",
+    "models": "@/models"
+  },
+  "registries": {
+    "@scifi-kit": {
+      "source": "file:registries/scifi-kit/dist/registry.json",
+      "version": "workspace"
+    }
+  }
+}

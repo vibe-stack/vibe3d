@@ -1,0 +1,32 @@
+{
+  "name": "@vibe3djs/registry",
+  "version": "0.0.1",
+  "description": "Registry resolution and safe source installation for Vibe3D.",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "sideEffects": false,
+  "files": ["dist", "README.md", "LICENSE"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@vibe3djs/schema": "^0.0.1",
+    "pacote": "^21.0.0"
+  },
+  "devDependencies": {
+    "@types/pacote": "^11.1.8",
+    "typescript": "catalog:"
+  }
+}

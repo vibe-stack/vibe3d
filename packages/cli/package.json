@@ -1,0 +1,37 @@
+{
+  "name": "vibe3d",
+  "version": "0.0.1",
+  "description": "Install production-ready Three.js models as source you own.",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": ["dist", "templates", "README.md", "LICENSE"],
+  "bin": {
+    "vibe3d": "./dist/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --packages external",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@vibe3djs/conformance": "^0.0.1",
+    "@vibe3djs/registry": "^0.0.1",
+    "@vibe3djs/schema": "^0.0.1",
+    "commander": "^14.0.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
