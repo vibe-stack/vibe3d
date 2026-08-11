@@ -151,7 +151,7 @@ async function auditAssemblies(): Promise<AssemblyAuditResult[]> {
       checkSocketClosure(corner!, 'wall-east', door!, 'wall_snap_left', 'corner/door', errors)
       checkSocketClosure(door!, 'wall_snap_right', window!, 'wall_snap_left', 'door/window', errors)
       checkSocketClosure(window!, 'wall_snap_right', cap!, 'wall-west', 'window/cap', errors)
-      if (!near(window!.position.y, 0.5)) errors.push(`window must rise 0.5 m into the common 3 m wall datum; got ${window!.position.y}`)
+      if (!near(window!.position.y, 0)) errors.push(`full-height window bay must share the common wall datum; got ${window!.position.y}`)
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error))
     }

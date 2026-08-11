@@ -156,25 +156,44 @@ function openingFor(placement: OpeningPlacement, centre: number): OpeningSpec {
 
 /* ------------------------------------------------------------------ walls -- */
 
-function addWallSegment(root: Group, m: KitMaterials, segment: Segment, placement: OpeningPlacement | undefined): void {
-  const face = faceFor(segment)
-  const half = KIT_BUILD.postSize / 2
-  const ends = segment.axis === 'x'
-    ? [uOf(face, segment.line, segment.from), uOf(face, segment.line, segment.to)]
-    : [uOf(face, segment.from, segment.line), uOf(face, segment.to, segment.line)]
-  const u0 = Math.min(...ends) + half
-  const u1 = Math.max(...ends) - half
-  const thickness = segment.partition ? T + 0.06 : T
+export interface WallSectionOpening {
+  readonly kind: 'door' | 'window'
+  readonly spec: OpeningSpec
+}
 
-  if (!placement) {
+export interface WallSectionOptions {
+  readonly partition?: boolean
+  readonly opening?: WallSectionOpening
+  /** Prefab perimeter walls carry a ring beam; loose inserts do not. */
+  readonly ring?: boolean
+}
+
+/**
+ * Canonical Axiom wall author. Layouts and loose wall/door/window registry
+ * pieces all pass through this function, so an opening cannot drift away from
+ * the version cut into a prefab shell.
+ */
+export function buildWallSection(
+  root: Group,
+  m: KitMaterials,
+  face: WallFace,
+  u0: number,
+  u1: number,
+  options: WallSectionOptions = {},
+): void {
+  const partition = options.partition ?? false
+  const opening = options.opening
+  const thickness = partition ? T + 0.06 : T
+
+  if (!opening) {
     facePrism(root, face, m.graphite, [u1 - u0, WALL_TOP - FLOOR, thickness], (u0 + u1) / 2, (FLOOR + WALL_TOP) / 2, 0,
       { fillet: 0.03, bevel: 0.024 })
     cassetteRun(root, face, m, u0, u1, FLOOR, WALL_TOP, 1)
     cassetteRun(root, face, m, u0, u1, FLOOR, WALL_TOP, -1)
   } else {
-    const spec = openingFor(placement, (u0 + u1) / 2)
-    // The core stops outside the dark liner rather than at the clear opening, so
-    // the two never share the aperture plane.
+    const { spec } = opening
+    // The core stops outside the dark liner rather than at the clear opening,
+    // so the two never share the aperture plane.
     const cored: OpeningSpec = {
       ...spec,
       width: spec.width + FRAME_LINER * 2,
@@ -194,12 +213,27 @@ function addWallSegment(root: Group, m: KitMaterials, segment: Segment, placemen
       cassetteRun(root, face, m, aL, aR, spec.head + band, WALL_TOP, side)
       if (spec.sill > FLOOR + 0.4) cassetteRun(root, face, m, aL, aR, FLOOR, spec.sill - band, side)
     }
-    if (placement.kind === 'door') addDoorFurniture(root, m, face, spec)
+    if (opening.kind === 'door') addDoorFurniture(root, m, face, spec)
     else addWindowSill(root, m, face, spec)
   }
 
-  if (segment.partition) addSpineCap(root, m, face, u0, u1)
-  else ringBeam(root, face, m, u0 - 0.22, u1 + 0.22)
+  if (partition) addSpineCap(root, m, face, u0, u1)
+  else if (options.ring ?? true) ringBeam(root, face, m, u0 - 0.22, u1 + 0.22)
+}
+
+function addWallSegment(root: Group, m: KitMaterials, segment: Segment, placement: OpeningPlacement | undefined): void {
+  const face = faceFor(segment)
+  const half = KIT_BUILD.postSize / 2
+  const ends = segment.axis === 'x'
+    ? [uOf(face, segment.line, segment.from), uOf(face, segment.line, segment.to)]
+    : [uOf(face, segment.from, segment.line), uOf(face, segment.to, segment.line)]
+  const u0 = Math.min(...ends) + half
+  const u1 = Math.max(...ends) - half
+  const spec = placement ? openingFor(placement, (u0 + u1) / 2) : undefined
+  buildWallSection(root, m, face, u0, u1, {
+    partition: segment.partition,
+    opening: placement && spec ? { kind: placement.kind, spec } : undefined,
+  })
 }
 
 function addDoorFurniture(root: Group, m: KitMaterials, face: WallFace, spec: OpeningSpec): void {

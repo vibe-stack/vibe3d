@@ -1,165 +1,130 @@
 import {
-  AmbientLight,
-  BoxGeometry,
   Color,
   DirectionalLight,
   Group,
+  HemisphereLight,
   Mesh,
-  MeshPhysicalMaterial,
   PerspectiveCamera,
   Scene,
   type Material,
+  type MeshPhysicalMaterial,
 } from 'three/webgpu'
-import {
-  MaterialLibrary,
-  tuneMaterial,
-  type MaterialHandle,
-} from '../../../src/asset-forge/generator/index.ts'
+
+import { buildWallSection } from '../axiom-modular-kit/layout.ts'
+import { KIT_BUILD, createKitMaterials, wallFace, type KitMaterials } from '../axiom-modular-kit/parts.ts'
 
 export interface ModularWallConfig {
   width: number
+  /** @deprecated Axiom wall height is fixed by the shared kit datum. */
   height: number
+  /** @deprecated Axiom wall thickness is fixed by the shared kit datum. */
   thickness: number
+  /** @deprecated Cassette rhythm is derived from width by the shared builder. */
   ribCount: number
 }
 
 export interface ModularWallOptions extends Partial<ModularWallConfig> {
-  materialLibrary?: MaterialLibrary
   materials?: Partial<Record<'panel' | 'frame' | 'accent', Material>>
-}
-
-export interface ModularWallParts {
-  panel: Mesh<BoxGeometry, Material>
-  frame: Group
-  ribs: Group
 }
 
 export interface ModularWallInstance {
   readonly root: Group
-  readonly parts: ModularWallParts
+  readonly parts: { panel: Group; frame: Group; ribs: Group }
   readonly materials: Readonly<Record<'panel' | 'frame' | 'accent', Material>>
   getConfig(): Readonly<ModularWallConfig>
   configure(patch: Partial<ModularWallConfig>): void
-  setMaterial(slot: keyof ModularWallInstance['materials'], material: Material): void
+  setMaterial(slot: 'panel' | 'frame' | 'accent', material: Material): void
   update(deltaSeconds: number): void
   dispose(): void
 }
 
-const defaults: ModularWallConfig = { width: 4, height: 3, thickness: 0.28, ribCount: 4 }
+const defaults: ModularWallConfig = {
+  width: 4,
+  height: KIT_BUILD.wallTop,
+  thickness: KIT_BUILD.wallThickness,
+  ribCount: 2,
+}
 
 export function createModel(options: ModularWallOptions = {}): ModularWallInstance {
-  const config: ModularWallConfig = {
-    width: options.width ?? defaults.width,
-    height: options.height ?? defaults.height,
-    thickness: options.thickness ?? defaults.thickness,
-    ribCount: options.ribCount ?? defaults.ribCount,
-  }
-  const library = options.materialLibrary ?? new MaterialLibrary()
-  const handles: MaterialHandle[] = []
-  const material = (slot: 'panel' | 'frame' | 'accent', color: number, roughness: number, metalness: number) => {
-    const external = options.materials?.[slot]
-    if (external) return external
-    const handle = library.acquire({ recipeId: slot, palette: slot, condition: 'worked' })
-    handles.push(handle)
-    return tuneMaterial(handle, color, roughness, metalness)
-  }
-  const materials: Record<'panel' | 'frame' | 'accent', Material> = {
-    panel: material('panel', 0x68737a, 0.58, 0.42),
-    frame: material('frame', 0x252c31, 0.44, 0.72),
-    accent: material('accent', 0xd98723, 0.4, 0.55),
-  }
-
+  const acquired = createKitMaterials(4200)
+  const config = { ...defaults, width: Math.max(0.75, options.width ?? defaults.width) }
+  const generated = new Group()
+  generated.name = 'generated-wall-section'
   const root = new Group()
   root.name = 'modular-wall'
-  const panel = new Mesh(new BoxGeometry(1, 1, 1), materials.panel)
-  panel.name = 'panel'
-  panel.castShadow = panel.receiveShadow = true
-  const frame = new Group()
-  frame.name = 'frame'
-  const ribs = new Group()
-  ribs.name = 'ribs'
-  frame.add(ribs)
-  root.add(panel, frame)
+  root.add(generated)
 
-  const replaceGeometry = (mesh: Mesh<BoxGeometry, Material>, dimensions: [number, number, number]) => {
-    mesh.geometry.dispose()
-    mesh.geometry = new BoxGeometry(...dimensions)
+  const materialSlots: Record<'panel' | 'frame' | 'accent', Material> = {
+    panel: options.materials?.panel ?? acquired.materials.shell,
+    frame: options.materials?.frame ?? acquired.materials.graphite,
+    accent: options.materials?.accent ?? acquired.materials.amber,
   }
-  const rebuild = () => {
-    config.width = Math.max(0.5, config.width)
-    config.height = Math.max(0.5, config.height)
-    config.thickness = Math.max(0.05, config.thickness)
-    config.ribCount = Math.max(0, Math.round(config.ribCount))
-    replaceGeometry(panel, [config.width, config.height, config.thickness])
-    for (const child of [...ribs.children]) {
-      if (child instanceof Mesh) child.geometry.dispose()
-      ribs.remove(child)
-    }
-    const railThickness = Math.min(0.13, config.height * 0.06)
-    for (const y of [-config.height / 2, config.height / 2]) {
-      const rail = new Mesh(new BoxGeometry(config.width + 0.2, railThickness, config.thickness + 0.12), materials.frame)
-      rail.position.y = y
-      rail.castShadow = true
-      ribs.add(rail)
-    }
-    const spacing = config.width / (config.ribCount + 1)
-    for (let index = 1; index <= config.ribCount; index += 1) {
-      const rib = new Mesh(new BoxGeometry(0.09, config.height, config.thickness + 0.09), index % 2 === 0 ? materials.accent : materials.frame)
-      rib.position.x = -config.width / 2 + spacing * index
-      rib.castShadow = true
-      ribs.add(rib)
-    }
+
+  const resolvedMaterials = (): KitMaterials => ({
+    ...acquired.materials,
+    shell: materialSlots.panel as MeshPhysicalMaterial,
+    graphite: materialSlots.frame as MeshPhysicalMaterial,
+    amber: materialSlots.accent as MeshPhysicalMaterial,
+  })
+
+  const clearGenerated = (): void => {
+    generated.traverse((object) => {
+      if (object instanceof Mesh) object.geometry.dispose()
+    })
+    generated.clear()
+  }
+
+  const rebuild = (): void => {
+    clearGenerated()
+    const width = Math.max(0.75, config.width)
+    buildWallSection(generated, resolvedMaterials(), wallFace([-width / 2, 0, -KIT_BUILD.wallThickness / 2], 0), 0, width)
   }
   rebuild()
 
-  const parts = { panel, frame, ribs }
+  // Stable semantic anchors remain valid when configure() rebuilds geometry.
+  const panel = new Group(); panel.name = 'panel'
+  const frame = new Group(); frame.name = 'frame'
+  const ribs = new Group(); ribs.name = 'ribs'
+  root.add(panel, frame, ribs)
+
   return {
     root,
-    parts,
-    materials,
+    parts: { panel, frame, ribs },
+    materials: materialSlots,
     getConfig: () => ({ ...config }),
     configure(patch) {
-      Object.assign(config, patch)
+      if (patch.width !== undefined) config.width = Math.max(0.75, patch.width)
+      // Legacy controls resolve to the shared Axiom datums instead of creating
+      // a visually incompatible second wall system.
+      config.height = defaults.height
+      config.thickness = defaults.thickness
+      config.ribCount = Math.max(1, Math.round(config.width / 2.2))
       rebuild()
     },
-    setMaterial(slot, next) {
-      materials[slot] = next
-      panel.material = materials.panel
-      for (const [index, child] of ribs.children.entries()) {
-        if (child instanceof Mesh) child.material = index > 1 && index % 2 === 1 ? materials.accent : materials.frame
-      }
+    setMaterial(slot, material) {
+      materialSlots[slot] = material
+      rebuild()
     },
-    update: () => undefined,
+    update: () => {},
     dispose() {
-      root.traverse((object) => {
-        if (object instanceof Mesh) object.geometry.dispose()
-      })
-      for (const handle of handles) handle.release()
+      clearGenerated()
+      for (const handle of acquired.handles) handle.release()
       root.removeFromParent()
     },
   }
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const scene = new Scene()
-  scene.background = new Color(0x11161b)
   const model = createModel()
-  model.root.rotation.y = -0.35
-  scene.add(model.root)
-  scene.add(new AmbientLight(0xb7c7d8, 1.4))
-  const key = new DirectionalLight(0xfff4dc, 5)
-  key.position.set(5, 7, 6)
+  const scene = new Scene()
+  scene.background = new Color(0x000000)
+  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.3))
+  const key = new DirectionalLight(0xfff2e2, 1.25)
+  key.position.set(-5, 8, 7)
   scene.add(key)
-  const camera = new PerspectiveCamera(28, aspect, 0.1, 100)
-  camera.position.set(7, 4.5, 9)
-  camera.lookAt(0, 0.3, 0)
-  return {
-    scene,
-    root: model.root,
-    camera,
-    update: model.update,
-    dispose() {
-      model.dispose()
-    },
-  }
+  const camera = new PerspectiveCamera(28, aspect, 0.05, 80)
+  camera.position.set(6.5, 4.4, 8)
+  camera.lookAt(0, 1.5, -0.15)
+  scene.add(camera)
+  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
 }

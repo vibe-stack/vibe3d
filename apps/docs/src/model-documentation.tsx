@@ -58,13 +58,13 @@ export function ModelUsage({ model }: { model: CatalogModel }) {
   const modulePath = installedImport(model)
   const isConfigurableWall = model.id === 'modular-wall'
   const usage = isConfigurableWall
-    ? `import { createModel } from "${modulePath}"\n\nconst wall = createModel({\n  width: 5,\n  height: 3.2,\n  thickness: 0.3,\n})\n\nscene.add(wall.root)\nwall.configure({ width: 6 })`
+    ? `import { createModel } from "${modulePath}"\n\nconst wall = createModel({ width: 5 })\n\nscene.add(wall.root)\nwall.configure({ width: 6 })`
     : `import { createModel } from "${modulePath}"\n\nconst model = createModel()\nconst root = "root" in model ? model.root : model\n\nscene.add(root)`
   const factory = isConfigurableWall
     ? `createModel(options?: ModularWallOptions): ModularWallInstance`
     : `createModel(): ${name}Model`
   const contract = isConfigurableWall
-    ? `interface ModularWallOptions {\n  width?: number\n  height?: number\n  thickness?: number\n  ribCount?: number\n  materialLibrary?: MaterialLibrary\n  materials?: Partial<Record<\n    "panel" | "frame" | "accent",\n    Material\n  >>\n}\n\ninterface ModularWallInstance {\n  readonly root: Group\n  readonly parts: {\n    panel: Mesh\n    frame: Group\n    ribs: Group\n  }\n  readonly materials: Readonly<Record<\n    "panel" | "frame" | "accent",\n    Material\n  >>\n  getConfig(): Readonly<ModularWallConfig>\n  configure(patch: Partial<ModularWallConfig>): void\n  setMaterial(slot: MaterialSlot, material: Material): void\n  update(deltaSeconds: number): void\n  dispose(): void\n}`
+    ? `interface ModularWallOptions {\n  width?: number\n  materials?: Partial<Record<\n    "panel" | "frame" | "accent",\n    Material\n  >>\n}\n\ninterface ModularWallInstance {\n  readonly root: Group\n  readonly parts: {\n    panel: Group\n    frame: Group\n    ribs: Group\n  }\n  readonly materials: Readonly<Record<\n    "panel" | "frame" | "accent",\n    Material\n  >>\n  getConfig(): Readonly<ModularWallConfig>\n  configure(patch: { width?: number }): void\n  setMaterial(slot: MaterialSlot, material: Material): void\n  update(deltaSeconds: number): void\n  dispose(): void\n}`
     : `import type { createModel } from "${modulePath}"\n\nexport type ${name}Model = ReturnType<typeof createModel>\n\ninterface ${name}Module {\n  createModel: typeof createModel\n  createPreview(options: {\n    aspect: number\n    time?: number\n  }): ModelPreview\n}`
 
   return <>
