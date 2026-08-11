@@ -1,6 +1,6 @@
 {
   "name": "vibe3d",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Install production-ready Three.js models as source you own.",
   "type": "module",
   "license": "MIT",
@@ -21,9 +21,9 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@vibe3djs/conformance": "^0.0.1",
-    "@vibe3djs/registry": "^0.0.1",
-    "@vibe3djs/schema": "^0.0.1",
+    "@vibe3djs/conformance": "^0.0.2",
+    "@vibe3djs/registry": "^0.0.2",
+    "@vibe3djs/schema": "^0.0.2",
     "commander": "^14.0.0",
     "picocolors": "^1.1.1"
   },

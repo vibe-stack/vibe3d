@@ -1,6 +1,6 @@
 {
   "name": "@vibe3djs/conformance",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Compatibility and safety checks for Vibe3D registries.",
   "type": "module",
   "license": "MIT",
@@ -17,8 +17,8 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@vibe3djs/registry": "^0.0.1",
-    "@vibe3djs/schema": "^0.0.1"
+    "@vibe3djs/registry": "^0.0.2",
+    "@vibe3djs/schema": "^0.0.2"
   },
   "devDependencies": { "@types/node": "catalog:", "typescript": "catalog:" }
 }

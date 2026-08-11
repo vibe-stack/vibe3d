@@ -1,6 +1,6 @@
 {
   "name": "@vibe3djs/registry",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Registry resolution and safe source installation for Vibe3D.",
   "type": "module",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@vibe3djs/schema": "^0.0.1",
+    "@vibe3djs/schema": "^0.0.2",
     "pacote": "^21.0.0"
   },
   "devDependencies": {

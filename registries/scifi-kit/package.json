@@ -1,6 +1,6 @@
 {
   "name": "@scifi-kit/registry",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A production-ready sci-fi model library for Vibe3D and Three.js.",
   "type": "module",
   "license": "MIT",
@@ -19,7 +19,7 @@
     "test": "bun test --pass-with-no-tests"
   },
   "devDependencies": {
-    "@vibe3djs/schema": "^0.0.1",
+    "@vibe3djs/schema": "^0.0.2",
     "@types/node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:"

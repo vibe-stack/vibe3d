@@ -1,6 +1,6 @@
 {
   "name": "vibe-model",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Install and run the Vibe Model skill for reference-driven Three.js asset creation.",
   "type": "module",
   "license": "MIT",

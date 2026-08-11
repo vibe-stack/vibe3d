@@ -1,6 +1,6 @@
 {
   "name": "@vibe3djs/registry-sdk",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Typed authoring helpers for Vibe3D registries.",
   "type": "module",
   "license": "MIT",
@@ -16,6 +16,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test --pass-with-no-tests"
   },
-  "dependencies": { "@vibe3djs/schema": "^0.0.1" },
+  "dependencies": { "@vibe3djs/schema": "^0.0.2" },
   "devDependencies": { "@types/node": "catalog:", "typescript": "catalog:" }
 }
