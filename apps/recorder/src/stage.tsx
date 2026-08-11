@@ -6,10 +6,13 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  RenderPipeline,
   SRGBColorSpace,
   WebGPURenderer,
 } from 'three/webgpu'
+import { emissive, mrt, output, pass } from 'three/tsl'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { bloom } from 'three/addons/tsl/display/BloomNode.js'
 import type { CatalogItem, ModelPreview } from './catalog.ts'
 
 interface StageProps {
@@ -25,6 +28,10 @@ const actionPriority = [
   'toggleHatch',
   'toggleGate',
 ]
+
+const BLOOM_STRENGTH = 2
+const BLOOM_RADIUS = 0.35
+const BLOOM_THRESHOLD = 0.1
 
 function triggerAnimation(preview: ModelPreview): void {
   const fallback = Object.keys(preview).find((key) => /^(trigger|toggle)[A-Z]/.test(key))
@@ -81,6 +88,7 @@ export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProp
 
     let stopped = false
     let renderer: WebGPURenderer | undefined
+    let pipeline: RenderPipeline | undefined
     let preview: ModelPreview | undefined
     let controls: OrbitControls | undefined
     let previousTime = 0
@@ -105,7 +113,7 @@ export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProp
       renderer = new WebGPURenderer({ canvas, antialias: true })
       renderer.outputColorSpace = SRGBColorSpace
       renderer.toneMapping = ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.16
+      renderer.toneMappingExposure = 1
       await renderer.init()
       if (stopped) return
       setWebGpuReady(true)
@@ -124,16 +132,29 @@ export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProp
       controls.minDistance = 0.4
       controls.maxDistance = 180
       controls.update()
+
+      const scenePass = pass(preview.scene, preview.camera)
+      scenePass.setMRT(mrt({ output, emissive }))
+      const sceneColor = scenePass.getTextureNode('output')
+      const emissiveColor = scenePass.getTextureNode('emissive')
+      pipeline = new RenderPipeline(renderer)
+      pipeline.outputNode = sceneColor.add(bloom(
+        emissiveColor,
+        BLOOM_STRENGTH,
+        BLOOM_RADIUS,
+        BLOOM_THRESHOLD,
+      ))
+
       resize()
       onLoadingChange(false)
 
       renderer.setAnimationLoop((time) => {
-        if (!preview || !renderer) return
+        if (!preview || !pipeline) return
         const delta = previousTime === 0 ? 0 : Math.min((time - previousTime) / 1_000, 0.05)
         previousTime = time
         if (animatingRef.current) preview.update(delta)
         controls?.update()
-        renderer.render(preview.scene, preview.camera)
+        pipeline.render()
       })
     })().catch((error: unknown) => {
       if (stopped) return
@@ -147,6 +168,7 @@ export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProp
       observer.disconnect()
       renderer?.setAnimationLoop(null)
       controls?.dispose()
+      pipeline?.dispose()
       preview?.dispose()
       previewRef.current = undefined
       renderer?.dispose()
