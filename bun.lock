@@ -41,6 +41,24 @@
         "vite": "^8.2.1",
       },
     },
+    "apps/recorder": {
+      "name": "@vibe3djs/recorder",
+      "version": "0.0.1",
+      "dependencies": {
+        "@vitejs/plugin-react": "latest",
+        "lucide-react": "latest",
+        "react": "latest",
+        "react-dom": "latest",
+        "three": "^0.185.1",
+      },
+      "devDependencies": {
+        "@types/react": "latest",
+        "@types/react-dom": "latest",
+        "@types/three": "^0.185.4",
+        "typescript": "catalog:",
+        "vite": "^8.2.1",
+      },
+    },
     "packages/cli": {
       "name": "vibe3d",
       "version": "0.0.1",
@@ -479,6 +497,8 @@
     "@vibe3djs/conformance": ["@vibe3djs/conformance@workspace:packages/conformance"],
 
     "@vibe3djs/docs": ["@vibe3djs/docs@workspace:apps/docs"],
+
+    "@vibe3djs/recorder": ["@vibe3djs/recorder@workspace:apps/recorder"],
 
     "@vibe3djs/registry": ["@vibe3djs/registry@workspace:packages/registry"],
 

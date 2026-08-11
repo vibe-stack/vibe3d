@@ -1,0 +1,28 @@
+{
+  "name": "@vibe3djs/recorder",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "bunx --bun vite",
+    "build": "tsc -b && bunx --bun vite build",
+    "preview": "bunx --bun vite preview",
+    "typecheck": "tsc -b --pretty false",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/three": "^0.185.4",
+    "typescript": "catalog:",
+    "vite": "^8.2.1"
+  }
+}
