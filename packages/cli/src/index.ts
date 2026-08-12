@@ -129,6 +129,7 @@ async function view(cwd: string, address: string): Promise<void> {
   console.log(`${pc.dim('Registry')}     ${registry.namespace}`)
   console.log(`${pc.dim('Type')}         ${selected.item.type}`)
   console.log(`${pc.dim('Files')}        ${items.reduce((total, item) => total + item.item.files.length, 0)}`)
+  console.log(`${pc.dim('Artifacts')}    ${items.reduce((total, item) => total + ('artifacts' in item.item ? item.item.artifacts.length : 0), 0)}`)
   console.log(`${pc.dim('Dependencies')} ${items.map((item) => item.address).join(', ')}`)
 }
 
@@ -153,11 +154,12 @@ async function add(
   }
   const result = {
     files: results.flatMap((entry) => entry.files),
+    artifacts: results.flatMap((entry) => entry.artifacts),
     dependencies: [...new Set(results.flatMap((entry) => entry.dependencies))],
     skipped: results.flatMap((entry) => entry.skipped),
   }
   const verb = options.dryRun ? 'Would install' : 'Installed'
-  console.log(`${pc.green(verb)} ${pc.bold(address)} · ${result.files.length} files`)
+  console.log(`${pc.green(verb)} ${pc.bold(address)} · ${result.files.length} files · ${result.artifacts.length} compiled artifacts`)
   if (result.dependencies.length > 0) {
     console.log(`${pc.yellow('Add dependencies')} ${result.dependencies.join(' ')}`)
   }
@@ -198,7 +200,7 @@ async function doctor(cwd: string): Promise<void> {
 async function validateRegistryFile(cwd: string, file: string): Promise<void> {
   const value = JSON.parse(await readFile(resolve(cwd, file), 'utf8')) as unknown
   const report = checkRegistry(value)
-  console.log(`${pc.green('Conformant')} ${report.registry.namespace} · ${report.checkedItems} items · ${report.checkedFiles} files · ${report.registry.license}`)
+  console.log(`${pc.green('Conformant')} ${report.registry.namespace} · ${report.checkedItems} items · ${report.checkedFiles} files · ${report.checkedArtifacts} compiled artifacts · ${report.registry.license}`)
 }
 
 async function diff(cwd: string): Promise<void> {
@@ -217,6 +219,24 @@ async function diff(cwd: string): Promise<void> {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
         console.log(`${pc.red('missing')}  ${file.path}`)
         changes += 1
+      }
+    }
+  }
+  if (lock.schemaVersion === 2) {
+    for (const item of Object.values(lock.items)) {
+      for (const artifact of item.artifacts) {
+        try {
+          const content = await readFile(join(cwd, artifact.path))
+          const actual = createHash('sha256').update(content).digest('hex')
+          if (actual !== artifact.sourceHash) {
+            console.log(`${pc.yellow('stale')}    ${artifact.path}`)
+            changes += 1
+          }
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+          console.log(`${pc.red('missing')}  ${artifact.path}`)
+          changes += 1
+        }
       }
     }
   }
@@ -239,6 +259,15 @@ async function remove(cwd: string, address: string, force = false): Promise<void
       await rm(path)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+  if (lock.schemaVersion === 2) {
+    for (const artifact of lock.items[address]!.artifacts) {
+      try {
+        await rm(join(cwd, artifact.path))
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
     }
   }
   delete lock.items[address]

@@ -25,7 +25,7 @@
     "dev:recorder": "bun run --cwd apps/recorder dev",
     "dev:legacy": "vite",
     "build": "bun run build:packages && bun run build:registries && bun run build:apps",
-    "build:packages": "bun run --filter '@vibe3djs/schema' build && bun run --filter '@vibe3djs/registry-sdk' build && bun run --filter '@vibe3djs/registry' build && bun run --filter '@vibe3djs/conformance' build && bun run --filter 'vibe3d' build && bun run --filter 'vibe-model' build",
+    "build:packages": "bun run --filter '@vibe3djs/schema' build && bun run --filter '@vibe3djs/registry-sdk' build && bun run --filter '@vibe3djs/registry' build && bun run --filter '@vibe3djs/conformance' build && bun run --filter '@vibe3djs/terrain' build && bun run --filter 'vibe3d' build && bun run --filter 'vibe-model' build && bun run --filter 'vibe-terrain' build",
     "build:registries": "bun run --filter '@scifi-kit/registry' build",
     "build:apps": "bun run --filter '@vibe3djs/docs' build && bun run --filter '@vibe3djs/recorder' build",
     "typecheck": "bun run build:packages && bun run typecheck:legacy && bun run --workspaces typecheck",

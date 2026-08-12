@@ -8,6 +8,7 @@
       "@vibe3djs/registry-sdk",
       "@vibe3djs/registry",
       "@vibe3djs/conformance",
+      "@vibe3djs/terrain",
       "vibe3d"
     ]
   ],

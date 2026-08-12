@@ -1,10 +1,9 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import {
   modelsLockSchema,
   type ModelsConfig,
-  type ModelsLock,
   type Registry,
 } from '@vibe3djs/schema'
 import type { ResolvedRegistryItem } from './resolve.js'
@@ -22,11 +21,27 @@ export interface InstallOptions {
 
 export interface InstallResult {
   files: string[]
+  artifacts: string[]
   dependencies: string[]
   skipped: string[]
 }
 
-function sha256(content: string): string {
+interface NormalizedInstalledItem {
+  address: string
+  source: string
+  version: string
+  installedAt: string
+  files: Array<{ path: string; sourceHash: string }>
+  artifacts: Array<{ path: string; sourceHash: string; mediaType: string }>
+  dependencies: string[]
+}
+
+interface NormalizedLock {
+  schemaVersion: 1 | 2
+  items: Record<string, NormalizedInstalledItem>
+}
+
+function sha256(content: string | Uint8Array): string {
   return createHash('sha256').update(content).digest('hex')
 }
 
@@ -49,10 +64,33 @@ function targetPath(target: string, options: InstallOptions): string {
   return resolved
 }
 
-async function loadLock(cwd: string): Promise<ModelsLock> {
+function lockedPath(path: string, cwd: string): string {
+  if (isAbsolute(path)) throw new Error(`Absolute lockfile path is not allowed: ${path}`)
+  const resolved = resolve(cwd, path)
+  const scoped = relative(cwd, resolved)
+  if (scoped.startsWith('..') || isAbsolute(scoped)) {
+    throw new Error(`Lockfile path leaves the project: ${path}`)
+  }
+  return resolved
+}
+
+function decodeArtifact(content: string): Uint8Array {
+  return Uint8Array.from(Buffer.from(content, 'base64'))
+}
+
+async function loadLock(cwd: string): Promise<NormalizedLock> {
   try {
     const raw = JSON.parse(await readFile(join(cwd, 'models.lock.json'), 'utf8')) as unknown
-    return modelsLockSchema.parse(raw)
+    const lock = modelsLockSchema.parse(raw)
+    return {
+      schemaVersion: lock.schemaVersion,
+      items: lock.schemaVersion === 2
+        ? Object.fromEntries(Object.entries(lock.items).map(([address, item]) => [address, item]))
+        : Object.fromEntries(Object.entries(lock.items).map(([address, item]) => [address, {
+            ...item,
+            artifacts: [],
+          }])),
+    }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { schemaVersion: 1, items: {} }
     throw error
@@ -61,6 +99,7 @@ async function loadLock(cwd: string): Promise<ModelsLock> {
 
 export async function installRegistryItems(options: InstallOptions): Promise<InstallResult> {
   const files: string[] = []
+  const artifacts: string[] = []
   const skipped: string[] = []
   const dependencies = new Set<string>()
   const lock = await loadLock(options.cwd)
@@ -68,6 +107,8 @@ export async function installRegistryItems(options: InstallOptions): Promise<Ins
   for (const resolvedItem of options.items) {
     const previous = lock.items[resolvedItem.address]
     const installedFiles = new Map(previous?.files.map((file) => [file.path, file]) ?? [])
+    const previousArtifacts = new Map(previous?.artifacts.map((artifact) => [artifact.path, artifact]) ?? [])
+    const installedArtifacts = new Map<string, NormalizedInstalledItem['artifacts'][number]>()
     for (const dependency of resolvedItem.item.dependencies) dependencies.add(dependency)
     for (const file of resolvedItem.item.files) {
       const destination = targetPath(file.target, options)
@@ -94,22 +135,67 @@ export async function installRegistryItems(options: InstallOptions): Promise<Ins
         await writeFile(destination, content, 'utf8')
       }
     }
+    for (const artifact of ('artifacts' in resolvedItem.item ? resolvedItem.item.artifacts : [])) {
+      const destination = targetPath(artifact.target, options)
+      const destinationPath = relative(options.cwd, destination)
+      const content = decodeArtifact(artifact.content)
+      if (content.byteLength !== artifact.byteLength) {
+        throw new Error(`${resolvedItem.address} artifact ${artifact.path} has an invalid byte length`)
+      }
+      const sourceHash = sha256(content)
+      if (sourceHash !== artifact.hash) {
+        throw new Error(`${resolvedItem.address} artifact ${artifact.path} has a stale hash`)
+      }
+      artifacts.push(destinationPath)
+      installedArtifacts.set(destinationPath, {
+        path: destinationPath,
+        sourceHash,
+        mediaType: artifact.mediaType,
+      })
+      if (!options.dryRun) {
+        await mkdir(dirname(destination), { recursive: true })
+        await writeFile(destination, content)
+      }
+    }
+    for (const previousArtifact of previousArtifacts.values()) {
+      if (installedArtifacts.has(previousArtifact.path) || options.dryRun) continue
+      try {
+        await rm(lockedPath(previousArtifact.path, options.cwd))
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
+    }
     lock.items[resolvedItem.address] = {
       address: resolvedItem.address,
       source: options.source,
       version: options.version,
       installedAt: new Date().toISOString(),
       files: [...installedFiles.values()],
+      artifacts: [...installedArtifacts.values()],
       dependencies: resolvedItem.item.dependencies,
     }
   }
 
   if (!options.dryRun) {
+    if (Object.values(lock.items).some((item) => item.artifacts.length > 0)) lock.schemaVersion = 2
+    const serializedLock = lock.schemaVersion === 1
+      ? {
+          schemaVersion: 1 as const,
+          items: Object.fromEntries(Object.entries(lock.items).map(([address, item]) => [address, {
+            address: item.address,
+            source: item.source,
+            version: item.version,
+            installedAt: item.installedAt,
+            files: item.files,
+            dependencies: item.dependencies,
+          }])),
+        }
+      : { schemaVersion: 2 as const, items: lock.items }
     await writeFile(
       join(options.cwd, 'models.lock.json'),
-      `${JSON.stringify(lock, null, 2)}\n`,
+      `${JSON.stringify(serializedLock, null, 2)}\n`,
       'utf8',
     )
   }
-  return { files, skipped, dependencies: [...dependencies].sort() }
+  return { files, artifacts, skipped, dependencies: [...dependencies].sort() }
 }

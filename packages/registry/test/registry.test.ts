@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { describe, test } from 'node:test'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -58,6 +59,68 @@ describe('source installer', () => {
       })
       assert.deepEqual(result.skipped, ['src/models/fixture/model.ts'])
       assert.equal(await readFile(path, 'utf8'), 'export const consumerEdit = true\n')
+      const lock = JSON.parse(await readFile(join(cwd, 'models.lock.json'), 'utf8')) as { schemaVersion: number }
+      assert.equal(lock.schemaVersion, 1)
+    } finally {
+      await rm(cwd, { recursive: true, force: true })
+    }
+  })
+
+  test('installs replaceable compiled-topology artifacts without changing source semantics', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'vibe3d-registry-artifact-test-'))
+    try {
+      const content = new TextEncoder().encode('{"format":"vibe3d-topology@1"}')
+      const current = registrySchema.parse({
+        schemaVersion: 2,
+        namespace: '@terrain-fixture',
+        name: 'Terrain Fixture',
+        description: 'Compiled topology installer fixture.',
+        license: 'MIT',
+        defaultItem: 'rock',
+        compatibility: { vibe3d: '^0.0.2', engine: 'three', three: '>=0.185', capabilities: [] },
+        items: [{
+          name: 'rock',
+          type: 'vibe3d:model',
+          title: 'Rock',
+          description: 'Procedural rock fixture.',
+          dependencies: [],
+          registryDependencies: [],
+          files: [{ path: 'rock.ts', target: '{models}/terrain/rock.ts', content: 'export const recipe = true\n' }],
+          artifacts: [{
+            path: 'rock-game.vtopo',
+            target: '{models}/terrain/.compiled/rock-game.vtopo',
+            mediaType: 'application/vnd.vibe3d.compiled-topology+json;version=1',
+            encoding: 'base64',
+            content: Buffer.from(content).toString('base64'),
+            hash: createHash('sha256').update(content).digest('hex'),
+            byteLength: content.byteLength,
+          }],
+          representations: {
+            source: { entry: 'rock.ts#createTerrain', capabilities: ['webgpu', 'tsl'] },
+            compiled: [{
+              id: 'game',
+              kind: 'compiled-topology',
+              artifact: 'rock-game.vtopo',
+              format: 'vibe3d-topology@1',
+              topologyKey: 'rock-shell',
+              recipeHash: 'recipe-1',
+              compilerHash: 'compiler-1',
+              profile: 'game',
+              capabilities: ['webgpu', 'tsl'],
+            }],
+          },
+        }],
+      })
+      const result = await installRegistryItems({
+        cwd, config, registry: current, source: 'fixture', version: '1', items: resolveRegistryItems(current),
+      })
+      assert.deepEqual(result.artifacts, ['src/models/terrain/.compiled/rock-game.vtopo'])
+      assert.deepEqual(
+        new Uint8Array(await readFile(join(cwd, 'src/models/terrain/.compiled/rock-game.vtopo'))),
+        content,
+      )
+      const lock = JSON.parse(await readFile(join(cwd, 'models.lock.json'), 'utf8')) as { schemaVersion: number }
+      assert.equal(lock.schemaVersion, 2)
     } finally {
       await rm(cwd, { recursive: true, force: true })
     }

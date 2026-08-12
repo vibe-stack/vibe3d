@@ -1,0 +1,35 @@
+{
+  "name": "@vibe3djs/terrain",
+  "version": "0.0.1",
+  "description": "Compiled-topology contracts and source fallback for procedural Vibe3D terrain.",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "sideEffects": false,
+  "files": ["dist", "README.md", "LICENSE"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./three-webgpu": {
+      "types": "./dist/three-webgpu.d.ts",
+      "import": "./dist/three-webgpu.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "three": ">=0.185.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.4",
+    "typescript": "catalog:"
+  }
+}

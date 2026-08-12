@@ -15,7 +15,7 @@ function titleFromId(id: string): string {
 }
 
 function categoryFromId(id: string): string {
-  if (id.startsWith('medical-') || id.includes('microscope')) return 'Medical'
+  if (id.startsWith('medical-') || id.includes('microscope') || id.includes('clinic') || id.includes('treatment')) return 'Medical'
   if (id.startsWith('military-') || id.includes('checkpoint')) return 'Military'
   if (id.includes('wall') || id.includes('building') || id.includes('floor') || id.includes('roof')) return 'Architecture'
   if (id.includes('street') || id.includes('road') || id.includes('curb') || id.includes('sidewalk')) return 'Streets'

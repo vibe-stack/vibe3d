@@ -67,7 +67,8 @@ export function finishPrefab(
   // inside cut channels, where the procedural flake reads as speckled noise.
   const clean: WearProfile = { rub: 0.03, grime: 0.07, scratch: 0.01 }
   const profiles = new Map<MeshPhysicalMaterial, WearProfile>([
-    [m.shell, clean], [m.graphite, clean], [m.deck, clean], [m.steel, clean], [m.accent, clean],
+    [m.shell, clean], [m.porcelain, clean], [m.graphite, clean], [m.deck, clean],
+    [m.steel, clean], [m.accent, clean],
   ])
   root.updateMatrixWorld(true)
   bakeOcclusion(root, { reach: 0.3 })
@@ -90,6 +91,7 @@ export function finishPrefab(
       elapsed += Math.min(Math.max(deltaSeconds, 0), 0.05)
       m.amber.emissiveIntensity = 0.82 + Math.sin(elapsed * 1.3) * 0.06
       m.cyan.emissiveIntensity = 0.78 + Math.sin(elapsed * 1.05 + 0.7) * 0.05
+      m.cobalt.emissiveIntensity = 0.7 + Math.sin(elapsed * 0.9 + 1.9) * 0.05
     },
     dispose: () => {
       for (const geometry of geometries) geometry.dispose()

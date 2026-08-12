@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vibe Terrain"
+  short_description: "Author procedural WebGPU terrain assets"
+  default_prompt: "Use $vibe-terrain to build a deterministic, game-ready procedural terrain asset."

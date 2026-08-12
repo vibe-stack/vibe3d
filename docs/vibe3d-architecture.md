@@ -335,6 +335,28 @@ compatibility requirements, and model metadata.
 }
 ```
 
+### Procedural source and compiled topology
+
+Schema-v2 model items may declare a source representation plus disposable
+compiled-topology representations. This is intended for procedural families
+whose surface extraction, topology repair, LOD construction, adjacency, and
+collision generation are expensive, while final positions and materials still
+need to vary at runtime.
+
+The source recipe remains authoritative. A compiled topology artifact contains
+normalized domain coordinates, stable vertex IDs, triangle connectivity, LOD
+index buffers, adjacency, collision indices, validation claims, and source and
+compiler fingerprints. It must not contain a final GLB, final world-space
+positions, final normals, textures, material values, or scene objects.
+
+Representation capabilities are local to the representation. A procedural
+source or compiled materializer may require WebGPU and TSL without forcing the
+same requirements onto an independent portable representation.
+
+Schema-v1 registries remain valid and retain their existing `files`-only
+installation behavior. An installer promotes `models.lock.json` to version 2
+only after installing a compiled artifact.
+
 The complete kit is dependency composition rather than a second copy of every
 file:
 
