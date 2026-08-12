@@ -141,7 +141,11 @@ async function main(): Promise<void> {
     }
   }
   modelIds.sort()
-  const items = [await buildCoreItem(), await buildSupportItem('axiom-modular-kit')]
+  const items = [
+    await buildCoreItem(),
+    await buildSupportItem('axiom-modular-kit'),
+    await buildSupportItem('axiom-cargo-kit'),
+  ]
   for (const modelId of modelIds) items.push(await buildModelItem(modelId))
   items.push({
     name: 'kit',

@@ -1,0 +1,168 @@
+import { Group, Object3D } from 'three/webgpu'
+
+import { cylinder } from '../../../src/asset-forge/generator/index.ts'
+import {
+  AXIS_X,
+  AXIS_Y,
+  AXIS_Z,
+  acquireCargoMaterials,
+  addStripeDecal,
+  bolt,
+  box,
+  createCargoPreview,
+  finishModel,
+  member,
+  paintMark,
+  radialPlaque,
+  slashProfile,
+  socket,
+  statusLens,
+  type CargoMaterialBundle,
+  type CargoMaterials,
+  type CargoPreview,
+  type CargoPreviewOptions,
+} from '../axiom-cargo-kit/index.ts'
+
+/**
+ * Axiom Relay gas bottle bank — four high-pressure cylinders in a transport
+ * cradle.
+ *
+ * The cradle is not dressing. A loose gas cylinder is a rocket, so the whole
+ * point of this asset is the restraint: a welded frame, a chain across the
+ * waist, and a valve guard cage over the necks. Model the bottles without it and
+ * the prop reads as a mistake to anyone who has ever been on a work site.
+ *
+ * Each bottle gets a different shoulder colour from the palette's semantic set,
+ * which is how gas service is actually identified and gives the group its
+ * cadence.
+ */
+
+const BOTTLE_R = 0.105
+const BOTTLE_H = 1.16
+const BASE = 0.11
+const PITCH = 0.245
+
+interface GasBottleSockets {
+  valve_a: Object3D
+  valve_b: Object3D
+  chain_anchor: Object3D
+  lift_frame: Object3D
+}
+
+export interface GasBottleController {
+  root: Group
+  sockets: GasBottleSockets
+  update(deltaSeconds: number): void
+  dispose(): void
+}
+
+function bottle(root: Group, m: CargoMaterials, x: number, shoulder: typeof m.amberPaint): void {
+  const y = BASE
+  root.add(cylinder(m.shellShade, BOTTLE_R, BOTTLE_H, [x, y + BOTTLE_H * 0.5, 0], AXIS_Y, 16))
+  root.add(cylinder(m.ironOxide, BOTTLE_R + 0.006, 0.05, [x, y + 0.045, 0], AXIS_Y, 16))
+  // Shoulder taper: two stepped rings read as a dome and keep the neck legible.
+  root.add(cylinder(shoulder, BOTTLE_R * 0.86, 0.09, [x, y + BOTTLE_H + 0.03, 0], AXIS_Y, 16))
+  root.add(cylinder(shoulder, BOTTLE_R * 0.6, 0.07, [x, y + BOTTLE_H + 0.1, 0], AXIS_Y, 14))
+  root.add(cylinder(m.graphiteEdge, 0.03, 0.075, [x, y + BOTTLE_H + 0.16, 0], AXIS_Y, 10))
+  // Valve body and its hand wheel, offset so the bank is not four clones.
+  root.add(cylinder(m.steel, 0.036, 0.055, [x, y + BOTTLE_H + 0.21, 0], AXIS_Y, 10))
+  root.add(cylinder(m.amberPaint, 0.042, 0.02, [x, y + BOTTLE_H + 0.245, 0], AXIS_Y, 8))
+  root.add(cylinder(m.steel, 0.016, 0.09, [x, y + BOTTLE_H + 0.2, 0.045], AXIS_Z, 8))
+}
+
+function build(): { root: Group; sockets: GasBottleSockets; bundle: CargoMaterialBundle } {
+  const bundle = acquireCargoMaterials(54_800, { condition: 0.66 })
+  const m = bundle.materials
+
+  const root = new Group()
+  root.name = 'AXR_CARGO_GAS-BOTTLES_ROOT_DEFAULT'
+
+  const span = PITCH * 3 + BOTTLE_R * 2 + 0.09
+  box(root, m.graphite, [span, BASE, BOTTLE_R * 2 + 0.16], [0, BASE * 0.5, 0], {
+    chamfer: 0.045, fillet: 0.016, bevel: 0.013, capChamfer: 0.03,
+  })
+  box(root, m.rubber, [span - 0.06, 0.02, BOTTLE_R * 2 + 0.1], [0, 0.01, 0], {
+    chamfer: 0.02, fillet: 0.008, bevel: 0.006,
+  })
+
+  const shoulders = [m.amberPaint, m.orangePaint, m.redPaint, m.amberPaint]
+  for (let index = 0; index < 4; index += 1) {
+    bottle(root, m, (index - 1.5) * PITCH, shoulders[index])
+  }
+
+  // Cradle: two uprights per end, a waist rail, and a valve guard over the top.
+  for (const sx of [-1, 1]) {
+    const x = sx * (span * 0.5 - 0.055)
+    box(root, m.graphiteEdge, [0.06, BOTTLE_H + 0.28, 0.06], [x, BASE + (BOTTLE_H + 0.28) * 0.5, 0], {
+      chamfer: 0.018, fillet: 0.007, bevel: 0.006,
+    })
+    for (const sz of [-1, 1]) {
+      member(root, m.graphiteEdge, [x, BASE + 0.02, sz * (BOTTLE_R + 0.06)], [x, BASE + 0.34, sz * (BOTTLE_R + 0.06)], 0.035, 0.035)
+    }
+    bolt(root, m.steel, [x, BASE + 0.06, BOTTLE_R + 0.09], 0.016, 'front')
+  }
+  for (const sz of [-1, 1]) {
+    member(root, m.steel, [-span * 0.5 + 0.03, BASE + BOTTLE_H * 0.62, sz * (BOTTLE_R + 0.045)], [span * 0.5 - 0.03, BASE + BOTTLE_H * 0.62, sz * (BOTTLE_R + 0.045)], 0.032, 0.032)
+  }
+  // Valve guard cage.
+  box(root, m.graphiteEdge, [span - 0.05, 0.045, BOTTLE_R * 2 + 0.05], [0, BASE + BOTTLE_H + 0.3, 0], {
+    chamfer: 0.02, fillet: 0.008, bevel: 0.007,
+  })
+  for (let index = 0; index < 5; index += 1) {
+    const x = (index / 4 - 0.5) * (span - 0.14)
+    box(root, m.steel, [0.026, 0.16, 0.026], [x, BASE + BOTTLE_H + 0.23, BOTTLE_R + 0.02], {
+      chamfer: 0.008, fillet: 0.004, bevel: 0.004,
+    })
+  }
+
+  // Restraint chain across the waist, plus its tensioner.
+  box(root, m.ink, [span - 0.09, 0.028, 0.028], [0, BASE + BOTTLE_H * 0.62, BOTTLE_R + 0.07], {
+    chamfer: 0.009, fillet: 0.004, bevel: 0.004,
+  })
+  box(root, m.amberPaint, [0.08, 0.09, 0.05], [span * 0.5 - 0.14, BASE + BOTTLE_H * 0.62, BOTTLE_R + 0.085], {
+    chamfer: 0.022, fillet: 0.008, bevel: 0.007,
+  })
+  root.add(cylinder(m.steel, 0.013, 0.1, [span * 0.5 - 0.14, BASE + BOTTLE_H * 0.62, BOTTLE_R + 0.12], AXIS_X, 8))
+
+  const stripe = addStripeDecal(bundle, { count: 5, lean: 1 })
+  radialPlaque(root, m, stripe, [0.3, 0.055], BOTTLE_R + 0.09, BASE * 0.5, 0, m.ink)
+  paintMark(root, m.orangePaint, slashProfile(0.05, 0.2, 0.42), [-PITCH * 1.5, BASE + BOTTLE_H * 0.34, BOTTLE_R + 0.002], 'front', 0.009)
+  statusLens(root, m, [0.045, 0.018], [PITCH * 1.5, BASE + BOTTLE_H * 0.34, BOTTLE_R + 0.002], m.cyan, 'front')
+
+  const sockets: GasBottleSockets = {
+    valve_a: socket('valve_a', [-PITCH * 1.5, BASE + BOTTLE_H + 0.28, 0]),
+    valve_b: socket('valve_b', [PITCH * 1.5, BASE + BOTTLE_H + 0.28, 0]),
+    chain_anchor: socket('chain_anchor', [span * 0.5 - 0.14, BASE + BOTTLE_H * 0.62, BOTTLE_R + 0.14]),
+    lift_frame: socket('lift_frame', [0, BASE + BOTTLE_H + 0.34, 0]),
+  }
+  return { root, sockets, bundle }
+}
+
+export function createModel(): GasBottleController {
+  const { root, sockets, bundle } = build()
+  const finished = finishModel(root, bundle, {
+    name: 'gas-bottles',
+    reach: 0.14,
+    sockets: Object.values(sockets),
+  })
+  let elapsed = 0
+  return {
+    root,
+    sockets,
+    update: (deltaSeconds: number) => {
+      elapsed += Math.min(Math.max(deltaSeconds, 0), 0.05)
+      bundle.materials.cyan.emissiveIntensity = 1.6 + Math.sin(elapsed * 2.2) * 0.22
+    },
+    dispose: finished.dispose,
+  }
+}
+
+export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
+  createCargoPreview(createModel(), {
+    target: [0, (BASE + BOTTLE_H) * 0.55, 0],
+    distance: 3.3,
+    yaw: 0.62,
+    pitch: 0.24,
+    fov: 30,
+    ...options,
+  })
