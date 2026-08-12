@@ -12,9 +12,9 @@ terrain brief -> source recipe -> deterministic multi-seed preview
       ^                                  |
       `---- geological + technical QA ---'
 
-source recipe -> topology compiler -> game-ready topology cache
-      |                                      |
-      `---------- fallback ------------------'
+source recipe -> dense transient reference -> reduction + high-to-low bake
+      |                                             |
+      `---------- fallback --------> game-ready compiled terrain cache
 ```
 
 Before authoring, read:
@@ -66,10 +66,13 @@ configuration, seed, compiler version, and profile.
 
 ## Compile
 
-Compile connectivity, normalized domain coordinates, stable vertex IDs,
-adjacency, LOD index buffers, chunk seams, and collision indices. Do not cache
-final world-space positions, final normals, textures, material values, scene
-objects, or GLB files.
+Compile reduced connectivity, normalized domain coordinates, stable vertex
+IDs, UV or projection bake domains, adjacency, LOD index buffers, chunk seams,
+and collision indices. A compiled terrain artifact may also contain
+fingerprinted high-to-low height, normal, AO, curvature, or region-mask pages.
+Keep these pages separate from topology and treat them as disposable compiler
+outputs. Do not cache Three.js objects, scene graphs, GLB files, or any artifact
+without its authoritative recipe and full compiler fingerprint.
 
 Declare a bounded deformation envelope. Reject a cache if its asset ID,
 `topologyKey`, recipe hash, compiler hash, or profile differs from the request.

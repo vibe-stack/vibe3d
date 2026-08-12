@@ -8,7 +8,7 @@ export interface ModelPreview {
 }
 
 export interface ModelModule {
-  createPreview(options: { aspect: number; time?: number }): ModelPreview
+  createPreview(options: { aspect: number; time?: number }): ModelPreview | Promise<ModelPreview>
 }
 
 export interface CatalogItem {
@@ -19,9 +19,12 @@ export interface CatalogItem {
   load: () => Promise<ModelModule>
 }
 
-const modules = import.meta.glob<ModelModule>(
-  '../../../assets/prototypes/*/model.ts',
-)
+const modules: Record<string, () => Promise<ModelModule>> = {
+  ...import.meta.glob<ModelModule>('../../../assets/prototypes/*/model.ts'),
+  ...import.meta.glob<ModelModule>('../../../assets/terrain/*/model.ts'),
+  // Compound evaluation scenes live beside their asset and are browsable too.
+  ...import.meta.glob<ModelModule>('../../../assets/terrain/*/*-scene.ts'),
+}
 
 const animatedIds = new Set([
   'amber-specimen-tank',
@@ -81,6 +84,7 @@ const title = (id: string): string => id
   .join(' ')
 
 function categoryFor(id: string): string {
+  if (/granite|boulder|terrain|sandstone|canyon|cliff/.test(id)) return 'Terrain'
   if (id.startsWith('medical-') || id.includes('microscope')) return 'Medical'
   if (id.startsWith('military-') || id.includes('checkpoint')) return 'Military'
   if (/wall|building|floor|roof|ceiling|room|shell|facade|door|window|foundation|threshold/.test(id)) return 'Architecture'
@@ -90,7 +94,10 @@ function categoryFor(id: string): string {
 
 export const catalog: CatalogItem[] = Object.entries(modules)
   .map(([path, load]) => {
-    const id = path.match(/prototypes\/([^/]+)\/model\.ts$/)?.[1]
+    const scene = path.match(/terrain\/([^/]+)\/([^/]+)-scene\.ts$/)
+    const id = scene
+      ? `${scene[1]}-${scene[2]}-scene`
+      : path.match(/(?:prototypes|terrain)\/([^/]+)\/model\.ts$/)?.[1]
     if (!id) throw new Error(`Unable to identify model at ${path}`)
     return {
       id,

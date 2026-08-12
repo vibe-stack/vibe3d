@@ -1,0 +1,91 @@
+id: glacial-granite-boulder
+title: Fractured granite outcrop
+# NOTE: the id is retained because the compiled artifacts, recorder catalog and
+# registry key off it. The formation is no longer a glacial erratic: an erratic is
+# abraded and rounded by definition, which fought the intended cliff-rock read.
+# Renaming the id and directory is a follow-up.
+formation: outcrop
+geology:
+  material: granite
+  structure: three-joint-sets-with-spalled-faces
+  processes: [joint-fracture, frost-shattering, spalling, exfoliation]
+biome:
+  primary: alpine
+  overlays: [pale-lichen, seasonal-wetness, optional-snow]
+scale:
+  envelopeMeters: [3.3, 2.4, 2.7]
+  macroWavelengthMeters: [0.42, 1.3]
+  # Everything below the mesh Nyquist limit is carried by the surface bake, not
+  # by geometry. See field.ts `octaveBudget`.
+  meshDetailWavelengthMeters: [0.057, 0.42]
+  bakeOnlyWavelengthMeters: [0.004, 0.057]
+field:
+  # Displacement amplitude is capped as a fraction of wavelength so 2*pi*A/L
+  # stays near the fold limit. Angular sharpness comes from boolean joint planes,
+  # which have no fold limit, not from displacement amplitude.
+  hardJointPlanes: 43
+  peakDisplacementCm: 8.95
+  meanNearSurfaceGradient: 0.51
+  foldedNearSurfaceFraction: 0.037
+  # Spall subtractors are centred at or beyond the surface. A centre inside the
+  # mass hollows it into a shell, which reads as a cave from behind and sheds
+  # thin plates as detached debris.
+  spallCentresOutsideSurface: true
+topology:
+  # Each LOD is re-extracted from the field at its own grid rather than decimated
+  # from the dense mesh: watertightness comes from the grid, not from repair.
+  lodGridCells: [44, 30, 20]
+  collisionGridCells: 13
+  strategy: chunked-dual-contour
+  profile: game
+  keyParameters: [seed, sdfResolution, jointSets, spallCount, lodGridCells]
+  variationParameters: [seed, snow, wetness, lichen]
+  # Declared open, not closed: 8 residual boundary edges are measured, so
+  # claiming closed here would be the same unverified assertion the previous
+  # compiler made.
+  boundaryMode: declared-open
+  # Vertices are duplicated along UV chart seams, so the surface is manifold but
+  # the vertex buffer carries seam splits.
+  seamSplitVertices: true
+budgets:
+  referenceTriangles: 158256
+  lod0Triangles: 7794
+  lodTriangles: [3476, 1589]
+  collisionTriangles: 614
+  atlas: [512, 512]
+  charts: 411
+  packingEfficiency: 0.72
+  sourceCompileMs: 70000
+cache:
+  topologyStores: [reduced-connectivity, normalized-cell-domain, bake-uv-atlas, lod-indices, collision-indices]
+  # Object-space rather than tangent-space normals: the asset is rigid, and this
+  # removes any need for the baker and the runtime to agree on a tangent basis.
+  surfaceStores: [object-normal, signed-height, ambient-occlusion, curvature]
+  excludes: [dense-reference-mesh, scalar-sdf-volume, scene-objects, glb]
+verification:
+  # Measured, not asserted. reductionError is what the coarse grid discarded;
+  # recoveredRelief is what the bake puts back.
+  reductionErrorCm: 3.21
+  recoveredReliefCm: 9.96
+  bakeCoverage: 0.33
+  bakeHitRate: 0.9998
+  # Integrity is measured pre-unwrap, since the UV seam split intentionally
+  # fragments the shipped index buffer.
+  manifold: true
+  components: 1
+  strayTriangles: 0
+  # Residual open edges: ~2 tiny gaps at cells where two surface sheets pass
+  # through one cell, which one-vertex-per-cell dual contouring cannot represent.
+  boundaryEdges: 8
+references:
+  descriptions:
+    - Angular jointed granite block reading as cliff rock, not transported cobble.
+    - Three joint sets cut stepped faces; spalled notches leave hard concave rims.
+    - Ridge spines and frost-shattered chip scars carry the surface character.
+    - Coarse granite with dark biotite, pale abraded arrises, sheltered wetness.
+  images: []
+acceptance:
+  testedSeeds: 1
+  # Raise to 3 once compile time per seed (~75s) is budgeted in CI.
+  requiredReads: [angular fracture, hard arrises, stepped joint faces, stable ground contact]
+  forbiddenReads: [melted blob, mudball, uniform noise, rounded cobble, weightless balance]

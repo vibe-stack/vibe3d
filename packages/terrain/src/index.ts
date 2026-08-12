@@ -1,5 +1,7 @@
 export const COMPILED_TOPOLOGY_FORMAT = 'vibe3d-topology@1' as const
 export const COMPILED_TOPOLOGY_MEDIA_TYPE = 'application/vnd.vibe3d.compiled-topology+json;version=1'
+export const COMPILED_SURFACE_BAKE_FORMAT = 'vibe3d-surface-bake@1' as const
+export const COMPILED_SURFACE_BAKE_MEDIA_TYPE = 'application/vnd.vibe3d.surface-bake+json;version=1'
 
 export type TopologyStrategy =
   | 'deformable-shell'
@@ -37,12 +39,172 @@ export interface CompiledTopology extends TopologyIdentity {
   format: typeof COMPILED_TOPOLOGY_FORMAT
   strategy: TopologyStrategy
   domainCoordinates: Float32Array
+  /** Optional normalized scalar field samples used to materialize final positions. Never final vertex data. */
+  fieldSamples?: Float32Array
   indices: Uint32Array
   stableVertexIds: Uint32Array
   adjacency?: Int32Array
+  /**
+   * Per-vertex UV in a packed atlas, two floats per vertex, for sampling a
+   * `uv-atlas` surface bake. Vertices are duplicated along chart seams, so a
+   * topology carrying UVs is manifold as a surface but has seam-split entries in
+   * its vertex buffer.
+   */
+  bakeUvs?: Float32Array
   lods: TopologyLod[]
   collisionIndices: Uint32Array
   claims: GameReadyClaims
+}
+
+export type SurfaceBakeDomain = 'uv-atlas' | 'equirectangular' | 'triplanar'
+export type SurfaceBakeSemantic =
+  | 'normal-tangent'
+  /**
+   * Normal in the asset's object space. Valid for rigid assets and preferred
+   * over `normal-tangent` when the baker and the runtime would otherwise have to
+   * agree on a tangent basis, since a basis mismatch is silent and hard to see.
+   */
+  | 'normal-object'
+  | 'height'
+  | 'ambient-occlusion'
+  | 'curvature'
+  | 'region-mask'
+export type SurfaceBakeEncoding = 'unorm8' | 'snorm8'
+
+export interface CompiledSurfaceBakeChannel {
+  semantic: SurfaceBakeSemantic
+  components: 1 | 2 | 3 | 4
+  encoding: SurfaceBakeEncoding
+  /** Decoded value = encoded normalized value * scale + bias. */
+  scale?: number
+  bias?: number
+  data: Uint8Array
+}
+
+/** Disposable high-to-low output. The source recipe and dense reference remain authoritative. */
+export interface CompiledSurfaceBake extends TopologyIdentity {
+  format: typeof COMPILED_SURFACE_BAKE_FORMAT
+  domain: SurfaceBakeDomain
+  width: number
+  height: number
+  channels: CompiledSurfaceBakeChannel[]
+}
+
+export interface SurfaceBakeValidationResult {
+  valid: boolean
+  errors: string[]
+  texelCount: number
+}
+
+export function validateCompiledSurfaceBake(bake: CompiledSurfaceBake): SurfaceBakeValidationResult {
+  const errors: string[] = []
+  if (bake.format !== COMPILED_SURFACE_BAKE_FORMAT) errors.push(`Unsupported surface bake format: ${bake.format}`)
+  if (!['uv-atlas', 'equirectangular', 'triplanar'].includes(bake.domain)) {
+    errors.push(`Unsupported surface bake domain: ${bake.domain}`)
+  }
+  if (!Number.isInteger(bake.width) || bake.width < 1 || !Number.isInteger(bake.height) || bake.height < 1) {
+    errors.push('surface bake dimensions must be positive integers')
+  }
+  for (const [label, value] of Object.entries({
+    assetId: bake.assetId,
+    topologyKey: bake.topologyKey,
+    recipeHash: bake.recipeHash,
+    compilerHash: bake.compilerHash,
+    profile: bake.profile,
+  })) {
+    if (!value) errors.push(`${label} must not be empty`)
+  }
+  if (bake.channels.length === 0) errors.push('surface bake must contain at least one channel')
+  const semantics = new Set<SurfaceBakeSemantic>()
+  for (const channel of bake.channels) {
+    if (semantics.has(channel.semantic)) errors.push(`surface bake repeats channel: ${channel.semantic}`)
+    semantics.add(channel.semantic)
+    if (![1, 2, 3, 4].includes(channel.components)) errors.push(`${channel.semantic} has invalid component count`)
+    if (!['unorm8', 'snorm8'].includes(channel.encoding)) errors.push(`${channel.semantic} has invalid encoding`)
+    if (channel.scale !== undefined && !Number.isFinite(channel.scale)) errors.push(`${channel.semantic} has invalid scale`)
+    if (channel.bias !== undefined && !Number.isFinite(channel.bias)) errors.push(`${channel.semantic} has invalid bias`)
+    const expected = bake.width * bake.height * channel.components
+    if (channel.data.length !== expected) {
+      errors.push(`${channel.semantic} contains ${channel.data.length} bytes; expected ${expected}`)
+    }
+  }
+  return { valid: errors.length === 0, errors, texelCount: bake.width * bake.height }
+}
+
+export function assertCompiledSurfaceBake(bake: CompiledSurfaceBake): void {
+  const result = validateCompiledSurfaceBake(bake)
+  if (!result.valid) throw new Error(`Compiled surface bake is invalid:\n- ${result.errors.join('\n- ')}`)
+}
+
+interface SerializedSurfaceBake extends Omit<CompiledSurfaceBake, 'channels'> {
+  channels: Array<Omit<CompiledSurfaceBakeChannel, 'data'> & { data: string; encodingFormat: 'base64' }>
+}
+
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+/**
+ * Portable base64, avoiding Buffer (Node-only) and btoa (browser-only, and
+ * awkward for large inputs). Channel data is bulk texture bytes: serializing it
+ * as a JSON number array costs about four characters per byte, which made a
+ * single 512x512 bake 6MB and a 13-instance scene 65MB.
+ */
+function toBase64(bytes: Uint8Array): string {
+  let output = ''
+  for (let index = 0; index < bytes.length; index += 3) {
+    const a = bytes[index]!
+    const b = index + 1 < bytes.length ? bytes[index + 1]! : 0
+    const c = index + 2 < bytes.length ? bytes[index + 2]! : 0
+    const triple = (a << 16) | (b << 8) | c
+    output += BASE64_ALPHABET[(triple >> 18) & 63]
+    output += BASE64_ALPHABET[(triple >> 12) & 63]
+    output += index + 1 < bytes.length ? BASE64_ALPHABET[(triple >> 6) & 63] : '='
+    output += index + 2 < bytes.length ? BASE64_ALPHABET[triple & 63] : '='
+  }
+  return output
+}
+
+const BASE64_LOOKUP = (() => {
+  const table = new Int16Array(128).fill(-1)
+  for (let index = 0; index < BASE64_ALPHABET.length; index += 1) {
+    table[BASE64_ALPHABET.charCodeAt(index)] = index
+  }
+  return table
+})()
+
+function fromBase64(text: string, label: string): Uint8Array {
+  const clean = text.endsWith('==') ? text.slice(0, -2) : text.endsWith('=') ? text.slice(0, -1) : text
+  const padding = text.length - clean.length
+  if (text.length % 4 !== 0) throw new Error(`${label} is not valid base64`)
+  const output = new Uint8Array((text.length / 4) * 3 - padding)
+  let cursor = 0
+  let accumulator = 0
+  let bits = 0
+  for (let index = 0; index < clean.length; index += 1) {
+    const code = clean.charCodeAt(index)
+    const value = code < 128 ? BASE64_LOOKUP[code]! : -1
+    if (value < 0) throw new Error(`${label} is not valid base64`)
+    accumulator = (accumulator << 6) | value
+    bits += 6
+    if (bits >= 8) {
+      bits -= 8
+      output[cursor] = (accumulator >> bits) & 0xff
+      cursor += 1
+    }
+  }
+  return output
+}
+
+export function encodeCompiledSurfaceBake(bake: CompiledSurfaceBake): Uint8Array {
+  assertCompiledSurfaceBake(bake)
+  const value: SerializedSurfaceBake = {
+    ...bake,
+    channels: bake.channels.map((channel) => ({
+      ...channel,
+      data: toBase64(channel.data),
+      encodingFormat: 'base64' as const,
+    })),
+  }
+  return new TextEncoder().encode(JSON.stringify(value))
 }
 
 export interface TopologyValidationResult {
@@ -107,8 +269,8 @@ export function validateCompiledTopology(topology: CompiledTopology): TopologyVa
   const errors: string[] = []
   const allowedKeys = new Set([
     'format', 'assetId', 'topologyKey', 'recipeHash', 'compilerHash', 'profile',
-    'strategy', 'domainCoordinates', 'indices', 'stableVertexIds', 'adjacency',
-    'lods', 'collisionIndices', 'claims',
+    'strategy', 'domainCoordinates', 'fieldSamples', 'indices', 'stableVertexIds', 'adjacency',
+    'bakeUvs', 'lods', 'collisionIndices', 'claims',
   ])
   for (const key of Object.keys(topology)) {
     if (!allowedKeys.has(key)) errors.push(`compiled topology contains forbidden field: ${key}`)
@@ -146,10 +308,36 @@ export function validateCompiledTopology(topology: CompiledTopology): TopologyVa
       break
     }
   }
+  if (topology.fieldSamples) {
+    if (topology.fieldSamples.length === 0) errors.push('fieldSamples must not be empty when present')
+    for (const value of topology.fieldSamples) {
+      if (!Number.isFinite(value)) {
+        errors.push('fieldSamples contains a non-finite value')
+        break
+      }
+    }
+  }
   if (topology.stableVertexIds.length !== vertexCount) {
     errors.push('stableVertexIds must contain one ID per vertex')
   } else if (new Set(topology.stableVertexIds).size !== topology.stableVertexIds.length) {
     errors.push('stableVertexIds must be unique')
+  }
+
+  if (topology.bakeUvs) {
+    if (topology.bakeUvs.length !== vertexCount * 2) {
+      errors.push('bakeUvs must contain one UV pair per vertex')
+    } else {
+      for (const value of topology.bakeUvs) {
+        if (!Number.isFinite(value)) {
+          errors.push('bakeUvs contains a non-finite value')
+          break
+        }
+        if (value < 0 || value > 1) {
+          errors.push('bakeUvs must stay inside the [0, 1] atlas domain')
+          break
+        }
+      }
+    }
   }
 
   validateIndices('indices', topology.indices, vertexCount, errors)
@@ -218,25 +406,160 @@ export function assertCompiledTopology(topology: CompiledTopology): void {
   if (!result.valid) throw new CompiledTopologyValidationError(result.errors)
 }
 
-interface SerializedTopology extends Omit<CompiledTopology, 'domainCoordinates' | 'indices' | 'stableVertexIds' | 'adjacency' | 'lods' | 'collisionIndices'> {
-  domainCoordinates: number[]
-  indices: number[]
-  stableVertexIds: number[]
-  adjacency?: number[]
-  lods: Array<Omit<TopologyLod, 'indices'> & { indices: number[] }>
-  collisionIndices: number[]
+/**
+ * Vertex and index buffers are base64, not JSON number arrays.
+ *
+ * A JSON float costs about 19 characters where its four bytes cost 5.33 in
+ * base64, so a number-array topology is roughly 3.5x its own payload. Measured on
+ * a canyon wall: 2.44MB against 0.7MB for the same data. That is the difference
+ * between a previewer that opens and one that appears to hang, so the compact form
+ * is the only one written - though number arrays are still accepted on decode, so
+ * artifacts compiled before this change keep loading.
+ */
+function isIdentity(ids: Uint32Array): boolean {
+  for (let index = 0; index < ids.length; index += 1) if (ids[index] !== index) return false
+  return true
+}
+
+interface SerializedTopology extends Omit<CompiledTopology, 'domainCoordinates' | 'fieldSamples' | 'indices' | 'stableVertexIds' | 'adjacency' | 'bakeUvs' | 'lods' | 'collisionIndices'> {
+  domainCoordinates: string
+  fieldSamples?: string
+  indices: string
+  stableVertexIds?: string
+  adjacency?: string
+  bakeUvs?: string
+  lods: Array<Omit<TopologyLod, 'indices'> & { indices: string }>
+  collisionIndices: string
+  bufferEncoding: 'base64'
+  /** Bit width of every index buffer in this payload. */
+  indexWidth: 16 | 32
+  /** Present when atlas UVs are normalized 16-bit rather than float32. */
+  uvQuantized: true
+}
+
+function encodeBuffer(view: Float32Array | Uint32Array | Int32Array | Uint16Array): string {
+  return toBase64(new Uint8Array(view.buffer, view.byteOffset, view.byteLength))
+}
+
+/**
+ * Index buffers narrow to 16 bits when the mesh has few enough vertices, which is
+ * every asset in this repo. Halves the largest remaining field.
+ */
+function encodeIndices(indices: Uint32Array, vertexCount: number): { data: string; width: 16 | 32 } {
+  if (vertexCount > 0xffff) return { data: encodeBuffer(indices), width: 32 }
+  return { data: encodeBuffer(new Uint16Array(indices)), width: 16 }
+}
+
+function decodeIndices(value: unknown, width: unknown, label: string): Uint32Array {
+  if (typeof value === 'string' && width === 16) {
+    const raw = fromBase64(value, label)
+    if (raw.byteLength % 2 !== 0) throw new Error(`${label} length is not a multiple of 2 bytes`)
+    return new Uint32Array(new Uint16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2))
+  }
+  return decodeUnsigned(value, label)
+}
+
+/**
+ * Atlas UVs are stored as normalized 16-bit integers. Positions are not.
+ *
+ * UVs live in [0, 1], so 16 bits gives a step of 1.5e-5 - about a hundredth of a
+ * texel at 1024, far below anything the bake can resolve.
+ *
+ * Positions were quantized here too, over [-1, 1] for a step of 3.1e-5, on the
+ * reasoning that the vertices came from a grid with a 38mm voxel anyway. That was
+ * wrong, and the validator caught it: these meshes contain sliver triangles with
+ * edges around 7e-5 domain units, the same order as the quantization step, so
+ * snapping positions collapsed them and the decoded topology failed its own
+ * `minimumDomainTriangleArea` claim. Vertex *spacing* is not bounded by voxel size
+ * once dual contouring places two vertices near a shared cell corner, so positions
+ * stay float32 and only the index and UV savings are taken.
+ */
+const QUANTIZED_SCALE = 0xffff
+
+function quantize(view: Float32Array, low: number, high: number): string {
+  const span = high - low
+  const output = new Uint16Array(view.length)
+  for (let index = 0; index < view.length; index += 1) {
+    const normalized = (view[index]! - low) / span
+    const clamped = normalized < 0 ? 0 : normalized > 1 ? 1 : normalized
+    output[index] = Math.round(clamped * QUANTIZED_SCALE)
+  }
+  return encodeBuffer(output)
+}
+
+function dequantize(value: unknown, low: number, high: number, label: string): Float32Array {
+  if (typeof value !== 'string') return new Float32Array(finiteNumbers(value, label))
+  const raw = fromBase64(value, label)
+  if (raw.byteLength % 2 !== 0) throw new Error(`${label} length is not a multiple of 2 bytes`)
+  const source = new Uint16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2)
+  const span = high - low
+  const output = new Float32Array(source.length)
+  for (let index = 0; index < source.length; index += 1) {
+    output[index] = low + (source[index]! / QUANTIZED_SCALE) * span
+  }
+  return output
+}
+
+/**
+ * Decode a buffer written either as base64 or as a legacy JSON number array.
+ *
+ * The validator downstream still checks range and length, so a malformed legacy
+ * array fails there rather than being silently accepted here.
+ */
+function decodeFloats(value: unknown, label: string): Float32Array {
+  if (typeof value === 'string') {
+    const raw = fromBase64(value, label)
+    if (raw.byteLength % 4 !== 0) throw new Error(`${label} length is not a multiple of 4 bytes`)
+    return new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4)
+  }
+  return new Float32Array(finiteNumbers(value, label))
+}
+
+function decodeUnsigned(value: unknown, label: string): Uint32Array {
+  if (typeof value === 'string') {
+    const raw = fromBase64(value, label)
+    if (raw.byteLength % 4 !== 0) throw new Error(`${label} length is not a multiple of 4 bytes`)
+    return new Uint32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4)
+  }
+  return new Uint32Array(unsignedIntegers(value, label))
+}
+
+function decodeSigned(value: unknown, label: string): Int32Array {
+  if (typeof value === 'string') {
+    const raw = fromBase64(value, label)
+    if (raw.byteLength % 4 !== 0) throw new Error(`${label} length is not a multiple of 4 bytes`)
+    return new Int32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4)
+  }
+  return new Int32Array(signedIntegers(value, label))
 }
 
 export function encodeCompiledTopology(topology: CompiledTopology): Uint8Array {
   assertCompiledTopology(topology)
+  const vertexCount = topology.domainCoordinates.length / 3
+  const indices = encodeIndices(topology.indices, vertexCount)
   const serialized: SerializedTopology = {
     ...topology,
-    domainCoordinates: [...topology.domainCoordinates],
-    indices: [...topology.indices],
-    stableVertexIds: [...topology.stableVertexIds],
-    adjacency: topology.adjacency ? [...topology.adjacency] : undefined,
-    lods: topology.lods.map((lod) => ({ ...lod, indices: [...lod.indices] })),
-    collisionIndices: [...topology.collisionIndices],
+    domainCoordinates: encodeBuffer(topology.domainCoordinates),
+    fieldSamples: topology.fieldSamples ? encodeBuffer(topology.fieldSamples) : undefined,
+    indices: indices.data,
+    indexWidth: indices.width,
+    uvQuantized: true,
+    // Omitted when it is the identity map, which is what every static asset uses.
+    // Storing 0..n-1 explicitly cost 96KB on a canyon wall for no information.
+    stableVertexIds: isIdentity(topology.stableVertexIds)
+      ? undefined
+      : encodeBuffer(topology.stableVertexIds),
+    // Deliberately not written. Adjacency is fully derived from `indices`, and no
+    // runtime in this repo reads it back, so shipping it was 183KB per wall of
+    // data the loader can rebuild in a few milliseconds if it ever needs it.
+    adjacency: undefined,
+    bakeUvs: topology.bakeUvs ? quantize(topology.bakeUvs, 0, 1) : undefined,
+    lods: topology.lods.map((lod) => ({
+      ...lod,
+      indices: encodeIndices(lod.indices, vertexCount).data,
+    })),
+    collisionIndices: encodeIndices(topology.collisionIndices, vertexCount).data,
+    bufferEncoding: 'base64',
   }
   return new TextEncoder().encode(JSON.stringify(serialized))
 }
@@ -253,6 +576,12 @@ function unsignedIntegers(value: unknown, label: string): number[] {
   if (numbers.some((entry) => !Number.isInteger(entry) || entry < 0 || entry > 0xffffffff)) {
     throw new Error(`${label} must contain unsigned 32-bit integers`)
   }
+  return numbers
+}
+
+function bytes(value: unknown, label: string): number[] {
+  const numbers = unsignedIntegers(value, label)
+  if (numbers.some((entry) => entry > 0xff)) throw new Error(`${label} must contain unsigned bytes`)
   return numbers
 }
 
@@ -279,6 +608,47 @@ function booleanValue(value: unknown, label: string): boolean {
   return value
 }
 
+export function decodeCompiledSurfaceBake(content: Uint8Array): CompiledSurfaceBake {
+  const value = JSON.parse(new TextDecoder().decode(content)) as Record<string, unknown>
+  if (!value || typeof value !== 'object') throw new Error('Compiled surface bake payload must be an object')
+  const channels = value.channels
+  if (!Array.isArray(channels)) throw new Error('surface bake channels must be an array')
+  const bake: CompiledSurfaceBake = {
+    format: stringValue(value.format, 'format') as typeof COMPILED_SURFACE_BAKE_FORMAT,
+    assetId: stringValue(value.assetId, 'assetId'),
+    topologyKey: stringValue(value.topologyKey, 'topologyKey'),
+    recipeHash: stringValue(value.recipeHash, 'recipeHash'),
+    compilerHash: stringValue(value.compilerHash, 'compilerHash'),
+    profile: stringValue(value.profile, 'profile'),
+    domain: stringValue(value.domain, 'domain') as SurfaceBakeDomain,
+    width: finiteNumber(value.width, 'width'),
+    height: finiteNumber(value.height, 'height'),
+    channels: channels.map((channel, index) => {
+      if (!channel || typeof channel !== 'object') throw new Error(`surface bake channel ${index} must be an object`)
+      const record = channel as Record<string, unknown>
+      return {
+        semantic: stringValue(record.semantic, `channel ${index} semantic`) as SurfaceBakeSemantic,
+        components: finiteNumber(record.components, `channel ${index} components`) as 1 | 2 | 3 | 4,
+        encoding: stringValue(record.encoding, `channel ${index} encoding`) as SurfaceBakeEncoding,
+        scale: record.scale === undefined ? undefined : finiteNumber(record.scale, `channel ${index} scale`),
+        bias: record.bias === undefined ? undefined : finiteNumber(record.bias, `channel ${index} bias`),
+        data: typeof record.data === 'string'
+          ? fromBase64(record.data, `channel ${index} data`)
+          : new Uint8Array(bytes(record.data, `channel ${index} data`)),
+      }
+    }),
+  }
+  const allowedKeys = new Set([
+    'format', 'assetId', 'topologyKey', 'recipeHash', 'compilerHash', 'profile',
+    'domain', 'width', 'height', 'channels',
+  ])
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) throw new Error(`Compiled surface bake payload contains forbidden field: ${key}`)
+  }
+  assertCompiledSurfaceBake(bake)
+  return bake
+}
+
 export function decodeCompiledTopology(content: Uint8Array): CompiledTopology {
   const value = JSON.parse(new TextDecoder().decode(content)) as Record<string, unknown>
   if (!value || typeof value !== 'object') throw new Error('Compiled topology payload must be an object')
@@ -287,6 +657,14 @@ export function decodeCompiledTopology(content: Uint8Array): CompiledTopology {
   const claims = value.claims
   if (!claims || typeof claims !== 'object') throw new Error('claims must be an object')
   const claimRecord = claims as Record<string, unknown>
+  // Decoded first: the vertex count it implies is what an omitted
+  // `stableVertexIds` is reconstructed against.
+  // Quantized UVs carry a marker; without it every buffer is float32 (or a legacy
+  // number array), so older artifacts keep decoding unchanged.
+  const uvQuantized = value.uvQuantized === true
+  const indexWidth = value.indexWidth
+  const domainCoordinates = decodeFloats(value.domainCoordinates, 'domainCoordinates')
+  const domainCoordinateCount = domainCoordinates.length
   const topology: CompiledTopology = {
     format: stringValue(value.format, 'format') as typeof COMPILED_TOPOLOGY_FORMAT,
     assetId: stringValue(value.assetId, 'assetId'),
@@ -295,22 +673,34 @@ export function decodeCompiledTopology(content: Uint8Array): CompiledTopology {
     compilerHash: stringValue(value.compilerHash, 'compilerHash'),
     profile: stringValue(value.profile, 'profile'),
     strategy: stringValue(value.strategy, 'strategy') as TopologyStrategy,
-    domainCoordinates: new Float32Array(finiteNumbers(value.domainCoordinates, 'domainCoordinates')),
-    indices: new Uint32Array(unsignedIntegers(value.indices, 'indices')),
-    stableVertexIds: new Uint32Array(unsignedIntegers(value.stableVertexIds, 'stableVertexIds')),
+    domainCoordinates,
+    fieldSamples: value.fieldSamples === undefined
+      ? undefined
+      : decodeFloats(value.fieldSamples, 'fieldSamples'),
+    indices: decodeIndices(value.indices, indexWidth, 'indices'),
+    // Absent means the identity map. Reconstructed rather than defaulted to empty
+    // so every consumer still sees one ID per vertex.
+    stableVertexIds: value.stableVertexIds === undefined
+      ? new Uint32Array(domainCoordinateCount / 3).map((_, index) => index)
+      : decodeUnsigned(value.stableVertexIds, 'stableVertexIds'),
     adjacency: value.adjacency === undefined
       ? undefined
-      : new Int32Array(signedIntegers(value.adjacency, 'adjacency')),
+      : decodeSigned(value.adjacency, 'adjacency'),
+    bakeUvs: value.bakeUvs === undefined
+      ? undefined
+      : uvQuantized
+        ? dequantize(value.bakeUvs, 0, 1, 'bakeUvs')
+        : decodeFloats(value.bakeUvs, 'bakeUvs'),
     lods: lods.map((lod, index) => {
       if (!lod || typeof lod !== 'object') throw new Error(`LOD ${index} must be an object`)
       const record = lod as Record<string, unknown>
       return {
         level: record.level as number,
         maxGeometricError: record.maxGeometricError as number,
-        indices: new Uint32Array(unsignedIntegers(record.indices, `LOD ${index} indices`)),
+        indices: decodeIndices(record.indices, indexWidth, `LOD ${index} indices`),
       }
     }),
-    collisionIndices: new Uint32Array(unsignedIntegers(value.collisionIndices, 'collisionIndices')),
+    collisionIndices: decodeIndices(value.collisionIndices, indexWidth, 'collisionIndices'),
     claims: {
       boundaryMode: stringValue(claimRecord.boundaryMode, 'claims.boundaryMode') as GameReadyClaims['boundaryMode'],
       manifold: booleanValue(claimRecord.manifold, 'claims.manifold'),
@@ -323,6 +713,11 @@ export function decodeCompiledTopology(content: Uint8Array): CompiledTopology {
     },
   }
   const allowedInputKeys = new Set(Object.keys(topology))
+  // Describes how the buffers above were written rather than being part of the
+  // topology itself, so it has no counterpart on the decoded object.
+  allowedInputKeys.add('bufferEncoding')
+  allowedInputKeys.add('indexWidth')
+  allowedInputKeys.add('uvQuantized')
   for (const key of Object.keys(value)) {
     if (!allowedInputKeys.has(key)) throw new Error(`Compiled topology payload contains forbidden field: ${key}`)
   }
@@ -335,6 +730,11 @@ export interface TerrainCacheStore {
   put(key: string, topology: CompiledTopology): Promise<void>
 }
 
+export interface TerrainSurfaceBakeStore {
+  get(key: string): Promise<CompiledSurfaceBake | undefined>
+  put(key: string, bake: CompiledSurfaceBake): Promise<void>
+}
+
 export class MemoryTerrainCacheStore implements TerrainCacheStore {
   readonly #entries = new Map<string, CompiledTopology>()
 
@@ -345,6 +745,19 @@ export class MemoryTerrainCacheStore implements TerrainCacheStore {
   async put(key: string, topology: CompiledTopology): Promise<void> {
     assertCompiledTopology(topology)
     this.#entries.set(key, topology)
+  }
+}
+
+export class MemoryTerrainSurfaceBakeStore implements TerrainSurfaceBakeStore {
+  readonly #entries = new Map<string, CompiledSurfaceBake>()
+
+  async get(key: string): Promise<CompiledSurfaceBake | undefined> {
+    return this.#entries.get(key)
+  }
+
+  async put(key: string, bake: CompiledSurfaceBake): Promise<void> {
+    assertCompiledSurfaceBake(bake)
+    this.#entries.set(key, bake)
   }
 }
 
@@ -362,6 +775,7 @@ export interface TerrainCreateOptions<Config> {
 export interface TerrainBuildResult<Instance> {
   instance: Instance
   compiled?: CompiledTopology
+  surfaceBake?: CompiledSurfaceBake
 }
 
 export interface TerrainAssetDefinition<Config, Instance> {
@@ -369,13 +783,23 @@ export interface TerrainAssetDefinition<Config, Instance> {
   recipeHash: string
   compilerHash: string
   defaultProfile: string
-  identify(config: Readonly<Config>, profile: string): Pick<TopologyIdentity, 'topologyKey'>
+  identify(
+    config: Readonly<Config>,
+    profile: string,
+    options: Readonly<TerrainCreateOptions<Config>>,
+  ): Pick<TopologyIdentity, 'topologyKey'>
   source: {
     build(options: TerrainCreateOptions<Config>): Promise<TerrainBuildResult<Instance>>
   }
-  materialize(topology: CompiledTopology, options: TerrainCreateOptions<Config>): Promise<Instance>
+  materialize(
+    topology: CompiledTopology,
+    options: TerrainCreateOptions<Config>,
+    surfaceBake?: CompiledSurfaceBake,
+  ): Promise<Instance>
   compiled?: readonly CompiledTopology[]
+  compiledSurfaceBakes?: readonly CompiledSurfaceBake[]
   cacheStore?: TerrainCacheStore
+  surfaceBakeStore?: TerrainSurfaceBakeStore
 }
 
 export interface TerrainAsset<Config, Instance> {
@@ -396,6 +820,14 @@ function matchesIdentity(topology: CompiledTopology, identity: TopologyIdentity)
     && topology.profile === identity.profile
 }
 
+function surfaceBakeMatchesIdentity(bake: CompiledSurfaceBake, identity: TopologyIdentity): boolean {
+  return bake.assetId === identity.assetId
+    && bake.topologyKey === identity.topologyKey
+    && bake.recipeHash === identity.recipeHash
+    && bake.compilerHash === identity.compilerHash
+    && bake.profile === identity.profile
+}
+
 export function createTerrainAsset<Config, Instance>(
   definition: TerrainAssetDefinition<Config, Instance>,
 ): TerrainAsset<Config, Instance> {
@@ -408,7 +840,7 @@ export function createTerrainAsset<Config, Instance>(
         recipeHash: definition.recipeHash,
         compilerHash: definition.compilerHash,
         profile,
-        ...definition.identify(options.config, profile),
+        ...definition.identify(options.config, profile, request),
       }
       const path = options.path ?? 'auto'
       const cacheMode = options.cache ?? 'use'
@@ -421,7 +853,16 @@ export function createTerrainAsset<Config, Instance>(
           try {
             assertCompiledTopology(cached)
             if (!matchesIdentity(cached, identity)) throw new Error('Compiled topology fingerprint does not match the request')
-            return await definition.materialize(cached, request)
+            const bundledSurfaceBake = definition.compiledSurfaceBakes
+              ?.find((bake) => surfaceBakeMatchesIdentity(bake, identity))
+            const surfaceBake = bundledSurfaceBake ?? await definition.surfaceBakeStore?.get(key)
+            if (surfaceBake) {
+              assertCompiledSurfaceBake(surfaceBake)
+              if (!surfaceBakeMatchesIdentity(surfaceBake, identity)) {
+                throw new Error('Compiled surface bake fingerprint does not match the request')
+              }
+            }
+            return await definition.materialize(cached, request, surfaceBake)
           } catch (error) {
             if (path === 'compiled') throw error
           }
@@ -439,6 +880,13 @@ export function createTerrainAsset<Config, Instance>(
           throw new Error('Source compiler returned topology with a mismatched fingerprint')
         }
         await definition.cacheStore?.put(key, result.compiled)
+      }
+      if (result.surfaceBake && cacheMode !== 'bypass') {
+        assertCompiledSurfaceBake(result.surfaceBake)
+        if (!surfaceBakeMatchesIdentity(result.surfaceBake, identity)) {
+          throw new Error('Source compiler returned a surface bake with a mismatched fingerprint')
+        }
+        await definition.surfaceBakeStore?.put(key, result.surfaceBake)
       }
       return result.instance
     },

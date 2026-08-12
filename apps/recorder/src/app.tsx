@@ -1,7 +1,15 @@
-import { Box, ChevronRight, Pause, Play, Search, Sparkles } from 'lucide-react'
+import { Box, ChevronRight, Grid3X3, Palette, Pause, Play, Search, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { catalog, categories, initialItem, type CatalogItem } from './catalog.ts'
-import { Stage } from './stage.tsx'
+import { Stage, type RenderMode } from './stage.tsx'
+
+const renderModes: RenderMode[] = ['full', 'solid', 'wireframe']
+
+const renderModeLabels: Record<RenderMode, string> = {
+  full: 'Full',
+  solid: 'Solid',
+  wireframe: 'Wireframe',
+}
 
 interface ItemCardProps {
   item: CatalogItem
@@ -29,9 +37,11 @@ function ItemCard({ item, active, index, onSelect }: ItemCardProps) {
 }
 
 export function App() {
+  const cleanPreview = new URLSearchParams(window.location.search).has('clean')
   const [selected, setSelected] = useState(initialItem)
   const [query, setQuery] = useState('')
   const [isAnimating, setIsAnimating] = useState(selected.animated)
+  const [renderMode, setRenderMode] = useState<RenderMode>('full')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -55,6 +65,14 @@ export function App() {
 
   const handleLoadingChange = useCallback((value: boolean) => setLoading(value), [])
   const handleError = useCallback((message: string | null) => setError(message), [])
+  const cycleRenderMode = useCallback(() => {
+    setRenderMode((current) => {
+      const index = renderModes.indexOf(current)
+      return renderModes[(index + 1) % renderModes.length]
+    })
+  }, [])
+
+  const nextRenderMode = renderModes[(renderModes.indexOf(renderMode) + 1) % renderModes.length]
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -72,10 +90,11 @@ export function App() {
   }, [selected.animated])
 
   return (
-    <main className="recorder-shell">
+    <main className={`recorder-shell${cleanPreview ? ' clean-preview' : ''}`}>
       <Stage
         item={selected}
         isAnimating={isAnimating}
+        renderMode={renderMode}
         onLoadingChange={handleLoadingChange}
         onError={handleError}
       />
@@ -122,17 +141,33 @@ export function App() {
         </div>
       </aside>
 
-      {selected.animated && (
+      <div className="stage-controls">
         <button
-          className="animation-toggle"
+          className="render-mode-toggle"
           type="button"
-          aria-pressed={isAnimating}
-          onClick={() => setIsAnimating((value) => !value)}
+          data-mode={renderMode}
+          aria-label={`Render mode: ${renderModeLabels[renderMode]}. Switch to ${renderModeLabels[nextRenderMode]}.`}
+          title={`Render mode: ${renderModeLabels[renderMode]}`}
+          onClick={cycleRenderMode}
         >
-          {isAnimating ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-          <span>{isAnimating ? 'Pause motion' : 'Play motion'}</span>
+          {renderMode === 'full' && <Palette aria-hidden="true" />}
+          {renderMode === 'solid' && <Box aria-hidden="true" />}
+          {renderMode === 'wireframe' && <Grid3X3 aria-hidden="true" />}
+          <span>{renderModeLabels[renderMode]}</span>
         </button>
-      )}
+
+        {selected.animated && (
+          <button
+            className="animation-toggle"
+            type="button"
+            aria-pressed={isAnimating}
+            onClick={() => setIsAnimating((value) => !value)}
+          >
+            {isAnimating ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+            <span>{isAnimating ? 'Pause motion' : 'Play motion'}</span>
+          </button>
+        )}
+      </div>
 
       <div className="object-caption" aria-live="polite">
         <span>{selected.category}</span>

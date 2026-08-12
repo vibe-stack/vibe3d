@@ -2,9 +2,10 @@
 
 ## Representation boundary
 
-The source path owns field evaluation, surface extraction, topology repair,
-stable IDs, LODs, collision, and materialization. The compiled path owns only
-the reusable output of the expensive topology stages.
+The source path owns field evaluation, dense reference extraction, topology
+repair, reduction, stable IDs, LODs, collision, high-to-low baking, and
+materialization. The compiled path owns only reusable, fingerprinted compiler
+outputs.
 
 Both paths must produce the same public terrain instance shape and stable root.
 
@@ -36,6 +37,13 @@ Include:
 
 Exclude final world-space positions, final normals, texture pixels, material
 values, Three.js objects, and interchange scene formats such as GLB.
+
+That exclusion applies to the topology artifact. A sibling compiled-surface
+artifact may contain derived high-to-low texture pixels when its bake domain,
+channel semantics, resolution, source recipe hash, compiler hash, topology key,
+profile, and seed identity are explicit. Treat it as disposable acceleration
+data, never as the source asset. Runtime-generated transient textures remain a
+valid cache policy when persistent bake pages are undesirable.
 
 Use Three.js `StorageBufferAttribute` or equivalent storage nodes to materialize
 positions and derived attributes with `WebGPURenderer`. Keep the topology cache
