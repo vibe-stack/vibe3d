@@ -4,6 +4,7 @@ import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   bolt,
@@ -89,22 +90,42 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
       chamfer: 0.026, fillet: 0.01, bevel: 0.009,
     })
   }
-  box(body, m.shell, [WIDTH, BODY_H + TRAY, 0.03], [0, foot + (BODY_H + TRAY) * 0.5, -(DEPTH * 0.5 - 0.015)], {
+  // The back is let into the two sides rather than built out to the same box:
+  // at the chest's own width and depth its ends landed on the side walls' outer
+  // faces and its rear face on their rear faces, and the corner chamfers that
+  // round off the same edge fought along the full height of both.
+  box(body, m.shell, [WIDTH - FACE_CLEARANCE * 2, BODY_H + TRAY, 0.03], [
+    0, foot + (BODY_H + TRAY) * 0.5, -(DEPTH * 0.5 - FACE_CLEARANCE - 0.015),
+  ], {
     chamfer: 0.026, fillet: 0.01, bevel: 0.009,
   })
   // The bank the drawer fronts stand on. With nothing behind them the 8 mm gaps
   // between the fronts and the 26 mm band above the top one looked straight
   // through the chest at the backdrop, and so did the whole underside.
-  box(body, m.ink, [WIDTH - 0.06, trayFloor - wall - foot, DEPTH - 0.02], [0, (foot + trayFloor - wall) * 0.5, 0], {
+  // It is held a face clearance up off the sole the carcass stands on, because
+  // the two are the whole of the chest's underside and were on one plane.
+  box(body, m.ink, [WIDTH - 0.06, trayFloor - wall - foot - FACE_CLEARANCE, DEPTH - 0.02], [
+    0, (foot + FACE_CLEARANCE + trayFloor - wall) * 0.5, 0,
+  ], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.006,
   })
   // Open tray above the drawer stack, with a divider. Five faces round a void:
   // as one solid block it contained both the divider and the clip strip, and a
   // lifted lid revealed neither.
-  cavityLiner(body, m.ink, [WIDTH - 0.07, lidLine - trayFloor, DEPTH - 0.05], [0, (trayFloor + lidLine) * 0.5, 0], wall, 'top')
+  // The lining is set in from the tray floor and further in from the lid line,
+  // and the apron is carried a clearance below the floor: built to the same span
+  // the two ran edge for edge, and the chamfers rounding those edges fought at
+  // both ends of the tray and along the whole of its back.
+  const linerBottom = trayFloor + FACE_CLEARANCE
+  const linerTop = lidLine - FACE_CLEARANCE * 2
+  cavityLiner(body, m.ink, [WIDTH - 0.07, linerTop - linerBottom, DEPTH - 0.05], [
+    0, (linerBottom + linerTop) * 0.5, 0,
+  ], wall, 'top')
   // The tray's front wall is its lining, not the chest's face. The apron in
   // front of it carries the graphics and lands flush with the drawer fronts.
-  box(body, m.shell, [WIDTH - 0.06, lidLine - trayFloor, 0.026], [0, (trayFloor + lidLine) * 0.5, DEPTH * 0.5 - 0.008], {
+  box(body, m.shell, [WIDTH - 0.06, lidLine - trayFloor + FACE_CLEARANCE, 0.026], [
+    0, (trayFloor - FACE_CLEARANCE + lidLine) * 0.5, DEPTH * 0.5 - 0.008,
+  ], {
     chamfer: 0.014, fillet: 0.006, bevel: 0.005,
   })
   box(body, m.shellShade, [0.02, TRAY - 0.03, DEPTH - 0.08], [WIDTH * 0.18, trayFloor + (TRAY - 0.03) * 0.5 - 0.004, 0], {
@@ -138,7 +159,12 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
         sx * (WIDTH * 0.5 + 0.005), foot + BODY_H * 0.6, sz * 0.07,
       ], { chamfer: 0.01, fillet: 0.004, bevel: 0.004 })
     }
-    body.add(cylinder(m.rubber, 0.017, 0.16, [sx * (WIDTH * 0.5 + 0.03), foot + BODY_H * 0.6, 0], AXIS_Z, 8))
+    // The grip is set out a face clearance past the brackets it runs through.
+    // Level with them its facets grazed the rounded corner of both at under a
+    // millimetre, eight times over.
+    body.add(cylinder(m.rubber, 0.017, 0.16, [
+      sx * (WIDTH * 0.5 + 0.03 + FACE_CLEARANCE), foot + BODY_H * 0.6, 0,
+    ], AXIS_Z, 8))
   }
 
   // Both graphics sit in the clear span between the two latches; the label used
@@ -162,7 +188,10 @@ function lidBuild(lid: Group, m: CargoMaterials): void {
     chamfer: 0.026, fillet: 0.01, bevel: 0.006,
   })
   // The underside is the face an open lid shows, so it gets a tool clip strip.
-  box(lid, m.graphiteEdge, [WIDTH - 0.16, 0.012, 0.05], [0, 0.004, LID_PIVOT], {
+  // It hangs a face clearance below that underside, off its own 12 mm section;
+  // at the 2 mm it was drawn proud the strip and the leaf fought over the whole
+  // 0.5 m of it, in the one view the strip exists to be seen in.
+  box(lid, m.graphiteEdge, [WIDTH - 0.16, 0.012, 0.05], [0, 0.006 - FACE_CLEARANCE, LID_PIVOT], {
     chamfer: 0.008, fillet: 0.004, bevel: 0.003,
   })
   // Clips hang off the strip rather than sitting level with the skin it is fixed
