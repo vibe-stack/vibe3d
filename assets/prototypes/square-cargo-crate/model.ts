@@ -145,7 +145,10 @@ function build(): { root: Group; sockets: SquareCrateSockets; bundle: CargoMater
       box(root, m.graphiteEdge, [0.18, BODY_HEIGHT - 0.03, 0.18], [x, BODY_Y, z], {
         chamfer: 0.065, fillet: 0.018, bevel: 0.013,
       })
-      cornerCasting(root, m, [0.2, 0.15, 0.2], [x, SIZE - 0.069, z], 0.04, 'y', m.shellLight)
+      // That 6 mm is also why it takes no inset: the kit's default shrink is
+      // 4 mm a face, which would leave the crown 2 mm over the roof and put the
+      // pair back inside the floor it was drawn to clear.
+      cornerCasting(root, m, [0.2, 0.15, 0.2], [x, SIZE - 0.069, z], 0.04, 'y', m.shellLight, 0)
       // The painted feet are the crate's contact patch and stand 10 mm proud of
       // the skirt; drawn flush with it their flanks were four coplanar pairs.
       groundPad(root, m.amberPaint, [0.21, 0.21], [x, 0, z], 0.055)
