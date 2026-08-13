@@ -93,7 +93,6 @@ function tier(
   containerDoorFrame(tierGroup, m, spec)
 
   const hinge = spec.width * 0.5 - k.casting - 0.02
-  const width = (spec.width - k.casting * 2 - 0.1) * 0.5
   for (const side of [1, -1] as const) {
     const leaf = new Group()
     leaf.name = `AXR_CARGO_CONTAINER-STACK_PART_${label}-DOOR-${side > 0 ? 'LEFT' : 'RIGHT'}_CLOSED`
@@ -102,18 +101,7 @@ function tier(
     // skins ran straight through both of them.
     leaf.position.set(spec.length * 0.5 - 0.285, 0, -side * hinge)
     tierGroup.add(leaf)
-    containerDoorLeaf(leaf, m, bundle, { ...spec, side })
-    // Each leaf is half the clear opening, so the pair shuts on a mathematical
-    // point and the 0.1 taken out for clearance is a 60 mm slit you see the
-    // cross members through - three times over on a stack. The leaf that shuts
-    // second carries a closing strip behind the joint, lapping both skins by
-    // 40 mm; hinging the pair in instead would bring the lock bars, which are
-    // set out from each leaf's own centre, across the shut line.
-    if (side === 1) {
-      box(leaf, m.shell, [0.06, spec.height - 0.62, (hinge - width) * 2 + 0.08], [-0.06, (spec.height - 0.5) * 0.5 + 0.24, hinge], {
-        chamfer: 0.02, fillet: 0.008, bevel: 0.007,
-      })
-    }
+    containerDoorLeaf(leaf, m, bundle, { ...spec, side, closingStrip: side === 1 ? hinge : undefined })
   }
   return tierGroup
 }
