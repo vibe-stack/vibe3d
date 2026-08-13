@@ -76,6 +76,22 @@ function counterweightProfile(): Vec2[] {
   ]
 }
 
+/**
+ * Where the counterweight's back is, at a given height.
+ *
+ * It is a rake, not a wall: the profile runs from x -0.9 at y 0.1 to -0.78 at
+ * y 0.62 and the whole block is offset -0.3, so the only honest way to seat
+ * anything on the back is to solve for the height it sits at. A fitting placed
+ * at a guessed x is either buried in a hundred millimetres of casting or hanging
+ * off the back of it.
+ */
+function rearFace(y: number): number {
+  return -1.2 + 0.12 * (y - 0.1) / 0.52
+}
+
+/** Counterweight flank, which is 10 mm inside the body half-width. */
+const FLANK = (BODY_W - 0.06) * 0.5
+
 function chassisBuild(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
   // Counterweight and the powertrain hood in front of it.
   chassis.add(extrudeProfile(m.shell, counterweightProfile(), BODY_W - 0.06, [-0.3, 0, 0], {
@@ -87,10 +103,13 @@ function chassisBuild(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBu
   box(chassis, m.shellShade, [0.42, 0.16, BODY_W - 0.14], [0.16, 0.72, 0], {
     chamfer: 0.05, fillet: 0.018, bevel: 0.012,
   })
-  louvreVent(chassis, m, [0.34, 0.3], [-1.02, 0.5, 0], 4, 'left')
+  // A flat vent cannot follow the rake, so it is a letterbox seated on the top
+  // of its own span: 140 mm of height moves the casting's back by 32 mm, which
+  // the surround's own thickness swallows.
+  louvreVent(chassis, m, [0.34, 0.14], [rearFace(0.57), 0.5, 0], 3, 'left')
   for (const sz of [-1, 1]) {
-    seam(chassis, m.shell, 0.9, [-0.4, 0.44, sz * (BODY_W * 0.5 - 0.02)], sz > 0 ? 'front' : 'back', 'across', 0.028, 0.016)
-    boltRun(chassis, m.steel, [-0.85, 0.16, sz * (BODY_W * 0.5 - 0.02)], [-0.2, 0.16, sz * (BODY_W * 0.5 - 0.02)], 4, 0.018, sz > 0 ? 'front' : 'back')
+    seam(chassis, m.shell, 0.9, [-0.4, 0.44, sz * FLANK], sz > 0 ? 'front' : 'back', 'across', 0.028, 0.016)
+    boltRun(chassis, m.steel, [-0.85, 0.16, sz * FLANK], [-0.2, 0.16, sz * FLANK], 4, 0.018, sz > 0 ? 'front' : 'back')
   }
 
   // Front drive axle, wide tyres, almost under the mast.
@@ -143,10 +162,13 @@ function chassisBuild(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBu
 
   // Overhead guard: four posts and a slatted roof.
   const guardY = 2.02
-  for (const sx of [-0.78, 0.22]) {
+  // Each pair of posts is footed on what is actually under it - the counterweight
+  // crown behind, the hood in front. Run to a common 0.8 they stood on the
+  // operator floor's x span, which neither pair is over.
+  for (const [sx, foot] of [[-0.78, 0.7], [0.22, 0.6]] as const) {
     for (const sz of [-1, 1]) {
       const z = sz * (BODY_W * 0.5 - 0.09)
-      tubeSection(chassis, m.graphite, [0.07, 0.07], 0.012, guardY - 0.8, [sx, 0.8 + (guardY - 0.8) * 0.5, z], [Math.PI / 2, 0, 0])
+      tubeSection(chassis, m.graphite, [0.07, 0.07], 0.012, guardY - foot, [sx, foot + (guardY - foot) * 0.5, z], [Math.PI / 2, 0, 0])
     }
   }
   box(chassis, m.shell, [1.14, 0.05, BODY_W - 0.1], [-0.28, guardY, 0], {
@@ -158,18 +180,25 @@ function chassisBuild(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBu
       chamfer: 0.01, fillet: 0.004, bevel: 0.004,
     })
   }
-  statusLens(chassis, m, [0.12, 0.06], [0.28, guardY + 0.02, 0], m.amber, 'top')
+  // The beacon sits on the roof deck, inboard of its edge and in the gap between
+  // two slats rather than through the middle one.
+  statusLens(chassis, m, [0.12, 0.06], [0.2, guardY + 0.025, -(BODY_W - 0.34) * 0.125], m.amber, 'top')
+  // Guard-to-mast stay: the mast channels stand at z +/- 0.3, not at the guard's
+  // own z, so this is a diagonal in all three axes.
   for (const sz of [-1, 1]) {
-    member(chassis, m.shellShade, [0.22, guardY - 0.06, sz * (BODY_W * 0.5 - 0.09)], [0.5, MAST_H * 0.55, sz * (BODY_W * 0.5 - 0.09)], 0.05, 0.05)
+    member(chassis, m.shellShade, [0.22, guardY - 0.06, sz * (BODY_W * 0.5 - 0.09)], [AXLE_X + 0.18, MAST_H * 0.55, sz * 0.3], 0.05, 0.05)
   }
 
   const label = addLabelDecal(bundle, { variant: 350 })
-  plaque(chassis, m, label, [0.28, 0.11], [-0.5, 0.5, BODY_W * 0.5 - 0.02], 'front', m.shellLight)
+  plaque(chassis, m, label, [0.28, 0.11], [-0.5, 0.5, FLANK], 'front', m.shellLight)
   const stripe = addStripeDecal(bundle, { count: 5, lean: 1 })
-  plaque(chassis, m, stripe, [0.4, 0.08], [-0.55, 0.1, BODY_W * 0.5 - 0.02], 'front', m.ink)
-  paintMark(chassis, m.amberPaint, slashProfile(0.07, 0.2, 0.42), [-0.16, 0.5, BODY_W * 0.5 - 0.02], 'front', 0.011)
-  box(chassis, m.graphiteEdge, [0.14, 0.1, 0.12], [-1.0, 0.16, 0], { chamfer: 0.03, fillet: 0.011, bevel: 0.009 })
-  chassis.add(cylinder(m.steel, 0.03, 0.08, [-1.08, 0.16, 0], AXIS_X, 10))
+  plaque(chassis, m, stripe, [0.4, 0.08], [-0.55, 0.1, FLANK], 'front', m.ink)
+  // Over the counterweight's crown, where there is casting behind it; at x -0.16
+  // the mark spanned the gap between the casting and the hood, on neither.
+  paintMark(chassis, m.amberPaint, slashProfile(0.07, 0.2, 0.42), [-0.8, 0.57, FLANK], 'front', 0.011)
+  // The tow hitch straddles the casting's back face instead of sitting inside it.
+  box(chassis, m.graphiteEdge, [0.14, 0.1, 0.12], [rearFace(0.16), 0.16, 0], { chamfer: 0.03, fillet: 0.011, bevel: 0.009 })
+  chassis.add(cylinder(m.steel, 0.03, 0.08, [rearFace(0.16) - 0.06, 0.16, 0], AXIS_X, 10))
 }
 
 /** Outer mast channels and the hydraulic ram between them. */
@@ -268,7 +297,7 @@ function build(): {
     fork_tips: socket('fork_tips', [AXLE_X + 0.42 + FORK_L, 0.07, 0]),
     carriage: socket('carriage', [AXLE_X + 0.4, 0.4, 0]),
     seat: socket('seat', [-0.42, 0.98, 0]),
-    tow_hitch: socket('tow_hitch', [-1.12, 0.16, 0]),
+    tow_hitch: socket('tow_hitch', [rearFace(0.16) - 0.1, 0.16, 0]),
   }
   return { root, chassis, innerMast, carriage, sockets, bundle }
 }
