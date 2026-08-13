@@ -1,8 +1,9 @@
 import { Group, Object3D } from 'three/webgpu'
 
+import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
+  AXIS_Y,
   acquireCargoMaterials,
-  bolt,
   box,
   createCargoPreview,
   finishModel,
@@ -84,9 +85,12 @@ function build(): { root: Group; sockets: PalletSockets; bundle: CargoMaterialBu
       })
     }
   }
-  // Stringer boards tie the blocks along the length.
+  // Stringer boards tie the blocks along the length. Cut 8 mm narrower than the
+  // blocks they run through: sawn to the same 0.1 they shared both side planes
+  // with every block for the pallet's whole length, which is four coincident
+  // same-facing faces per block and the flicker down both flanks.
   for (const z of [-WIDTH * 0.5 + 0.05, 0, WIDTH * 0.5 - 0.05]) {
-    board(root, m, [LENGTH, BOARD, 0.1], [0, topY - BOARD, z])
+    board(root, m, [LENGTH, BOARD, 0.092], [0, topY - BOARD, z])
   }
 
   // Deck: seven boards at an irregular pitch, two of them noticeably narrower.
@@ -103,15 +107,26 @@ function build(): { root: Group; sockets: PalletSockets; bundle: CargoMaterialBu
     if (index === 2 || index === 4) {
       seam(root, m.timber, LENGTH - 0.14, [0, topY + BOARD * 0.5, z], 'top', 'across', 0.012, 0.006)
     }
+    // Nails driven flush, not bolts seated proud. `bolt()` stands its head 23 mm
+    // above the face it is given - taller than the 22 mm board it is holding
+    // down - and at yaw 0 the seven heads on the centreline queue up one behind
+    // another and read as a single spike above the deck in `front` and `back`.
+    // An 8 mm head bedded half its depth into the timber is what driving one in
+    // actually leaves.
     for (const x of [-LENGTH * 0.5 + 0.06, 0, LENGTH * 0.5 - 0.06]) {
-      bolt(root, m.ironOxide, [x, topY + BOARD * 0.5, z], 0.009, 'top')
+      root.add(cylinder(m.ironOxide, 0.009, 0.008, [x, topY + BOARD * 0.5, z], AXIS_Y, 6))
     }
   }
 
-  // Depot marking: one sprayed slash across the deck edge, half worn away.
-  paintMark(root, m.orangePaint, slashProfile(0.045, 0.055, 0.5), [LENGTH * 0.5 - 0.16, topY - BOARD, WIDTH * 0.5 + 0.002], 'front', 0.008)
-  paintMark(root, m.orangePaint, slashProfile(0.022, 0.055, 0.5), [LENGTH * 0.5 - 0.1, topY - BOARD, WIDTH * 0.5 + 0.002], 'front', 0.008)
-  box(root, m.shellShade, [0.1, 0.05, 0.008], [-LENGTH * 0.5 + 0.18, topY - BOARD, WIDTH * 0.5 + 0.006], {
+  // Depot marking: one sprayed slash, half of it worn away, and a yard placard.
+  // Both sit on a corner block. The block is the only continuous 120 x 90 face
+  // this flank has - the band above it is stringer and deck board with a fork
+  // opening under them, so a 55 mm mark placed there hangs off into the tunnel.
+  const blockFace = WIDTH * 0.5
+  const markX = LENGTH * 0.5 - 0.06
+  paintMark(root, m.orangePaint, slashProfile(0.032, 0.055, 0.5), [markX - 0.026, blockY, blockFace], 'front', 0.008)
+  paintMark(root, m.orangePaint, slashProfile(0.022, 0.055, 0.5), [markX + 0.028, blockY, blockFace], 'front', 0.008)
+  box(root, m.shellShade, [0.1, 0.05, 0.008], [-LENGTH * 0.5 + 0.06, blockY, blockFace], {
     chamfer: 0.008, fillet: 0.004, bevel: 0.003,
   })
 
