@@ -38,6 +38,17 @@ const DEPTH = 0.86
 const HEIGHT = 0.84
 const SKIRT = 0.14
 const LID = 0.19
+/**
+ * How far each mass in the stack reaches past the one under it.
+ *
+ * Skirt, body, and lid were sized to meet exactly: the body's bottom cap on the
+ * skirt's top, the lid's on the body's. Two caps on a shared plane read as a
+ * hard black line rather than as a joint, which is what the shut line under this
+ * crate's lid photographs as from every angle above the horizon.
+ */
+const LAP = 0.02
+const BODY_HEIGHT = HEIGHT - SKIRT - LID + LAP
+const BODY_Y = SKIRT - LAP + BODY_HEIGHT * 0.5
 
 type Side = -1 | 1
 
@@ -61,21 +72,18 @@ export interface MediumCrateController {
 }
 
 function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
-  const bodyHeight = HEIGHT - SKIRT - LID
-  const bodyY = SKIRT + bodyHeight * 0.5
-
   box(hull, m.graphite, [WIDTH - 0.02, SKIRT, DEPTH - 0.02], [0, SKIRT * 0.5, 0], {
     chamfer: 0.06, fillet: 0.02, bevel: 0.016, capChamfer: 0.04,
   })
-  box(hull, m.shell, [WIDTH, bodyHeight, DEPTH], [0, bodyY, 0], {
+  box(hull, m.shell, [WIDTH, BODY_HEIGHT, DEPTH], [0, BODY_Y, 0], {
     chamfer: 0.085, fillet: 0.028, bevel: 0.02, capChamfer: 0.06,
   })
 
   // Corner posts, kept narrow so the crate reads lighter than the large one.
   for (const sx of [-1, 1] as Side[]) {
     for (const sz of [-1, 1] as Side[]) {
-      box(hull, m.graphiteEdge, [0.13, bodyHeight + 0.02, 0.13], [
-        sx * (WIDTH * 0.5 - 0.075), bodyY, sz * (DEPTH * 0.5 - 0.075),
+      box(hull, m.graphiteEdge, [0.13, BODY_HEIGHT + 0.02, 0.13], [
+        sx * (WIDTH * 0.5 - 0.075), BODY_Y, sz * (DEPTH * 0.5 - 0.075),
       ], { chamfer: 0.045, fillet: 0.014, bevel: 0.01 })
       box(hull, m.amberPaint, [0.14, 0.075, 0.14], [
         sx * (WIDTH * 0.5 - 0.075), 0.038, sz * (DEPTH * 0.5 - 0.075),
@@ -83,51 +91,65 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
     }
   }
 
-  const frontZ = DEPTH * 0.5 + 0.002
-  // A pressed pan across the front face gives the latches something to sit in.
-  box(hull, m.shellShade, [WIDTH - 0.34, bodyHeight - 0.14, 0.03], [0, bodyY, frontZ], {
+  // Every graphic below seats on the exact face that carries it. The 2 mm the
+  // shell face used to be padded by is the difference between a plate designed
+  // to embed 3 mm and one that floats 1 mm, which is what the rim light finds.
+  const frontZ = DEPTH * 0.5
+  // A pressed pan across the front face gives the latches something to sit in;
+  // the pan is 30 mm about the shell, so its own face is 15 mm further out.
+  box(hull, m.shellShade, [WIDTH - 0.34, BODY_HEIGHT - 0.14, 0.03], [0, BODY_Y, frontZ], {
     chamfer: 0.06, fillet: 0.02, bevel: 0.012,
   })
+  const panZ = frontZ + 0.015
   for (const x of [-0.32, 0.32]) {
-    seam(hull, m.shellShade, bodyHeight - 0.2, [x, bodyY, frontZ + 0.015], 'front', 'along', 0.026, 0.016)
+    seam(hull, m.shellShade, BODY_HEIGHT - 0.2, [x, BODY_Y, panZ], 'front', 'along', 0.026, 0.016)
   }
   const label = addLabelDecal(bundle, { variant: 6 })
-  plaque(hull, m, label, [0.3, 0.15], [0, bodyY - 0.02, frontZ + 0.016], 'front', m.shellLight)
-  statusLens(hull, m, [0.11, 0.04], [0, bodyY + 0.14, frontZ + 0.016], m.cyan, 'front')
+  plaque(hull, m, label, [0.3, 0.15], [0, BODY_Y - 0.02, panZ], 'front', m.shellLight)
+  statusLens(hull, m, [0.11, 0.04], [0, BODY_Y + 0.14, panZ], m.cyan, 'front')
 
-  const backZ = -(DEPTH * 0.5 + 0.002)
+  const backZ = -DEPTH * 0.5
   const stripe = addStripeDecal(bundle, { count: 4, lean: -1 })
-  plaque(hull, m, stripe, [0.46, 0.1], [0, bodyY + 0.11, backZ], 'back', m.ink)
-  paintMark(hull, m.amberPaint, slashProfile(0.09, 0.24, 0.5), [-0.3, bodyY - 0.08, backZ], 'back', 0.011)
-  paintMark(hull, m.amberPaint, slashProfile(0.05, 0.24, 0.5), [-0.17, bodyY - 0.08, backZ], 'back', 0.011)
-  boltRun(hull, m.steel, [-0.4, bodyY - 0.18, backZ], [0.4, bodyY - 0.18, backZ], 5, 0.016, 'back')
+  plaque(hull, m, stripe, [0.46, 0.1], [0, BODY_Y + 0.11, backZ], 'back', m.ink)
+  paintMark(hull, m.amberPaint, slashProfile(0.09, 0.24, 0.5), [-0.3, BODY_Y - 0.08, backZ], 'back', 0.011)
+  paintMark(hull, m.amberPaint, slashProfile(0.05, 0.24, 0.5), [-0.17, BODY_Y - 0.08, backZ], 'back', 0.011)
+  boltRun(hull, m.steel, [-0.4, BODY_Y - 0.18, backZ], [0.4, BODY_Y - 0.18, backZ], 5, 0.016, 'back')
 
   for (const side of [-1, 1] as Side[]) {
     const face = side > 0 ? 'right' : 'left'
-    recessedHandle(hull, m, [0.34, 0.13], [side * (WIDTH * 0.5 + 0.002), bodyY + 0.03, 0], face)
+    recessedHandle(hull, m, [0.34, 0.13], [side * WIDTH * 0.5, BODY_Y + 0.03, 0], face)
   }
 }
 
 function lidBody(lid: Group, m: CargoMaterials): void {
-  box(lid, m.shellLight, [WIDTH + 0.02, LID, DEPTH + 0.02], [0, LID * 0.5, DEPTH * 0.5 - 0.045], {
+  // The leaf is a lap deeper than the opening it covers, so its skirt runs past
+  // the body's top face instead of capping it on a shared plane.
+  const crown = LID + LAP
+  box(lid, m.shellLight, [WIDTH + 0.02, crown, DEPTH + 0.02], [0, crown * 0.5, DEPTH * 0.5 - 0.045], {
     chamfer: 0.08, fillet: 0.026, bevel: 0.018, capChamfer: 0.05,
   })
   // A single deep channel down the crown; it is the crate's cheapest landmark
   // and the reason a stack of them still reads as individual boxes.
-  box(lid, m.ink, [WIDTH - 0.4, 0.035, DEPTH - 0.22], [0, LID - 0.012, DEPTH * 0.5 - 0.045], {
+  box(lid, m.ink, [WIDTH - 0.4, 0.035, DEPTH - 0.22], [0, crown - 0.012, DEPTH * 0.5 - 0.045], {
     chamfer: 0.05, fillet: 0.016, bevel: 0.01,
   })
-  box(lid, m.shellShade, [WIDTH - 0.48, 0.03, DEPTH - 0.3], [0, LID - 0.004, DEPTH * 0.5 - 0.045], {
+  box(lid, m.shellShade, [WIDTH - 0.48, 0.03, DEPTH - 0.3], [0, crown - 0.004, DEPTH * 0.5 - 0.045], {
     chamfer: 0.045, fillet: 0.014, bevel: 0.009,
   })
-  for (const x of [-0.2, 0.2]) {
-    seam(lid, m.shellLight, DEPTH - 0.18, [x, LID, DEPTH * 0.5 - 0.045], 'top', 'along', 0.026, 0.016)
+  // Outboard of the channel's own plates. Run at 0.2 the grooves were under the
+  // 0.8-wide dark surround, which buried seven tenths of each cut.
+  for (const x of [-1, 1] as Side[]) {
+    seam(lid, m.shellLight, DEPTH - 0.18, [x * ((WIDTH - 0.4) * 0.5 + 0.1), crown, DEPTH * 0.5 - 0.045], 'top', 'along', 0.026, 0.016)
   }
+  // Hinge lugs straddling the leaf's own back face. Drawn at a local z of 0.025
+  // the lugs and the pin were both inside the lid they swing on, and the crate's
+  // back photographed as a smooth panel with no hinge anywhere on it.
+  const leafBack = DEPTH * 0.5 - 0.045 - (DEPTH + 0.02) * 0.5
   for (const x of [-0.36, 0.36]) {
-    lid.add(prism(m.graphiteEdge, [0.15, 0.11, 0.09], [x, LID * 0.55, 0.025], {
-      chamfer: 0.03, fillet: 0.01, bevel: 0.008,
+    lid.add(prism(m.graphiteEdge, [0.15, 0.11, 0.05], [x, crown * 0.5, leafBack], {
+      chamfer: 0.02, fillet: 0.01, bevel: 0.008,
     }))
-    lid.add(cylinder(m.steel, 0.026, 0.2, [x, LID * 0.55, 0], AXIS_X, 10))
+    lid.add(cylinder(m.steel, 0.02, 0.2, [x, crown * 0.5, leafBack - 0.005], AXIS_X, 10))
   }
 }
 
@@ -144,15 +166,15 @@ function build(): { root: Group; hull: Group; lid: Group; sockets: CrateSockets;
   root.add(hull, lid)
 
   hullBody(hull, m, bundle)
-  lid.position.set(0, HEIGHT - LID, -(DEPTH * 0.5 - 0.045))
+  lid.position.set(0, HEIGHT - LID - LAP, -(DEPTH * 0.5 - 0.045))
   lidBody(lid, m)
 
   for (const x of [-0.36, 0.36]) {
-    toggleLatch(hull, m, [x, HEIGHT - LID - 0.015, DEPTH * 0.5 + 0.002], 0.95, 'front')
+    toggleLatch(hull, m, [x, HEIGHT - LID - LAP, DEPTH * 0.5], 0.95, 'front')
   }
 
   const sockets: CrateSockets = {
-    lid_hinge: socket('lid_hinge', [0, HEIGHT - LID, -(DEPTH * 0.5 - 0.045)]),
+    lid_hinge: socket('lid_hinge', [0, HEIGHT - LID - LAP, -(DEPTH * 0.5 - 0.045)]),
     carry_left: socket('carry_left', [-(WIDTH * 0.5 + 0.06), HEIGHT * 0.55, 0]),
     carry_right: socket('carry_right', [WIDTH * 0.5 + 0.06, HEIGHT * 0.55, 0]),
     stack_top: socket('stack_top', [0, HEIGHT, 0]),
