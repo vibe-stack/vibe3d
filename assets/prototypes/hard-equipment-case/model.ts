@@ -3,7 +3,6 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
-  AXIS_Z,
   acquireCargoMaterials,
   addLabelDecal,
   box,
@@ -87,18 +86,26 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
     hull.add(cylinder(m.ink, WHEEL * 0.16, 0.07, [sx * (WIDTH * 0.5 - 0.055), WHEEL, wheelZ], AXIS_X, 8))
   }
 
-  const frontZ = DEPTH * 0.5 + 0.004
-  box(hull, m.shellShade, [WIDTH - 0.2, bodyHeight - 0.16, 0.022], [0, bodyY + 0.02, frontZ], {
+  // The service panel is what the whole front is applied to, so it laps the shell
+  // by half its own thickness and everything above it measures from the panel's
+  // face rather than from the skin behind it.
+  const panelThickness = 0.022
+  box(hull, m.shellShade, [WIDTH - 0.2, bodyHeight - 0.16, panelThickness], [0, bodyY + 0.02, DEPTH * 0.5], {
     chamfer: 0.055, fillet: 0.018, bevel: 0.01,
   })
+  const panelZ = DEPTH * 0.5 + panelThickness * 0.5
   for (const x of [-0.12, 0.12]) {
-    seam(hull, m.shellShade, bodyHeight - 0.24, [x, bodyY + 0.02, frontZ + 0.012], 'front', 'along', 0.022, 0.014)
+    seam(hull, m.shellShade, bodyHeight - 0.24, [x, bodyY + 0.02, panelZ], 'front', 'along', 0.022, 0.014)
   }
   const label = addLabelDecal(bundle, { variant: 55 })
-  plaque(hull, m, label, [0.22, 0.1], [0, bodyY + 0.14, frontZ + 0.013], 'front', m.shellLight)
-  statusLens(hull, m, [0.06, 0.024], [0, bodyY - 0.1, frontZ + 0.013], m.cyan, 'front')
-  paintMark(hull, m.amberPaint, slashProfile(0.05, 0.1, 0.5), [WIDTH * 0.5 - 0.09, bodyY - 0.1, frontZ], 'front', 0.009)
-  boltRun(hull, m.steel, [-WIDTH * 0.32, bodyY + 0.2, -frontZ], [WIDTH * 0.32, bodyY + 0.2, -frontZ], 3, 0.014, 'back')
+  plaque(hull, m, label, [0.22, 0.1], [0, bodyY + 0.14, panelZ], 'front', m.shellLight)
+  statusLens(hull, m, [0.06, 0.024], [0, bodyY - 0.1, panelZ], m.cyan, 'front')
+  // Inboard of the panel edge at 0.21: drawn at the old 0.22 the slash hung off
+  // the panel over bare shell and the corner extrusion behind it.
+  paintMark(hull, m.amberPaint, slashProfile(0.05, 0.1, 0.5), [WIDTH * 0.5 - 0.18, bodyY - 0.1, panelZ], 'front', 0.009)
+  // The run has to stop short of the tow-handle channels at x 0.165 to 0.215,
+  // which swallowed the two outer bolts whole.
+  boltRun(hull, m.steel, [-0.12, bodyY + 0.2, -DEPTH * 0.5], [0.12, bodyY + 0.2, -DEPTH * 0.5], 3, 0.014, 'back')
 
   // Side pull grips.
   for (const sx of [-1, 1]) {
@@ -112,20 +119,26 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
 }
 
 function lidBody(lid: Group, m: CargoMaterials): void {
-  box(lid, m.shellLight, [WIDTH + 0.008, LID, DEPTH + 0.008], [0, LID * 0.5, DEPTH * 0.5 - 0.032], {
+  const lidZ = DEPTH * 0.5 - 0.032
+  const lidBack = lidZ - (DEPTH + 0.008) * 0.5
+
+  box(lid, m.shellLight, [WIDTH + 0.008, LID, DEPTH + 0.008], [0, LID * 0.5, lidZ], {
     chamfer: 0.062, fillet: 0.022, bevel: 0.016, capChamfer: 0.04,
   })
-  box(lid, m.ink, [WIDTH - 0.2, 0.024, DEPTH - 0.16], [0, LID - 0.006, DEPTH * 0.5 - 0.032], {
+  box(lid, m.ink, [WIDTH - 0.2, 0.024, DEPTH - 0.16], [0, LID - 0.006, lidZ], {
     chamfer: 0.05, fillet: 0.016, bevel: 0.01,
   })
-  box(lid, m.shellShade, [WIDTH - 0.28, 0.02, DEPTH - 0.24], [0, LID + 0.002, DEPTH * 0.5 - 0.032], {
+  box(lid, m.shellShade, [WIDTH - 0.28, 0.02, DEPTH - 0.24], [0, LID + 0.002, lidZ], {
     chamfer: 0.045, fillet: 0.014, bevel: 0.009,
   })
+  // The knuckles have to clear the lid's own back face. Drawn 52 mm inside it
+  // they render as nothing, which is why the case back was a smooth shell with
+  // no hinge on it anywhere.
   for (const sx of [-1, 1]) {
-    lid.add(prism(m.graphiteEdge, [0.11, 0.07, 0.06], [sx * 0.2, LID * 0.55, 0.016], {
+    lid.add(prism(m.graphiteEdge, [0.11, 0.07, 0.06], [sx * 0.2, LID * 0.55, lidBack + 0.01], {
       chamfer: 0.02, fillet: 0.007, bevel: 0.006,
     }))
-    lid.add(cylinder(m.steel, 0.016, 0.13, [sx * 0.2, LID * 0.55, 0], AXIS_X, 8))
+    lid.add(cylinder(m.steel, 0.016, 0.13, [sx * 0.2, LID * 0.55, lidBack - 0.016], AXIS_X, 8))
   }
 }
 
@@ -134,7 +147,9 @@ function towHandle(handle: Group, m: CargoMaterials): void {
   for (const sx of [-1, 1]) {
     handle.add(cylinder(m.steel, 0.014, 0.34, [sx * 0.19, 0.17, 0], [0, 0, 0], 8))
   }
-  handle.add(cylinder(m.rubber, 0.021, 0.4, [0, 0.35, 0], AXIS_Z, 10))
+  // The grip spans the two stiles, so its axis is the axis they are separated
+  // along. On AXIS_Z it ran 400 mm aft from the centreline and joined nothing.
+  handle.add(cylinder(m.rubber, 0.021, 0.4, [0, 0.35, 0], AXIS_X, 10))
   for (const sx of [-1, 1]) {
     handle.add(cylinder(m.graphiteEdge, 0.024, 0.035, [sx * 0.19, 0.343, 0], [0, 0, 0], 8))
   }
@@ -165,20 +180,24 @@ function build(): {
   lid.position.set(0, HEIGHT - LID, -(DEPTH * 0.5 - 0.032))
   lidBody(lid, m)
   for (const x of [-0.18, 0.18]) {
-    toggleLatch(hull, m, [x, HEIGHT - LID - 0.01, DEPTH * 0.5 + 0.004], 0.68, 'front')
+    toggleLatch(hull, m, [x, HEIGHT - LID - 0.01, DEPTH * 0.5], 0.68, 'front')
   }
 
-  // Guide channels on the back face; the handle slides inside them.
+  // Guide channels on the back face; the handle runs in the trough they form.
+  const channelZ = -(DEPTH * 0.5 + 0.008)
+  const channelFace = channelZ - 0.02
   for (const sx of [-1, 1]) {
-    box(hull, m.graphite, [0.05, HEIGHT - LID - 0.1, 0.04], [sx * 0.19, (HEIGHT - LID) * 0.5, -(DEPTH * 0.5 + 0.012)], {
+    box(hull, m.graphite, [0.05, HEIGHT - LID - 0.1, 0.04], [sx * 0.19, (HEIGHT - LID) * 0.5, channelZ], {
       chamfer: 0.016, fillet: 0.006, bevel: 0.005,
     })
   }
-  handle.position.set(0, HEIGHT - LID - 0.32, -(DEPTH * 0.5 + 0.026))
+  // Stiles centred on the channel mouth, so each tube is half buried in its
+  // guide. Set behind the channel they stood 8 mm out of the back of it.
+  handle.position.set(0, HEIGHT - LID - 0.32, channelFace)
   towHandle(handle, m)
 
   const sockets: HardCaseSockets = {
-    tow_handle: socket('tow_handle', [0, HEIGHT - LID + 0.05, -(DEPTH * 0.5 + 0.026)]),
+    tow_handle: socket('tow_handle', [0, HEIGHT - LID + 0.05, channelFace]),
     lid_hinge: socket('lid_hinge', [0, HEIGHT - LID, -(DEPTH * 0.5 - 0.032)]),
     wheel_axle: socket('wheel_axle', [0, WHEEL, -(DEPTH * 0.5 - 0.02)]),
   }
