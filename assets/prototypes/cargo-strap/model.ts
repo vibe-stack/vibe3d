@@ -176,8 +176,12 @@ export function createModel(): StrapController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0.16, 0.06, 0.04],
-    distance: 1.75,
+    // The prop is a coil with a tail running away from it, so its silhouette is
+    // nowhere near the origin the coil is built about. Framed on [0.16, 0.06]
+    // at 1.75 m it sat low and right of centre with a third of the frame empty
+    // above it, and read as a speck beside props that fill their tiles.
+    target: [0.24, -0.026, 0.024],
+    distance: 1.3,
     yaw: 0.7,
     pitch: 0.44,
     fov: 30,
