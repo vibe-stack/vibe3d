@@ -1,9 +1,8 @@
 import { Group, Object3D } from 'three/webgpu'
 
-import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
-  AXIS_Y,
   acquireCargoMaterials,
+  bolt,
   box,
   createCargoPreview,
   finishModel,
@@ -107,14 +106,13 @@ function build(): { root: Group; sockets: PalletSockets; bundle: CargoMaterialBu
     if (index === 2 || index === 4) {
       seam(root, m.timber, LENGTH - 0.14, [0, topY + BOARD * 0.5, z], 'top', 'across', 0.012, 0.006)
     }
-    // Nails driven flush, not bolts seated proud. `bolt()` stands its head 23 mm
-    // above the face it is given - taller than the 22 mm board it is holding
-    // down - and at yaw 0 the seven heads on the centreline queue up one behind
-    // another and read as a single spike above the deck in `front` and `back`.
-    // An 8 mm head bedded half its depth into the timber is what driving one in
-    // actually leaves.
+    // Nails driven flush, not bolts seated proud. At the 23 mm a seal bolt
+    // stands - taller than the 22 mm board it is holding down - the seven heads
+    // on the centreline queue up one behind another at yaw 0 and read as a
+    // single spike above the deck in `front` and `back`. Four millimetres is
+    // what driving a nail into timber actually leaves above it.
     for (const x of [-LENGTH * 0.5 + 0.06, 0, LENGTH * 0.5 - 0.06]) {
-      root.add(cylinder(m.ironOxide, 0.009, 0.008, [x, topY + BOARD * 0.5, z], AXIS_Y, 6))
+      bolt(root, m.ironOxide, [x, topY + BOARD * 0.5, z], 0.009, 'top', 0.004)
     }
   }
 
