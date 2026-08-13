@@ -4,6 +4,7 @@ import { cylinder, extrudeProfile } from '../../../src/asset-forge/generator/ind
 import {
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   bolt,
@@ -103,10 +104,13 @@ function build(): { root: Group; column: Group; sockets: FuelDrumSockets; bundle
     chamfer: RADIUS * 0.42, fillet: 0.03, bevel: 0.016, capChamfer: 0.03,
   })
   root.add(cylinder(m.ink, RADIUS + 0.03, 0.035, [0, BASE + 0.01, 0], AXIS_Y, 20))
+  // Corner bumpers on the tray's four chamfers. The tray is what stands on the
+  // deck, so a bumper beds a face clearance up inside it; drawn flush the four
+  // of them laid a second sole on the tray's own.
   for (let index = 0; index < 4; index += 1) {
     const angle = (Math.PI / 2) * index + Math.PI / 4
     box(root, m.amberPaint, [0.16, 0.05, 0.09], [
-      Math.cos(angle) * (RADIUS + 0.03), 0.025, Math.sin(angle) * (RADIUS + 0.03),
+      Math.cos(angle) * (RADIUS + 0.03), FACE_CLEARANCE + 0.025, Math.sin(angle) * (RADIUS + 0.03),
     ], { chamfer: 0.02, fillet: 0.008, bevel: 0.007, rotation: [0, -angle, 0] })
   }
 
