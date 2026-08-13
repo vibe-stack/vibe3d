@@ -11,6 +11,7 @@ import {
   cavityLiner,
   createCargoPreview,
   finishModel,
+  lidHinge,
   paintMark,
   plaque,
   seam,
@@ -164,12 +165,14 @@ function lidBuild(lid: Group, m: CargoMaterials): void {
   box(lid, m.graphiteEdge, [WIDTH - 0.16, 0.012, 0.05], [0, 0.004, LID_PIVOT], {
     chamfer: 0.008, fillet: 0.004, bevel: 0.003,
   })
+  // Clips hang off the strip rather than sitting level with the skin it is fixed
+  // to, where the whole run was inside the leaf.
   for (const sx of [-1, 1]) {
-    // Clips hang off the strip rather than sitting level with the skin it is
-    // fixed to, where the whole run was inside the leaf.
     lid.add(cylinder(m.steel, 0.012, 0.09, [sx * 0.16, -0.006, LID_PIVOT], AXIS_X, 6))
-    lid.add(cylinder(m.steel, 0.014, 0.1, [sx * 0.2, 0, 0], AXIS_X, 8))
   }
+  // A barrel on the swing axis with a strap onto each leaf, in place of the bare
+  // pins that carried no plate at all.
+  lidHinge(lid, m, WIDTH - 0.1, [0, 0, 0], 'x', 2, 0.016, 0.06, LID_PIVOT - (DEPTH + 0.01) * 0.5)
 }
 
 function build(): { root: Group; body: Group; lid: Group; sockets: ToolChestSockets; bundle: CargoMaterialBundle } {
