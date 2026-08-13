@@ -10,6 +10,7 @@ import {
   box,
   createCargoPreview,
   finishModel,
+  groundPad,
   louvreVent,
   plaque,
   seam,
@@ -41,6 +42,16 @@ const DEPTH = 0.78
 const HEIGHT = 1.86
 const PLINTH = 0.11
 const U = 0.0445
+/** Mounting rail, and the faceplate plane 4 mm into the face it bolts to. */
+const RAIL_Z = DEPTH * 0.5 - 0.06
+const PLATE_Z = RAIL_Z + 0.025 + 0.006
+/** Roof slab and its outer face, which is the datum for everything on top. */
+const ROOF = 0.035
+const ROOF_Y = HEIGHT - 0.018
+const ROOF_TOP = ROOF_Y + ROOF * 0.5
+/** Levelling foot depth, and the underside of the plinth that stands on it. */
+const FOOT = 0.018
+const PLINTH_BOTTOM = FOOT - 0.004
 
 interface RackSockets {
   slot_low: Object3D
@@ -81,7 +92,7 @@ const STACK: readonly Unit[] = [
 
 function faceplate(root: Group, m: CargoMaterials, unit: Unit, y: number, bundle: CargoMaterialBundle): void {
   const height = unit.u * U - 0.004
-  const z = DEPTH * 0.5 - 0.02
+  const z = PLATE_Z
   const face = unit.kind === 'blank' ? m.shellShade : m.shellLight
   box(root, face, [WIDTH - 0.09, height, 0.02], [0, y, z], {
     chamfer: 0.012, fillet: 0.005, bevel: 0.005,
@@ -94,20 +105,23 @@ function faceplate(root: Group, m: CargoMaterials, unit: Unit, y: number, bundle
     }
   }
   if (unit.kind === 'blank') {
-    seam(root, m.shellShade, WIDTH - 0.16, [0, y, z + 0.012], 'front', 'across', 0.014, 0.008)
+    seam(root, m.shellShade, WIDTH - 0.16, [0, y, z + 0.01], 'front', 'across', 0.014, 0.008)
     return
   }
   if (unit.kind === 'server') {
     box(root, m.ink, [WIDTH - 0.2, height - 0.016, 0.012], [0, y, z + 0.014], {
       chamfer: 0.008, fillet: 0.004, bevel: 0.003,
     })
+    // The intake bank stops short of the right-hand end, because the lamp column
+    // has to sit on the dark well and not straddle its edge onto the faceplate
+    // 10 mm behind it.
     for (let index = 0; index < 5; index += 1) {
-      box(root, m.graphiteEdge, [0.055, height - 0.024, 0.008], [-0.18 + index * 0.09, y, z + 0.02], {
+      box(root, m.graphiteEdge, [0.055, height - 0.024, 0.008], [-0.18 + index * 0.08, y, z + 0.02], {
         chamfer: 0.004, fillet: 0.002, bevel: 0.002,
       })
     }
-    statusLens(root, m, [0.02, 0.012], [WIDTH * 0.5 - 0.09, y + height * 0.24, z + 0.016], m.cyan, 'front')
-    statusLens(root, m, [0.02, 0.012], [WIDTH * 0.5 - 0.09, y - height * 0.24, z + 0.016], m.amber, 'front')
+    statusLens(root, m, [0.02, 0.012], [WIDTH * 0.5 - 0.14, y + height * 0.24, z + 0.02], m.cyan, 'front')
+    statusLens(root, m, [0.02, 0.012], [WIDTH * 0.5 - 0.14, y - height * 0.24, z + 0.02], m.amber, 'front')
     for (const sx of [-1, 1]) {
       root.add(cylinder(m.steel, 0.008, 0.035, [sx * (WIDTH * 0.5 - 0.11), y, z + 0.03], AXIS_Z, 6))
     }
@@ -117,9 +131,9 @@ function faceplate(root: Group, m: CargoMaterials, unit: Unit, y: number, bundle
     box(root, m.ink, [WIDTH - 0.18, height - 0.03, 0.014], [0, y + 0.008, z + 0.014], {
       chamfer: 0.014, fillet: 0.006, bevel: 0.005,
     })
-    statusLens(root, m, [WIDTH - 0.24, height - 0.06], [0, y + 0.008, z + 0.02], m.cyan, 'front')
+    statusLens(root, m, [WIDTH - 0.24, height - 0.06], [0, y + 0.008, z + 0.021], m.cyan, 'front')
     const label = addLabelDecal(bundle, { variant: 300 })
-    plaque(root, m, label, [0.14, 0.02], [0, y - height * 0.36, z + 0.014], 'front', m.graphite)
+    plaque(root, m, label, [0.14, 0.02], [0, y - height * 0.36, z + 0.01], 'front', m.graphite)
     return
   }
   // Patch panel: a row of ports in a dark well.
@@ -140,14 +154,17 @@ function build(): { root: Group; sockets: RackSockets; bundle: CargoMaterialBund
   const root = new Group()
   root.name = 'AXR_INDUSTRIAL_EQUIPMENT-RACK_ROOT_LIVE'
 
-  // Plinth with a fan tray drawing air in at the front.
-  box(root, m.graphite, [WIDTH, PLINTH, DEPTH], [0, PLINTH * 0.5, 0], {
+  // Plinth with a fan tray drawing air in at the front. It stands on its feet
+  // rather than over them: a 0.06 disc buried in the slab is a levelling foot
+  // that never appears in any frame.
+  const plinthY = (PLINTH + PLINTH_BOTTOM) * 0.5
+  box(root, m.graphite, [WIDTH, PLINTH - PLINTH_BOTTOM, DEPTH], [0, plinthY, 0], {
     chamfer: 0.04, fillet: 0.014, bevel: 0.011, capChamfer: 0.026,
   })
-  louvreVent(root, m, [WIDTH - 0.24, PLINTH - 0.04], [0, PLINTH * 0.5, DEPTH * 0.5 - 0.01], 3, 'front')
+  louvreVent(root, m, [WIDTH - 0.24, PLINTH - 0.04], [0, plinthY, DEPTH * 0.5 - 0.01], 3, 'front')
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      root.add(cylinder(m.rubber, 0.03, 0.02, [sx * (WIDTH * 0.5 - 0.07), 0.01, sz * (DEPTH * 0.5 - 0.07)], AXIS_Y, 8))
+      groundPad(root, m.rubber, [0.09, 0.09], [sx * (WIDTH * 0.5 - 0.07), 0, sz * (DEPTH * 0.5 - 0.07)], FOOT)
     }
   }
 
@@ -159,14 +176,13 @@ function build(): { root: Group; sockets: RackSockets; bundle: CargoMaterialBund
       ], [Math.PI / 2, 0, 0])
     }
     // Mounting rail with its U pitch punched through.
-    const railZ = DEPTH * 0.5 - 0.06
-    box(root, m.graphiteEdge, [0.03, HEIGHT - PLINTH - 0.06, 0.05], [sx * (WIDTH * 0.5 - 0.05), PLINTH + (HEIGHT - PLINTH) * 0.5, railZ], {
+    box(root, m.graphiteEdge, [0.03, HEIGHT - PLINTH - 0.06, 0.05], [sx * (WIDTH * 0.5 - 0.05), PLINTH + (HEIGHT - PLINTH) * 0.5, RAIL_Z], {
       chamfer: 0.008, fillet: 0.003, bevel: 0.003,
     })
     const holes = Math.floor((HEIGHT - PLINTH - 0.12) / U)
     for (let index = 0; index < holes; index += 1) {
       root.add(extrudeProfile(m.ink, slot(0.007, 0.011, 0.003), 0.012, [
-        sx * (WIDTH * 0.5 - 0.05), PLINTH + 0.08 + index * U, railZ + 0.026,
+        sx * (WIDTH * 0.5 - 0.05), PLINTH + 0.08 + index * U, RAIL_Z + 0.026,
       ], { fillet: 0.002, bevel: 0.002 }))
     }
   }
@@ -179,31 +195,39 @@ function build(): { root: Group; sockets: RackSockets; bundle: CargoMaterialBund
   box(root, m.shellShade, [WIDTH, HEIGHT - PLINTH - 0.1, 0.02], [0, PLINTH + (HEIGHT - PLINTH) * 0.5, -(DEPTH * 0.5 - 0.005)], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.007,
   })
-  box(root, m.shellLight, [WIDTH, 0.035, DEPTH], [0, HEIGHT - 0.018, 0], {
+  box(root, m.shellLight, [WIDTH, ROOF, DEPTH], [0, ROOF_Y, 0], {
     chamfer: 0.03, fillet: 0.011, bevel: 0.009, capChamfer: 0.02,
   })
   for (const sz of [-1, 1]) {
-    louvreVent(root, m, [WIDTH - 0.2, 0.14], [0, HEIGHT - 0.018, sz * (DEPTH * 0.25)], 3, 'top')
+    louvreVent(root, m, [WIDTH - 0.2, 0.14], [0, ROOF_TOP, sz * (DEPTH * 0.25)], 3, 'top')
   }
 
-  // Populate the U space from the bottom up.
+  // Populate the U space from the bottom up, then blank whatever the stack does
+  // not reach. Left as drawn it stopped 230 mm below the roof and the head of
+  // the rack was an open slot onto an empty shell.
   let cursor = PLINTH + 0.06
   for (const unit of STACK) {
     faceplate(root, m, unit, cursor + unit.u * U * 0.5, bundle)
     cursor += unit.u * U
   }
+  const headroom = ROOF_Y - ROOF * 0.5 - cursor
+  faceplate(root, m, { u: headroom / U, kind: 'blank' }, cursor + headroom * 0.5, bundle)
 
-  // Cable entry at the back, with a bundle dropping out of it.
-  box(root, m.graphite, [WIDTH - 0.2, 0.06, 0.05], [0, HEIGHT - 0.09, -(DEPTH * 0.5 - 0.03)], {
+  // Cable entry at the back, with a bundle dropping out of it. The gland box
+  // stands clear of the back panel so the run leaves the rack instead of lying
+  // a millimetre off its skin down the whole drop.
+  box(root, m.graphite, [WIDTH - 0.2, 0.06, 0.07], [0, HEIGHT - 0.09, -(DEPTH * 0.5 + 0.02)], {
     chamfer: 0.016, fillet: 0.006, bevel: 0.005,
   })
   for (let index = 0; index < 5; index += 1) {
-    root.add(cylinder(m.rubber, 0.014, 0.5, [-0.16 + index * 0.08, HEIGHT - 0.34, -(DEPTH * 0.5 + 0.02)], AXIS_Y, 6))
+    root.add(cylinder(m.rubber, 0.014, 0.5, [-0.16 + index * 0.08, HEIGHT - 0.34, -(DEPTH * 0.5 + 0.04)], AXIS_Y, 6))
   }
-  root.add(cylinder(m.rubber, 0.04, 0.3, [0, HEIGHT - 0.62, -(DEPTH * 0.5 + 0.03)], [0.3, 0, 0], 8))
+  root.add(cylinder(m.rubber, 0.04, 0.3, [0, HEIGHT - 0.62, -(DEPTH * 0.5 + 0.06)], [0.3, 0, 0], 8))
 
+  // Asset label on the roof's own face, between the two vent fields. At z 0.24
+  // it was inside the +Z louvre and the plan view showed two vents and no label.
   const label = addLabelDecal(bundle, { variant: 305 })
-  plaque(root, m, label, [0.2, 0.07], [0, HEIGHT - 0.005, 0.24], 'top', m.shellLight)
+  plaque(root, m, label, [0.2, 0.07], [0, ROOF_TOP, 0], 'top', m.shellLight)
 
   const sockets: RackSockets = {
     slot_low: socket('slot_low', [0, PLINTH + 0.2, DEPTH * 0.5 + 0.05]),
