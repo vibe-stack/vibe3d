@@ -1,7 +1,19 @@
-import { Box, ChevronRight, Pause, Play, Search, Sparkles } from 'lucide-react'
+import { Box, ChevronRight, Clock, LayoutGrid, Pause, Play, Search, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { catalog, categories, initialItem, type CatalogItem } from './catalog.ts'
+import {
+  catalog,
+  categories,
+  initialItem,
+  latestRelease,
+  releaseGroups,
+  type CatalogItem,
+} from './catalog.ts'
 import { Stage } from './stage.tsx'
+
+type SortMode = 'category' | 'latest'
+
+const isNew = (item: CatalogItem): boolean =>
+  latestRelease !== null && item.addedAt?.slice(0, 10) === latestRelease.slice(0, 10)
 
 interface ItemCardProps {
   item: CatalogItem
@@ -20,7 +32,7 @@ function ItemCard({ item, active, index, onSelect }: ItemCardProps) {
     >
       <span className="item-index">{String(index + 1).padStart(2, '0')}</span>
       <span className="item-copy">
-        <strong>{item.name}</strong>
+        <strong>{item.name}{isNew(item) && <em className="item-new">New</em>}</strong>
         <small>{item.category}{item.animated ? ' · Motion' : ''}</small>
       </span>
       <ChevronRight aria-hidden="true" />
@@ -31,6 +43,7 @@ function ItemCard({ item, active, index, onSelect }: ItemCardProps) {
 export function App() {
   const [selected, setSelected] = useState(initialItem)
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<SortMode>('category')
   const [isAnimating, setIsAnimating] = useState(selected.animated)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -41,9 +54,18 @@ export function App() {
     return catalog.filter((item) => `${item.name} ${item.category}`.toLowerCase().includes(normalized))
   }, [query])
 
-  const grouped = useMemo(() => categories
-    .map((category) => ({ category, items: filtered.filter((item) => item.category === category) }))
-    .filter((group) => group.items.length > 0), [filtered])
+  // Both modes produce the same shape, so the list below renders one way and
+  // only the grouping key changes. Search filters first in either mode.
+  const grouped = useMemo(() => {
+    if (sort === 'latest') {
+      return releaseGroups(filtered).map((group) => ({ key: group.label, label: group.label, items: group.items }))
+    }
+    return categories
+      .map((category) => ({ key: category, label: category, items: filtered.filter((item) => item.category === category) }))
+      .filter((group) => group.items.length > 0)
+  }, [filtered, sort])
+
+  const newCount = useMemo(() => catalog.filter(isNew).length, [])
 
   const handleSelect = useCallback((item: CatalogItem) => {
     setSelected(item)
@@ -103,10 +125,34 @@ export function App() {
           <kbd>/</kbd>
         </label>
 
+        <div className="sort-tabs" role="tablist" aria-label="Sort models">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sort === 'category'}
+            className="sort-tab"
+            onClick={() => setSort('category')}
+          >
+            <LayoutGrid aria-hidden="true" />
+            <span>Category</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sort === 'latest'}
+            className="sort-tab"
+            onClick={() => setSort('latest')}
+          >
+            <Clock aria-hidden="true" />
+            <span>Latest</span>
+            {newCount > 0 && <em>{newCount}</em>}
+          </button>
+        </div>
+
         <div className="model-list">
           {grouped.map((group) => (
-            <section key={group.category} className="model-group">
-              <div className="group-label"><span>{group.category}</span><small>{group.items.length}</small></div>
+            <section key={group.key} className="model-group">
+              <div className="group-label"><span>{group.label}</span><small>{group.items.length}</small></div>
               {group.items.map((item) => (
                 <ItemCard
                   key={item.id}

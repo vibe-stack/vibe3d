@@ -37,6 +37,7 @@
     "asset:forge:test": "bun test scripts/asset-forge src/asset-forge",
     "vibe:model": "node --import tsx scripts/asset-forge/cli.ts",
     "audit:kit-closure": "node scripts/audit-kit-closure.mjs",
+    "models:timeline": "node scripts/generate-model-timeline.mjs",
     "preview": "bun run --cwd apps/docs preview",
     "render:headless": "node --import tsx scripts/render-headless.ts",
     "version-packages": "bunx --bun changeset version && bun install",
