@@ -1,6 +1,7 @@
 import { Group, Object3D } from 'three/webgpu'
 
 import {
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -84,8 +85,11 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
       box(hull, m.graphiteEdge, [0.13, BODY_HEIGHT + 0.02, 0.13], [
         sx * (WIDTH * 0.5 - 0.075), BODY_Y, sz * (DEPTH * 0.5 - 0.075),
       ], { chamfer: 0.045, fillet: 0.014, bevel: 0.01 })
+      // The crate stands on its skirt, so the painted foot beds a face clearance
+      // up inside it. At the half-millimetre it was drawn at, its sole and the
+      // skirt's were the same plane four times over.
       box(hull, m.amberPaint, [0.14, 0.075, 0.14], [
-        sx * (WIDTH * 0.5 - 0.075), 0.038, sz * (DEPTH * 0.5 - 0.075),
+        sx * (WIDTH * 0.5 - 0.075), FACE_CLEARANCE + 0.0375, sz * (DEPTH * 0.5 - 0.075),
       ], { chamfer: 0.035, fillet: 0.012, bevel: 0.009 })
     }
   }
