@@ -9,6 +9,7 @@ import {
   box,
   createCargoPreview,
   finishModel,
+  groundPad,
   paintMark,
   plaque,
   slashProfile,
@@ -74,23 +75,27 @@ function bodyProfile(): Vec2[] {
 /**
  * A compression strap: crown run, two side runs, and a buckle.
  *
- * The crown run is kept inside the bag's own crown width. A strap sized to the
- * bag's full depth overhangs the chamfered top and reads as a pair of fins
- * rather than as webbing lying on fabric.
+ * `crown` is the height the fabric reaches at this station, so the run beds 4 mm
+ * into it. The crown run itself is kept inside the bag's own crown width - a
+ * strap sized to the bag's full depth overhangs the chamfered top and reads as a
+ * pair of fins rather than as webbing lying on fabric - but the side runs and
+ * the buckle are set out from `DEPTH`, because the flank is a flat face at
+ * `DEPTH * 0.5` all the way down. Keyed off the crown's width instead they sat
+ * 27 mm inside the fabric and only the amber tongue ever showed.
  */
-function strap(root: Group, m: CargoMaterials, x: number, height: number, depth: number): void {
-  box(root, m.webbing, [0.06, 0.014, depth * 0.66], [x, height + 0.008, 0], {
+function strap(root: Group, m: CargoMaterials, x: number, crown: number, depth: number): void {
+  box(root, m.webbing, [0.06, 0.014, depth * 0.66], [x, crown + 0.003, 0], {
     chamfer: 0.005, fillet: 0.003, bevel: 0.003,
   })
   for (const sz of [-1, 1]) {
-    box(root, m.webbing, [0.06, height * 0.72, 0.014], [x, height * 0.42, sz * (depth * 0.5 - 0.012)], {
+    box(root, m.webbing, [0.06, crown * 0.72, 0.014], [x, crown * 0.42, sz * (DEPTH * 0.5 - 0.005)], {
       chamfer: 0.005, fillet: 0.003, bevel: 0.003,
     })
   }
-  box(root, m.graphiteEdge, [0.075, 0.06, 0.028], [x, height * 0.4, depth * 0.5 + 0.004], {
+  box(root, m.graphiteEdge, [0.075, 0.06, 0.028], [x, crown * 0.4, DEPTH * 0.5 + 0.004], {
     chamfer: 0.016, fillet: 0.006, bevel: 0.005,
   })
-  box(root, m.amberPaint, [0.05, 0.026, 0.018], [x, height * 0.4, depth * 0.5 + 0.02], {
+  box(root, m.amberPaint, [0.05, 0.026, 0.018], [x, crown * 0.4, DEPTH * 0.5 + 0.02], {
     chamfer: 0.008, fillet: 0.004, bevel: 0.004,
   })
 }
@@ -109,9 +114,10 @@ function build(): { root: Group; sockets: CargoBagSockets; bundle: CargoMaterial
     arcSegments: 2,
   }))
   // Rigid base pan: the bag stands because of this, not because fabric is stiff.
-  box(root, m.graphiteEdge, [LENGTH * 0.82, 0.035, DEPTH * 0.78], [0, 0.016, 0], {
-    chamfer: 0.05, fillet: 0.018, bevel: 0.01,
-  })
+  // It is therefore the part in contact, and it takes the floor - drawn at 0.016
+  // it put its underside 1.5 mm *below* the deck with the fabric base's own
+  // down-facing plane a hair above it.
+  groundPad(root, m.graphiteEdge, [LENGTH * 0.82, DEPTH * 0.78], [0, 0, 0], 0.035)
 
   // Hard end cap on one end only, so the two ends never read the same.
   const capX = LENGTH * 0.5 - 0.02
@@ -121,38 +127,50 @@ function build(): { root: Group; sockets: CargoBagSockets; bundle: CargoMaterial
   box(root, m.graphite, [0.03, HEIGHT * 0.42, DEPTH * 0.48], [capX + 0.03, HEIGHT * 0.4, 0], {
     chamfer: 0.04, fillet: 0.014, bevel: 0.01,
   })
-  statusLens(root, m, [0.05, 0.02], [capX + 0.05, HEIGHT * 0.55, 0], m.cyan, 'right')
+  statusLens(root, m, [0.05, 0.02], [capX + 0.045, HEIGHT * 0.55, 0], m.cyan, 'right')
   root.add(cylinder(m.steel, 0.016, 0.06, [capX + 0.04, HEIGHT * 0.22, 0], AXIS_X, 8))
 
-  // Spine, running the length of the crown between the two compression straps.
-  box(root, m.fabric, [LENGTH * 0.66, 0.022, 0.09], [-0.02, HEIGHT * 0.9, 0], {
+  // Where the loft's crown actually is at the three stations that carry webbing.
+  // The profile's nominal top is HEIGHT, but the 90 mm cap chamfer and the bevel
+  // pull the surface as much as 32 mm below it and the fall is not symmetric, so
+  // fractions of HEIGHT put the straps 20 and 39 mm under the fabric and the
+  // whole handle inside the bag - a holdall with no handle on it in any tile.
+  const CROWN_AFT = 0.388
+  const CROWN_FORE = 0.42
+  const CROWN_GRIP = 0.418
+
+  // Spine, running the crown between the two compression straps. Short enough to
+  // stay on the dome: a bar the length of the bag rides 20 mm of air at one end
+  // and buries itself 60 mm at the other.
+  box(root, m.fabric, [LENGTH * 0.36, 0.03, 0.09], [-0.03, CROWN_GRIP - 0.01, 0], {
     chamfer: 0.012, fillet: 0.005, bevel: 0.005,
   })
-  // Strap crowns sit at the height the *chamfered* shell actually reaches, not
-  // at the profile's nominal top. The loft's bevel and cap chamfer pull the real
-  // crown well below `HEIGHT`, and webbing pinned to the nominal figure floats.
-  strap(root, m, -LENGTH * 0.26, HEIGHT * 0.84, DEPTH * 0.9)
-  strap(root, m, LENGTH * 0.1, HEIGHT * 0.87, DEPTH * 0.92)
+  strap(root, m, -LENGTH * 0.26, CROWN_AFT, DEPTH * 0.9)
+  strap(root, m, LENGTH * 0.1, CROWN_FORE, DEPTH * 0.92)
 
   // Carry handle: two short webbing risers meeting in a wrapped grip. Kept low,
   // because a tall loop on a packed bag stands up only when it is being carried.
   for (const sz of [-1, 1]) {
-    box(root, m.fabric, [0.055, 0.05, 0.05], [-0.02, HEIGHT * 0.92, sz * 0.07], {
+    box(root, m.fabric, [0.055, 0.05, 0.05], [-0.02, CROWN_GRIP + 0.005, sz * 0.07], {
       chamfer: 0.014, fillet: 0.006, bevel: 0.005,
     })
   }
-  root.add(cylinder(m.rubber, 0.02, 0.15, [-0.02, HEIGHT * 0.95, 0], AXIS_Z, 10))
-  root.add(cylinder(m.steel, 0.01, 0.04, [-0.02, HEIGHT * 0.95, 0.07], AXIS_Z, 8))
+  root.add(cylinder(m.rubber, 0.02, 0.15, [-0.02, CROWN_GRIP + 0.025, 0], AXIS_Z, 10))
+  root.add(cylinder(m.steel, 0.01, 0.04, [-0.02, CROWN_GRIP + 0.025, 0.07], AXIS_Z, 8))
 
-  // Shoulder strap anchor at the soft end.
-  box(root, m.graphiteEdge, [0.055, 0.05, 0.03], [-LENGTH * 0.46, HEIGHT * 0.6, DEPTH * 0.3], {
+  // Shoulder strap anchor at the soft end, on the flank the loft reaches there.
+  // The bag pinches to z = 0.199 at that station, so set out from DEPTH * 0.3
+  // the whole anchor sat inside the fabric with 18 mm of the D-ring poking out
+  // of the end of the bag.
+  const anchorZ = 0.199
+  box(root, m.graphiteEdge, [0.055, 0.05, 0.03], [-LENGTH * 0.46, HEIGHT * 0.6, anchorZ], {
     chamfer: 0.014, fillet: 0.006, bevel: 0.005,
   })
-  root.add(cylinder(m.steel, 0.018, 0.026, [-LENGTH * 0.48, HEIGHT * 0.6, DEPTH * 0.3], AXIS_X, 8))
+  root.add(cylinder(m.steel, 0.018, 0.026, [-LENGTH * 0.46, HEIGHT * 0.6, anchorZ + 0.015], AXIS_X, 8))
 
   const label = addLabelDecal(bundle, { variant: 51, ground: 0xc9b99e })
-  plaque(root, m, label, [0.2, 0.09], [-0.12, HEIGHT * 0.44, DEPTH * 0.5 + 0.01], 'front', m.fabric)
-  paintMark(root, m.orangePaint, slashProfile(0.05, 0.11, 0.42), [0.2, HEIGHT * 0.5, DEPTH * 0.5 - 0.01], 'front', 0.008)
+  plaque(root, m, label, [0.2, 0.09], [-0.12, HEIGHT * 0.44, DEPTH * 0.5], 'front', m.fabric)
+  paintMark(root, m.orangePaint, slashProfile(0.05, 0.11, 0.42), [0.2, HEIGHT * 0.5, DEPTH * 0.5], 'front', 0.008)
 
   const sockets: CargoBagSockets = {
     carry_handle: socket('carry_handle', [-0.02, HEIGHT * 1.02, 0]),
