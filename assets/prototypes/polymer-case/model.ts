@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   box,
@@ -67,13 +68,18 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   const bodyHeight = HEIGHT - LID
   const bodyY = bodyHeight * 0.5
 
-  box(hull, m.shell, [WIDTH, bodyHeight, DEPTH], [0, bodyY, 0], {
+  // The case is carried by the four blade ribs below, so the moulding's own
+  // underside is a face clearance clear of them rather than a second skin a
+  // millimetre off the sole they stand on.
+  box(hull, m.shell, [WIDTH, bodyHeight - FACE_CLEARANCE, DEPTH], [0, bodyY + FACE_CLEARANCE * 0.5, 0], {
     chamfer: 0.07, fillet: 0.026, bevel: 0.02, capChamfer: 0.045,
   })
   // A base band, which is what the reference has and what stops the case from
   // being a single unbroken light value. Even a moulded case is two-tier: the
-  // shell is one moulding and the base it stands on is another.
-  box(hull, m.graphite, [WIDTH - 0.03, 0.028, DEPTH - 0.03], [0, 0.014, 0], {
+  // shell is one moulding and the base it stands on is another. It is recessed
+  // by the same clearance again, so the underside reads as three mouldings
+  // stepping up off the deck instead of one plane shared three ways.
+  box(hull, m.graphite, [WIDTH - 0.03, 0.028 - FACE_CLEARANCE * 2, DEPTH - 0.03], [0, 0.014 + FACE_CLEARANCE, 0], {
     chamfer: 0.045, fillet: 0.016, bevel: 0.009,
   })
   // The parting line is the case's strongest single feature; it wraps the whole
