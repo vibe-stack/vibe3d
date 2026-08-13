@@ -4,6 +4,7 @@ import { cylinder, type Vec3 } from '../../../src/asset-forge/generator/index.ts
 import {
   AXIS_X,
   AXIS_Y,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -70,7 +71,12 @@ function pallet(root: Group, m: CargoMaterials, bundle: CargoMaterialBundle): vo
       chamfer: 0.035, fillet: 0.012, bevel: 0.01,
     })
   }
-  box(root, m.ink, [span, 0.028, 0.14], [0, 0.014, 0], { chamfer: 0.03, fillet: 0.01, bevel: 0.008 })
+  // The pallet rides on its three stringers, so the bottom board between them
+  // stops a face clearance short of the deck: flush with them it crossed all
+  // three on one down-facing plane.
+  box(root, m.ink, [span, 0.028 - FACE_CLEARANCE, 0.14], [0, (0.028 + FACE_CLEARANCE) * 0.5, 0], {
+    chamfer: 0.03, fillet: 0.01, bevel: 0.008,
+  })
   // The pallet's own edge is a flat face, so it takes the flat plaque. Measured
   // as a radius about the stack's axis the stripe landed inside a stringer.
   const stripe = addStripeDecal(bundle, { count: 6, lean: 1 })
