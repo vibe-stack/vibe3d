@@ -5,6 +5,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -118,8 +119,12 @@ function beamBuild(beam: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
   }
   const cableTop = -BEAM_H * 0.5 - 0.06
   const cableMid = (cars[0] + cars[1]) * 0.5
+  // Both runs of the sag are cut square to their own axis, so they cross in a
+  // wedge at the bottom of the vee. The second is drawn a clearance thinner and
+  // tucks inside the first through it; at one depth the wedge's front faces were
+  // one plane and its back faces another, on the same rubber either side.
   member(beam, m.rubber, [cars[0], cableTop, festoonZ], [cableMid, cableTop - 0.2, festoonZ], 0.032, 0.032)
-  member(beam, m.rubber, [cableMid, cableTop - 0.2, festoonZ], [cars[1], cableTop, festoonZ], 0.032, 0.032)
+  member(beam, m.rubber, [cableMid, cableTop - 0.2, festoonZ], [cars[1], cableTop, festoonZ], 0.032, 0.032 - FACE_CLEARANCE * 2)
   const stripe = addStripeDecal(bundle, { count: 9, lean: 1 })
   plaque(beam, m, stripe, [BEAM - 0.5, 0.07], [0, BEAM_H * 0.5, 0], 'top', m.ink)
   // The identity plate belongs on the web between two stiffeners. Aimed at the
