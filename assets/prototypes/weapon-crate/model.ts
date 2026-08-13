@@ -2,7 +2,6 @@ import { Group, Object3D } from 'three/webgpu'
 
 import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
 import {
-  AXIS_X,
   AXIS_Z,
   acquireCargoMaterials,
   addLabelDecal,
@@ -11,6 +10,7 @@ import {
   boltRun,
   createCargoPreview,
   finishModel,
+  lidHinge,
   paintMark,
   plaque,
   seam,
@@ -140,16 +140,11 @@ function lidBody(lid: Group, m: CargoMaterials, bundle: CargoMaterialBundle): vo
   })
   const stripe = addStripeDecal(bundle, { count: 8, lean: 1 })
   plaque(lid, m, stripe, [LENGTH - 0.52, 0.08], [0, LID + 0.024, DEPTH * 0.5 - 0.03], 'top', m.ink)
-  // Hinge lugs straddling the leaf's own back face. Drawn at a local z of 0.018
+  // A barrel straddling the leaf's own back face. Drawn at a local z of 0.018
   // the lugs and the pin were both inside the lid they swing on, so the crate's
   // back carried no hinge at all.
   const leafBack = DEPTH * 0.5 - 0.03 - (DEPTH + 0.014) * 0.5
-  for (const x of [-0.62, 0.62]) {
-    lid.add(prism(m.graphiteEdge, [0.12, 0.08, 0.05], [x, LID * 0.55, leafBack], {
-      chamfer: 0.018, fillet: 0.008, bevel: 0.006,
-    }))
-    lid.add(cylinder(m.steel, 0.018, 0.16, [x, LID * 0.55, leafBack - 0.004], AXIS_X, 8))
-  }
+  lidHinge(lid, m, LENGTH - 0.2, [0, 0, leafBack - 0.004], 'x', 2, 0.02, 0.075, 0.004)
 }
 
 function build(): { root: Group; hull: Group; lid: Group; sockets: WeaponCrateSockets; bundle: CargoMaterialBundle } {
