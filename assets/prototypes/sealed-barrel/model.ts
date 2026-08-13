@@ -6,6 +6,7 @@ import {
   AXIS_Z,
   acquireCargoMaterials,
   addLabelDecal,
+  bolt,
   box,
   createCargoPreview,
   drum,
@@ -98,17 +99,12 @@ function build(): { root: Group; sockets: SealedBarrelSockets; bundle: CargoMate
   radialMark(root, m.amberPaint, slashProfile(0.03, 0.115, 0.42), RADIUS, bandY(0, 1), 0.17, 20, 0.016)
   const lamp = radialFitting(RADIUS, bandY(1, 2), -0.75)
   statusLens(root, m, [0.05, 0.02], lamp.position, m.cyan, 'front', 0, lamp.rotation)
-  // Seam fasteners turned to face out of the shell. `bolt` only knows the six
-  // box faces, so on a curve every one of these came out along +Z - the outer
-  // pair 51 degrees off the surface they are screwed into.
+  // Seam fasteners turned to face out of the shell. Left to the six box faces
+  // every one of these came out along +Z - the outer pair 51 degrees off the
+  // surface they are screwed into.
   for (let index = 0; index < 3; index += 1) {
-    const angle = -0.9 + index * 0.9
-    const seat = radialFitting(RADIUS, (clearFoot + BODY * HOOPS[0] - 0.026) * 0.5, angle)
-    root.add(cylinder(m.steel, 0.015, 0.03, [
-      seat.position[0] + Math.sin(angle) * 0.008,
-      seat.position[1],
-      seat.position[2] + Math.cos(angle) * 0.008,
-    ], [Math.PI / 2, 0, -angle], 6))
+    const seat = radialFitting(RADIUS, (clearFoot + BODY * HOOPS[0] - 0.026) * 0.5, -0.9 + index * 0.9)
+    bolt(root, m.steel, seat.position, 0.015, 'front', 0.023, seat.rotation)
   }
 
   const sockets: SealedBarrelSockets = {
