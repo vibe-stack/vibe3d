@@ -4,6 +4,7 @@ import { cylinder, extrudeProfile, type Vec2 } from '../../../src/asset-forge/ge
 import {
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   bolt,
@@ -151,7 +152,12 @@ function build(): {
   // Fill line climbing the +X leg to the roof head.
   const lineX = Math.sin(Math.PI / 4) * LEG_R + 0.16
   const lineZ = Math.cos(Math.PI / 4) * LEG_R + 0.16
-  body.add(cylinder(m.steel, 0.075, shoulder + BARREL, [lineX, (shoulder + BARREL) * 0.5, lineZ], AXIS_Y, 10))
+  // The riser still stands on the ground, but it stops a clearance under the
+  // barrel's crown rather than level with it. Run to the full height its top cap
+  // and the barrel's shared y = 5.75, and the pipe straddles the flank, so the
+  // pair showed in the annulus of crown the roof cap leaves uncovered.
+  const riser = shoulder + BARREL - FACE_CLEARANCE
+  body.add(cylinder(m.steel, 0.075, riser, [lineX, riser * 0.5, lineZ], AXIS_Y, 10))
   body.add(cylinder(m.steel, 0.075, 0.8, [lineX * 0.5, shoulder + BARREL + 0.14, lineZ * 0.5], [0.9, -0.78, 0], 10))
   for (let index = 0; index < 4; index += 1) {
     const y = 0.6 + index * 1.1
