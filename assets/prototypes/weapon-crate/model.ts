@@ -42,6 +42,17 @@ const DEPTH = 0.52
 const HEIGHT = 0.44
 const FOOT = 0.05
 const LID = 0.13
+/**
+ * How far the body reaches past the foot below it and the lid above it.
+ *
+ * Both joints were drawn as exact meets - the foot's top cap on the body's
+ * bottom, the lid's bottom on the body's top - which reads as a hard black line
+ * from anywhere off the horizon. The body grows into both rather than the lid
+ * dropping, so the bands and latches keep the heights they were placed at.
+ */
+const LAP = 0.02
+const BODY_HEIGHT = HEIGHT - LID - FOOT + LAP * 2
+const BODY_Y = (FOOT - LAP + HEIGHT - LID + LAP) * 0.5
 
 interface WeaponCrateSockets {
   lid_hinge: Object3D
@@ -81,39 +92,41 @@ function bailHandle(hull: Group, m: CargoMaterials, side: -1 | 1, y: number): vo
 }
 
 function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
-  const bodyHeight = HEIGHT - FOOT - LID
-  const bodyY = FOOT + bodyHeight * 0.5
-
   box(hull, m.ink, [LENGTH - 0.1, FOOT, DEPTH - 0.06], [0, FOOT * 0.5, 0], {
     chamfer: 0.025, fillet: 0.01, bevel: 0.009,
   })
-  box(hull, m.graphite, [LENGTH, bodyHeight, DEPTH], [0, bodyY, 0], {
+  box(hull, m.graphite, [LENGTH, BODY_HEIGHT, DEPTH], [0, BODY_Y, 0], {
     chamfer: 0.06, fillet: 0.02, bevel: 0.016, capChamfer: 0.04,
   })
 
-  // Bolted reinforcement bands, the crate's dominant rhythm.
+  // Bolted reinforcement bands, the crate's dominant rhythm. They run the clear
+  // height between the foot and the shut line rather than the body's, because
+  // the body now reaches past both and a band sized to it would stand out
+  // through the lid. The bolts seat on the band's own face, 9 mm out.
+  const shutY = HEIGHT - LID
+  const bandZ = DEPTH * 0.5 + 0.009
   for (const x of [-0.56, 0, 0.56]) {
-    box(hull, m.graphiteEdge, [0.1, bodyHeight + 0.01, DEPTH + 0.018], [x, bodyY, 0], {
+    box(hull, m.graphiteEdge, [0.1, shutY - FOOT + 0.02, DEPTH + 0.018], [x, (shutY + FOOT) * 0.5, 0], {
       chamfer: 0.026, fillet: 0.009, bevel: 0.008,
     })
-    boltRun(hull, m.steel, [x, bodyY + 0.05, DEPTH * 0.5 + 0.012], [x, bodyY - 0.05, DEPTH * 0.5 + 0.012], 2, 0.014, 'front')
+    boltRun(hull, m.steel, [x, BODY_Y + 0.05, bandZ], [x, BODY_Y - 0.05, bandZ], 2, 0.014, 'front')
   }
 
-  const frontZ = DEPTH * 0.5 + 0.004
+  const frontZ = DEPTH * 0.5
   for (const x of [-0.28, 0.28]) {
-    seam(hull, m.graphite, bodyHeight - 0.06, [x, bodyY, frontZ], 'front', 'along', 0.024, 0.015)
+    seam(hull, m.graphite, BODY_HEIGHT - 0.1, [x, BODY_Y, frontZ], 'front', 'along', 0.024, 0.015)
   }
   const label = addLabelDecal(bundle, { variant: 29, ground: 0xd9e6e9 })
-  plaque(hull, m, label, [0.3, 0.1], [-0.86 + 0.42, bodyY, frontZ], 'front', m.shellShade)
-  paintMark(hull, m.redPaint, slashProfile(0.09, 0.13, 0.55), [0.78, bodyY, frontZ], 'front', 0.011)
-  paintMark(hull, m.redPaint, slashProfile(0.045, 0.13, 0.55), [0.88, bodyY, frontZ], 'front', 0.011)
-  statusLens(hull, m, [0.08, 0.03], [0.3, bodyY, frontZ], m.amber, 'front')
+  plaque(hull, m, label, [0.3, 0.1], [-0.86 + 0.42, BODY_Y, frontZ], 'front', m.shellShade)
+  paintMark(hull, m.redPaint, slashProfile(0.09, 0.13, 0.55), [0.78, BODY_Y, frontZ], 'front', 0.011)
+  paintMark(hull, m.redPaint, slashProfile(0.045, 0.13, 0.55), [0.88, BODY_Y, frontZ], 'front', 0.011)
+  statusLens(hull, m, [0.08, 0.03], [0.3, BODY_Y, frontZ], m.amber, 'front')
 
   const stripe = addStripeDecal(bundle, { count: 6, lean: -1, bar: 0xeb514e })
-  plaque(hull, m, stripe, [0.7, 0.08], [0, bodyY, -frontZ], 'back', m.ink)
+  plaque(hull, m, stripe, [0.7, 0.08], [0, BODY_Y, -frontZ], 'back', m.ink)
 
-  bailHandle(hull, m, 1, bodyY)
-  bailHandle(hull, m, -1, bodyY)
+  bailHandle(hull, m, 1, BODY_Y)
+  bailHandle(hull, m, -1, BODY_Y)
 }
 
 function lidBody(lid: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
@@ -127,11 +140,15 @@ function lidBody(lid: Group, m: CargoMaterials, bundle: CargoMaterialBundle): vo
   })
   const stripe = addStripeDecal(bundle, { count: 8, lean: 1 })
   plaque(lid, m, stripe, [LENGTH - 0.52, 0.08], [0, LID + 0.024, DEPTH * 0.5 - 0.03], 'top', m.ink)
+  // Hinge lugs straddling the leaf's own back face. Drawn at a local z of 0.018
+  // the lugs and the pin were both inside the lid they swing on, so the crate's
+  // back carried no hinge at all.
+  const leafBack = DEPTH * 0.5 - 0.03 - (DEPTH + 0.014) * 0.5
   for (const x of [-0.62, 0.62]) {
-    lid.add(prism(m.graphiteEdge, [0.12, 0.08, 0.07], [x, LID * 0.55, 0.018], {
-      chamfer: 0.024, fillet: 0.008, bevel: 0.006,
+    lid.add(prism(m.graphiteEdge, [0.12, 0.08, 0.05], [x, LID * 0.55, leafBack], {
+      chamfer: 0.018, fillet: 0.008, bevel: 0.006,
     }))
-    lid.add(cylinder(m.steel, 0.02, 0.16, [x, LID * 0.55, 0], AXIS_X, 8))
+    lid.add(cylinder(m.steel, 0.018, 0.16, [x, LID * 0.55, leafBack - 0.004], AXIS_X, 8))
   }
 }
 
@@ -152,7 +169,7 @@ function build(): { root: Group; hull: Group; lid: Group; sockets: WeaponCrateSo
   lidBody(lid, m, bundle)
 
   for (const x of [-0.78, -0.26, 0.26, 0.78]) {
-    toggleLatch(hull, m, [x, HEIGHT - LID - 0.01, DEPTH * 0.5 + 0.004], 0.7, 'front')
+    toggleLatch(hull, m, [x, HEIGHT - LID, DEPTH * 0.5], 0.7, 'front')
   }
 
   const sockets: WeaponCrateSockets = {
