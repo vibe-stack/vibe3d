@@ -231,8 +231,12 @@ export function createModel(): OpenContainerController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0, SPEC.height * 0.45, 0],
-    distance: 11.6,
+    // A 6 m box seen across its diagonal is 6.5 m wide in frame, and at 11.6 m
+    // the door end and the stowed tarp roll were both cut off the right-hand
+    // edge. The target drops with the distance so the open mouth stays the
+    // subject rather than the sky above it.
+    target: [0, SPEC.height * 0.375, 0],
+    distance: 14.4,
     yaw: 0.72,
     pitch: 0.42,
     fov: 30,
