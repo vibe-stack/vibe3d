@@ -1,4 +1,4 @@
-import { Euler, Group, Mesh, MeshPhysicalMaterial, Object3D, PlaneGeometry, Vector3 } from 'three/webgpu'
+import { Euler, Group, Mesh, MeshPhysicalMaterial, Object3D, PlaneGeometry, Quaternion, Vector3 } from 'three/webgpu'
 
 import {
   cylinder,
@@ -73,6 +73,40 @@ export function lift(position: Vec3, face: Face, distance: number): Vec3 {
 }
 
 /**
+ * Moves a point along the outward normal of a surface whose facing rotation is
+ * `orient` - the arbitrary-angle twin of {@link lift}.
+ *
+ * The six box faces carry their normals in a table. A tank flank, a raked deck,
+ * or a yawed sack cap does not, so anything seated by {@link radialFitting} or
+ * by a caller's own tilt has to read its lift off the rotation itself.
+ */
+function liftAlong(position: Vec3, orient: Vec3, distance: number): Vec3 {
+  const normal = new Vector3(0, 0, 1).applyEuler(new Euler(...orient))
+  return [
+    position[0] + normal.x * distance,
+    position[1] + normal.y * distance,
+    position[2] + normal.z * distance,
+  ]
+}
+
+/**
+ * Rotation standing a cylinder's axis along the outward normal of a surface
+ * whose facing rotation is `orient`.
+ *
+ * A flat part takes that rotation unchanged, because its own +Z is its normal.
+ * A cylinder's axis is +Y, so the two differ by a quarter turn about X, and a
+ * caller who hands one the other gets a fastener lying along the skin instead
+ * of driven into it.
+ */
+function boreRotation(orient: Vec3): Vec3 {
+  const rotation = new Euler().setFromQuaternion(
+    new Quaternion().setFromEuler(new Euler(...orient))
+      .multiply(new Quaternion().setFromEuler(new Euler(Math.PI / 2, 0, 0))),
+  )
+  return [rotation.x, rotation.y, rotation.z]
+}
+
+/**
  * Position for stacked surface detail. `n` = 1 for the first layer on a face.
  *
  * Every face-applied helper below already embeds its own back cap and stands its
@@ -137,18 +171,40 @@ export function box(
   return mesh
 }
 
-/** A proud hex-head fastener. */
+/**
+ * A proud hex-head fastener.
+ *
+ * `proud` is how far the head stands above the face it is driven into, and it
+ * belongs to the host rather than to the bolt: the 23 mm a container's seal bolt
+ * wants is taller than a pallet board is thick, and seven of them queued along
+ * the view axis read as one spike through the deck rather than as nails. The
+ * head bites 7 mm into its host, or its whole proud height on anything thinner,
+ * so a flush-driven fastener is still seated instead of laid on.
+ *
+ * `orient` takes the surface rotation {@link radialFitting} or {@link faceSpin}
+ * returns, for a fastener on a flank the six box faces cannot describe. Without
+ * it a radial bolt has to be hand-rolled as a bare cylinder, which is how the
+ * sealed barrel's seam fasteners came out 51 degrees off the shell.
+ */
 export function bolt(
   parent: Group,
   material: MeshPhysicalMaterial,
   position: Vec3,
   radius = 0.022,
   face: Face = 'front',
+  proud = 0.023,
+  orient?: Vec3,
 ): Mesh {
-  const rotation = face === 'top' || face === 'bottom'
-    ? AXIS_Y
-    : face === 'left' || face === 'right' ? AXIS_X : AXIS_Z
-  const mesh = cylinder(material, radius, 0.03, lift(position, face, 0.008), rotation, 6)
+  const bite = Math.min(0.007, proud)
+  const rotation = orient
+    ? boreRotation(orient)
+    : face === 'top' || face === 'bottom'
+      ? AXIS_Y
+      : face === 'left' || face === 'right' ? AXIS_X : AXIS_Z
+  const seat = orient
+    ? liftAlong(position, orient, (proud - bite) * 0.5)
+    : lift(position, face, (proud - bite) * 0.5)
+  const mesh = cylinder(material, radius, proud + bite, seat, rotation, 6)
   parent.add(mesh)
   return mesh
 }
@@ -460,7 +516,7 @@ export function toggleLatch(
 
 /**
  * The barrel hinge every lidded prop in this wave swings on: a continuous pin
- * with knuckles and a strap either side of each one.
+ * with knuckles and a strap running out of each one onto both leaves.
  *
  * `position` is the pin itself, and the pin belongs **outside** both leaves.
  * Seven models built this by hand and all seven put the knuckles at a local
@@ -468,6 +524,18 @@ export function toggleLatch(
  * backs in the sheet are smooth, with no hinge anywhere on them. Sit the pin
  * clear of the leaf's back face and the barrel is visible from every angle the
  * lid can be seen from, which is the whole point of modelling it.
+ *
+ * The straps run **across** the pin rather than fore and aft of it, because a
+ * lid hinged along a back edge has its two leaves stacked in y: one strap lands
+ * on the body's back face and the other on the lid's. Run fore and aft they
+ * reached 120 mm behind the shell into open air on a 320 mm case, and behind the
+ * rake on a sloped one, which is why nothing in the wave could use this helper.
+ *
+ * `reach` is how far each strap runs from the pin onto its leaf - a lid's own
+ * height is the size to think in, not the pin's. `seat` is how far the leaves'
+ * back faces stand in front of the pin, signed along the horizontal axis the pin
+ * does not run in; passing the leaf's own back offset is what lays the straps on
+ * the plate they are bolted to instead of leaving them behind it.
  */
 export function lidHinge(
   parent: Group,
@@ -477,12 +545,16 @@ export function lidHinge(
   axis: 'x' | 'z' = 'x',
   knuckles = 3,
   radius = 0.022,
+  reach = radius * 4.5,
+  seat = 0,
 ): Group {
   const hinge = new Group()
   hinge.name = 'axiom-cargo-kit / lid hinge'
   parent.add(hinge)
   const along: Vec3 = axis === 'x' ? [1, 0, 0] : [0, 0, 1]
+  const facing: Vec3 = axis === 'x' ? [0, 0, 1] : [1, 0, 0]
   const pinAxis = axis === 'x' ? AXIS_X : AXIS_Z
+  const plate = radius * 1.1
 
   hinge.add(cylinder(m.steel, radius * 0.42, span, position, pinAxis, 8))
   for (let index = 0; index < knuckles; index += 1) {
@@ -496,15 +568,17 @@ export function lidHinge(
     hinge.add(cylinder(m.graphiteEdge, radius, radius * 3.4, centre, pinAxis, 10))
     // The straps run out of the barrel into both leaves rather than stopping at
     // it, because a knuckle floating on a pin is what a hinge looks like when
-    // the leaf plates have been left out.
+    // the leaf plates have been left out. Each starts on the pin's own plane, so
+    // it emerges from the knuckle instead of butting against it.
     for (const sign of [-1, 1]) {
-      const reach = sign * radius * 2.6
-      const strap: Vec3 = axis === 'x'
-        ? [centre[0], centre[1], centre[2] + reach]
-        : [centre[0] + reach, centre[1], centre[2]]
+      const strap: Vec3 = [
+        centre[0] + facing[0] * seat,
+        centre[1] + sign * reach * 0.5,
+        centre[2] + facing[2] * seat,
+      ]
       const size: Vec3 = axis === 'x'
-        ? [radius * 3, radius * 1.1, radius * 5.6]
-        : [radius * 5.6, radius * 1.1, radius * 3]
+        ? [radius * 3, reach, plate]
+        : [plate, reach, radius * 3]
       hinge.add(prism(m.graphiteEdge, size, strap, {
         chamfer: radius * 0.3, fillet: radius * 0.12, bevel: radius * 0.1,
       }))
@@ -599,6 +673,11 @@ export function plaque(
  * stencilled hull number on a procedural asset always looks like a sticker.
  * Paint is 1 to 2 mm of material; modelling it that way costs a handful of
  * triangles and buys a mark that ages with the panel under it.
+ *
+ * `orient` replaces the face rotation outright, for a host that is not one of
+ * the six box faces - a sloped deck, a tilted tank facet, a sack cap turned by
+ * its own yaw. The seat follows it, so the mark embeds by the same amount from
+ * end to end instead of standing off at one edge and sinking at the other.
  */
 export function paintMark(
   parent: Group,
@@ -608,11 +687,15 @@ export function paintMark(
   face: Face = 'front',
   thickness = 0.014,
   spin = 0,
+  orient?: Vec3,
 ): Mesh {
-  const mesh = extrudeProfile(material, profile, thickness, lift(position, face, thickness * 0.36), {
+  const seat = orient
+    ? liftAlong(position, orient, thickness * 0.36)
+    : lift(position, face, thickness * 0.36)
+  const mesh = extrudeProfile(material, profile, thickness, seat, {
     fillet: thickness * 0.5,
     bevel: thickness * 0.3,
-    rotation: faceSpin(face, spin),
+    rotation: orient ?? faceSpin(face, spin),
   })
   parent.add(mesh)
   return mesh
@@ -694,6 +777,10 @@ export function radialPlaque(
  * shell and the mark is buried at its centre and clear of the silhouette at its
  * edges, or the reverse. Seated on the facet plane and rotated with it, a
  * chevron on a barrel behaves like a chevron on a panel.
+ *
+ * `centre` is the cylinder's axis, for the same reason {@link radialPlaque}
+ * takes one: a rack of drums has four axes, and a mark measured about the wrong
+ * one lands inside the drum next to the one it belongs to.
  */
 export function radialMark(
   parent: Group,
@@ -704,12 +791,24 @@ export function radialMark(
   angle: number,
   segments = 20,
   thickness = 0.013,
+  centre: Vec3 = [0, 0, 0],
 ): Mesh {
-  const seat = facetRadius(radius, segments) + thickness * 0.36
-  const mesh = extrudeProfile(material, profile, thickness, [
-    Math.sin(angle) * seat,
-    height,
-    Math.cos(angle) * seat,
+  const facet = facetRadius(radius, segments)
+  // A stroke lies exactly flat on the chord it is centred on, and then leaves
+  // it: past that facet's own edge each further millimetre of width drops away
+  // at the next facet's slope, while the mark embeds only 0.14 of its thickness.
+  // Wider than this and the far corners are off the shell, which is why the
+  // pressure vessel's chevrons had to be sized to the facet by hand. A stroke
+  // that outruns its facet is narrowed rather than left to peel.
+  const step = (Math.PI * 2) / segments
+  const reach = facet * Math.tan(step * 0.5) + (thickness * 0.14) / Math.tan(step)
+  const half = Math.max(...profile.map(([x]) => Math.abs(x)))
+  const stroke = half > reach ? profile.map(([x, y]): Vec2 => [x * (reach / half), y]) : profile
+  const seat = facet + thickness * 0.36
+  const mesh = extrudeProfile(material, stroke, thickness, [
+    centre[0] + Math.sin(angle) * seat,
+    centre[1] + height,
+    centre[2] + Math.cos(angle) * seat,
   ], {
     fillet: thickness * 0.5,
     bevel: thickness * 0.3,
@@ -727,16 +826,25 @@ export function radialMark(
  * a tank picks a corner like `[r*0.72, y, r*0.72]` and gets a part at 45 degrees
  * to the surface. This returns the same pair those helpers would have been given
  * on a flat panel, so nothing else about the call site has to change.
+ *
+ * `centre` is the cylinder's axis, as on {@link radialPlaque}: without it a
+ * model with more than one barrel has to wrap each fitting in its own group to
+ * get the trigonometry measured about the right one.
  */
 export function radialFitting(
   radius: number,
   height: number,
   angle: number,
   segments = 20,
+  centre: Vec3 = [0, 0, 0],
 ): { position: Vec3; rotation: Vec3 } {
   const facet = facetRadius(radius, segments)
   return {
-    position: [Math.sin(angle) * facet, height, Math.cos(angle) * facet],
+    position: [
+      centre[0] + Math.sin(angle) * facet,
+      centre[1] + height,
+      centre[2] + Math.cos(angle) * facet,
+    ],
     rotation: [0, angle, 0],
   }
 }
@@ -911,8 +1019,13 @@ export function tubeSection(
  * face on the same plane as whatever sits at the opening. Five faces cost four
  * extra meshes and make the cavity an actual cavity.
  *
- * `size` is the clear opening. `open` is the face left out - the one the doors,
- * drawers, or lid cover.
+ * `size` is the clear opening, and the walls are built **outside** it: the liner
+ * occupies `size + 2 * wall` on every closed axis. So the number to pass is the
+ * void the drawers and shelves have to fit in, not the carcass they sit in -
+ * size it to the carcass and the walls stand a wall's thickness outside the
+ * shell they are meant to line.
+ *
+ * `open` is the face left out - the one the doors, drawers, or lid cover.
  */
 export function cavityLiner(
   parent: Group,
