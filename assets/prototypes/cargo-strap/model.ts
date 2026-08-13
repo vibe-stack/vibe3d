@@ -98,7 +98,11 @@ function ratchet(root: Group, m: CargoMaterials, y: number): void {
     })
   }
   body.add(cylinder(m.steel, 0.028, 0.08, [0.03, 0.028, 0], AXIS_Z, 12))
-  body.add(cylinder(m.ink, 0.014, 0.095, [0.03, 0.028, 0], AXIS_Z, 8))
+  // The axle runs a face clearance past the flanges it turns in, whose outer
+  // faces are at 48 mm. Cut to 95 mm it stopped half a millimetre short of them
+  // and the two ends read as one plane; there is no length that leaves it
+  // between the flange and the frame plate, so it has to come through.
+  body.add(cylinder(m.ink, 0.014, (0.048 + FACE_CLEARANCE) * 2, [0.03, 0.028, 0], AXIS_Z, 8))
   // Toothed drum flanges, the part that tells you it is a ratchet and not a
   // buckle. Eight facets is enough to catch the key light as teeth.
   for (const sz of [-1, 1]) {
@@ -107,7 +111,9 @@ function ratchet(root: Group, m: CargoMaterials, y: number): void {
   box(body, m.amberPaint, [0.15, 0.032, 0.062], [-0.08, 0.03, 0], {
     chamfer: 0.014, fillet: 0.006, bevel: 0.005, rotation: [0, 0, 0.16],
   })
-  box(body, m.rubber, [0.05, 0.028, 0.058], [-0.14, 0.038, 0], {
+  // The moulded grip is let into the handle's 62 mm width by a face clearance a
+  // side. At 58 mm the step was 2 mm and both flanks faced outboard together.
+  box(body, m.rubber, [0.05, 0.028, 0.062 - FACE_CLEARANCE * 2], [-0.14, 0.038, 0], {
     chamfer: 0.012, fillet: 0.005, bevel: 0.004,
   })
   body.add(cylinder(m.steel, 0.01, 0.07, [-0.012, 0.042, 0], AXIS_Z, 8))
