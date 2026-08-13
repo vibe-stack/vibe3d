@@ -40,6 +40,13 @@ import type { UnwrapResult } from './unwrap.ts'
 export interface DetailField {
   sdf(x: number, y: number, z: number, seed: number): number
   normal(x: number, y: number, z: number, seed: number, step: number): Vec3
+  /** Allocation-free equivalent used by the per-texel hot path when available. */
+  normalInto?(
+    x: number, y: number, z: number,
+    seed: number,
+    step: number,
+    output: Vec3,
+  ): Vec3
   /**
    * Optional material region at a surface point, in [0, 1], written as a
    * `region-mask` channel.
@@ -323,6 +330,19 @@ export function compileSurfaceBake(
   let coveredTexels = 0
   let hitTexels = 0
   let peakHeight = 0
+  const detailNormal: Vec3 = [0, 0, 0]
+  const aheadNormal: Vec3 = [0, 0, 0]
+  const sampleNormal = field.normalInto
+    ? (x: number, y: number, z: number, output: Vec3) => (
+        field.normalInto!(x, y, z, normalizedSeed, gradientStep, output)
+      )
+    : (x: number, y: number, z: number, output: Vec3) => {
+        const sampled = field.normal(x, y, z, normalizedSeed, gradientStep)
+        output[0] = sampled[0]
+        output[1] = sampled[1]
+        output[2] = sampled[2]
+        return output
+      }
 
   for (let texel = 0; texel < width * height; texel += 1) {
     if (!raster.covered[texel]) continue
@@ -362,7 +382,7 @@ export function compileSurfaceBake(
       if (Math.abs(relief) > peakHeight) peakHeight = Math.abs(relief)
     }
 
-    const detail = field.normal(hitX, hitY, hitZ, normalizedSeed, gradientStep)
+    const detail = sampleNormal(hitX, hitY, hitZ, detailNormal)
     normalData[texel * 3] = encodeUnorm(detail[0] * 0.5 + 0.5)
     normalData[texel * 3 + 1] = encodeUnorm(detail[1] * 0.5 + 0.5)
     normalData[texel * 3 + 2] = encodeUnorm(detail[2] * 0.5 + 0.5)
@@ -386,9 +406,9 @@ export function compileSurfaceBake(
     if (tangentLength < 1e-6) { tx = 1; ty = 0; tz = 0 }
     else { tx /= tangentLength; ty /= tangentLength; tz /= tangentLength }
     const offset = 0.004
-    const ahead = field.normal(
+    const ahead = sampleNormal(
       hitX + tx * offset, hitY + ty * offset, hitZ + tz * offset,
-      normalizedSeed, gradientStep,
+      aheadNormal,
     )
     const divergence = (ahead[0] - detail[0]) * tx + (ahead[1] - detail[1]) * ty + (ahead[2] - detail[2]) * tz
     curvatureData[texel] = encodeUnorm(divergence * 6 + 0.5)

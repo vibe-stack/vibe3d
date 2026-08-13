@@ -90,6 +90,8 @@ interface MassParameters {
 }
 
 const massParameterCache = new Map<number, MassParameters>()
+let lastMassSeed = Number.NaN
+let lastMassParameters: MassParameters | undefined
 
 /**
  * Jointed granite splits along a few dominant planar sets, and every exposed
@@ -249,11 +251,14 @@ function ellipsoid(x: number, y: number, z: number, rx: number, ry: number, rz: 
 }
 
 function massParameters(seed: number): MassParameters {
+  if (seed === lastMassSeed) return lastMassParameters!
   let cached = massParameterCache.get(seed)
   if (!cached) {
     cached = buildMassParameters(seed)
     massParameterCache.set(seed, cached)
   }
+  lastMassSeed = seed
+  lastMassParameters = cached
   return cached
 }
 
@@ -504,6 +509,16 @@ export function detailedNormal(
   seed: number,
   step: number,
 ): Vec3 {
+  return detailedNormalInto(x, y, z, seed, step, [0, 0, 0])
+}
+
+/** Allocation-free form for the millions of normal samples in a surface bake. */
+export function detailedNormalInto(
+  x: number, y: number, z: number,
+  seed: number,
+  step: number,
+  output: Vec3,
+): Vec3 {
   const base = detailedSdf(x + step, y + step, z + step, seed)
   const dx = detailedSdf(x + step, y - step, z - step, seed)
   const dy = detailedSdf(x - step, y + step, z - step, seed)
@@ -512,8 +527,16 @@ export function detailedNormal(
   let ny = base - dx + dy - dz
   let nz = base - dx - dy + dz
   const length = Math.sqrt(nx * nx + ny * ny + nz * nz)
-  if (length < 1e-12) return [0, 1, 0]
-  return [nx / length, ny / length, nz / length]
+  if (length < 1e-12) {
+    output[0] = 0
+    output[1] = 1
+    output[2] = 0
+    return output
+  }
+  output[0] = nx / length
+  output[1] = ny / length
+  output[2] = nz / length
+  return output
 }
 
 /**
@@ -530,6 +553,7 @@ export const graniteMeshField = {
 export const graniteDetailField = {
   sdf: detailedSdf,
   normal: detailedNormal,
+  normalInto: detailedNormalInto,
 }
 
 export interface FieldDiagnostics {

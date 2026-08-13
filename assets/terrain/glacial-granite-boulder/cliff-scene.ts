@@ -107,21 +107,37 @@ export function cliffArtifactName(request: CliffInstanceRequest): string {
   return `cliff-seed${request.seed}-c${request.cells}-a${request.atlas}`
 }
 
-/** The distinct compiles this scene needs at a given quality. */
-export function cliffInstanceRequests(
-  qualityName: CliffQuality = 'preview',
-): CliffInstanceRequest[] {
+function cliffInstanceRequestMap(
+  qualityName: CliffQuality,
+): Map<number, CliffInstanceRequest> {
   const quality = QUALITY[qualityName]
-  const unique = new Map<string, CliffInstanceRequest>()
+  const requests = new Map<number, CliffInstanceRequest>()
   for (const placement of PLACEMENTS) {
-    const request: CliffInstanceRequest = {
+    const candidate: CliffInstanceRequest = {
       seed: placement.seed,
       cells: placement.hero ? quality.heroCells : quality.backgroundCells,
       atlas: Math.min(quality.maximumAtlas, atlasSizeFor(estimatedArea(placement.scale))),
     }
-    unique.set(cliffArtifactName(request), request)
+    const current = requests.get(candidate.seed)
+    if (!current) {
+      requests.set(candidate.seed, candidate)
+      continue
+    }
+    // One seed has one authoritative formation. Reuse its highest-quality
+    // artifact everywhere it appears instead of compiling a second, lower
+    // resolution copy for scree. This removes duplicate work and improves the
+    // smaller placement; neither topology nor baked detail is discarded.
+    current.cells = Math.max(current.cells, candidate.cells)
+    current.atlas = Math.max(current.atlas, candidate.atlas)
   }
-  return [...unique.values()]
+  return requests
+}
+
+/** The distinct compiles this scene needs at a given quality. */
+export function cliffInstanceRequests(
+  qualityName: CliffQuality = 'preview',
+): CliffInstanceRequest[] {
+  return [...cliffInstanceRequestMap(qualityName).values()]
 }
 
 /**
@@ -196,7 +212,8 @@ async function loadInstance(
 export async function createCliffScene(
   options: { aspect?: number; yaw?: number; quality?: CliffQuality } = {},
 ) {
-  const quality = QUALITY[options.quality ?? 'preview']
+  const qualityName = options.quality ?? 'preview'
+  const requests = cliffInstanceRequestMap(qualityName)
   const scene = new Scene()
   scene.name = 'fractured granite / cliff assembly'
   scene.background = new Color(0x2a3946)
@@ -210,15 +227,7 @@ export async function createCliffScene(
   let builtCount = 0
 
   for (const placement of PLACEMENTS) {
-    const cells = placement.hero ? quality.heroCells : quality.backgroundCells
-    // Atlas follows world area, so texel density is roughly constant across the
-    // assembly. Sizing it per object instead gave the largest blocks the coarsest
-    // texels (68mm each, against 6mm on the scree) and mushed their detail.
-    const atlas = Math.min(
-      quality.maximumAtlas,
-      atlasSizeFor(estimatedArea(placement.scale)),
-    )
-    const request: CliffInstanceRequest = { seed: placement.seed, cells, atlas }
+    const request = requests.get(placement.seed)!
     const key = cliffArtifactName(request)
     let asset = compiled.get(key)
     if (!asset) {
