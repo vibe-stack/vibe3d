@@ -192,11 +192,17 @@ function build(): {
   box(body, m.graphite, [0.36, 0.12, WIDTH - 0.06], [crestX, RISE - 0.06, 0], {
     chamfer: 0.035, fillet: 0.013, bevel: 0.01,
   })
-  box(body, m.graphite, [0.24, 0.44, 0.24], [crestX + 0.02, RISE - 0.34, WIDTH * 0.5 - 0.16], {
+  // The console's face is set back from the beam's end plane by more than the
+  // lens stack stands proud of it, because the console shares 30 mm of the beam's
+  // depth and the beam's end is at RUN * 0.5. Held 20 mm inside that plane it put
+  // the bezel, which is 18 mm proud of its seat, 2 mm behind the end face over
+  // 10 cm² of the two, and the lamp itself out past the crest.
+  const consoleFace = RUN * 0.5 - 0.06
+  box(body, m.graphite, [0.24, 0.44, 0.24], [consoleFace - 0.12, RISE - 0.34, WIDTH * 0.5 - 0.16], {
     chamfer: 0.05, fillet: 0.018, bevel: 0.012,
   })
-  statusLens(body, m, [0.07, 0.05], [crestX + 0.14, RISE - 0.24, WIDTH * 0.5 - 0.16], m.amber, 'right')
-  box(body, m.amberPaint, [0.05, 0.09, 0.06], [crestX + 0.15, RISE - 0.42, WIDTH * 0.5 - 0.16], {
+  statusLens(body, m, [0.07, 0.05], [consoleFace, RISE - 0.24, WIDTH * 0.5 - 0.16], m.amber, 'right')
+  box(body, m.amberPaint, [0.05, 0.09, 0.06], [consoleFace + 0.01, RISE - 0.42, WIDTH * 0.5 - 0.16], {
     chamfer: 0.016, fillet: 0.006, bevel: 0.005,
   })
 
