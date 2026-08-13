@@ -1,12 +1,24 @@
 # Cargo wave QA playbook — layering, joinery, and the four systemic defects
 
 Scope: the 50-prop cargo/storage/logistics wave on `feat/axiom-pack-wave-2`, all built on
-`assets/prototypes/axiom-cargo-kit/`. This is a **fix specification**, not a review. Every rule
-below is numeric so that fifty fixer agents produce one answer instead of fifty.
+`assets/prototypes/axiom-cargo-kit/`. This was written as a **fix specification**, not a review.
+Every rule below is numeric so that fifty fixer agents produce one answer instead of fifty.
 
 Read this file top to bottom before touching a model. Sections 1–3 are the contract, section 4 is
-the per-class fix procedure, section 5 lists the fixes that belong in the shared kit (do those
-first — several per-model defects disappear when the kit lands), section 6 is the per-model table.
+the per-class fix procedure, section 5 is the shared kit's contract, section 6 is the per-model
+record.
+
+**Status: the wave is done.** The kit landed in two passes and all 50 props were then worked one at
+a time; the whole of it is in `git log --oneline main..HEAD`. Read the document accordingly:
+
+- **§1.1, §1.3, §3 and §5 are live.** They describe the kit as it stands and are what the next prop
+  gets measured against. The §1.1 table has been re-measured against the post-fix helpers.
+- **§1.2, §2, §4 and §6 are the record.** Their present tense is the wave as it was found. Keep them
+  for the failure modes, which repeat; do not reach for their coordinates, because most of those
+  coordinates no longer exist.
+- **Several numbers in the original spec did not survive being built.** Each is corrected in place
+  below, together with the arithmetic that broke it — a figure that was trusted once will be trusted
+  again, and knowing only the new digit teaches nothing.
 
 ---
 
@@ -14,34 +26,41 @@ first — several per-model defects disappear when the kit lands), section 6 is 
 
 ### 1.1 What the kit actually does
 
-`parts.ts` exports `LAYER_CLEARANCE = 0.016` and `lift(position, face, distance)`.
-**Nothing in the kit references `LAYER_CLEARANCE`.** Every helper hard-codes its own offset. The
-real, measured contract is the table below. All numbers are metres, measured **along the host face
-normal, relative to the position argument you pass in**.
+`parts.ts` exports `LAYER_CLEARANCE = 0.016`, `lift(position, face, distance)` and — since **K1** —
+`layer(face, hostFace, n)`, which is now the only stacking offset the pack recognises. The helpers
+still carry their own embed and proud figures, because each is designed around its own thickness.
+The real, measured contract is the table below, **re-measured after both kit passes**. All numbers
+are metres, measured **along the host face normal, relative to the position argument you pass in**.
 
 | Helper | Layer geometry | Back face | Front face |
 | --- | --- | ---: | ---: |
-| `bolt(pos, r, face)` | cyl ⌀2r × 0.03 at `+0.008` | −0.007 | +0.023 |
-| `seam` / `seamRun` | open groove, rim at `+0.002` | floor at `+0.002 − depth` | rim +0.002 |
+| `bolt(pos, r, face, proud)` | cyl ⌀2r × `proud + bite` at `+(proud − bite)/2`, `bite = min(0.007, proud)` | −`bite` | +`proud` |
+| `bolt()` at the default `proud = 0.023` | cyl ⌀2r × 0.03 at `+0.008` | −0.007 | +0.023 |
+| `seam` / `seamRun` | open groove at `0` | floor at `−depth` | rim 0 |
 | `plaque()` plate | prism t=0.022 at `+0.008` | −0.003 | +0.019 |
-| `plaque()` decal plane | `PlaneGeometry` at `+0.0205` | — | +0.0205 |
-| `radialPlaque()` plate | prism t=0.02 at `r+0.006` | r−0.004 | r+0.016 |
-| `radialPlaque()` decal | plane at `r+0.019` | — | r+0.019 |
-| `stencil()` | bare plane at `+0.004` | — | +0.004 |
-| `tick()` | bare quad at `+0.003` | — | +0.003 |
+| `plaque()` decal plane | `PlaneGeometry` at `+0.024` | — | +0.024 |
+| `radialPlaque()` plate | prism t=0.02 at `facet+0.006` | facet−0.004 | facet+0.016 |
+| `radialPlaque()` decal | plane at `facet+0.024` | — | facet+0.024 |
+| `radialMark(t)` | extrusion t at `facet + 0.36·t` | facet−0.14·t | facet+0.86·t |
+| `stencil()` | bare plane at `+0.008` (`LAYER_CLEARANCE/2`) | — | +0.008 |
+| `tick()` | bare quad at `+0.006` | — | +0.006 |
 | `paintMark(t)` | extrusion t at `+0.36·t` | −0.14·t | +0.86·t |
-| `statusLens()` bezel | prism t=0.04 at `+0.010` | −0.010 | +0.030 |
-| `statusLens()` lamp | prism t=0.026 at `+0.032` | +0.019 | +0.045 |
-| `recessedHandle()` well | prism t=0.055 at `−0.005` | −0.0325 | +0.0225 |
+| `statusLens()` bezel | prism t=0.04s at `+0.010s` | −0.010s | +0.030s |
+| `statusLens()` lamp | prism t=0.026s at `+0.032s` | +0.019s | +0.045s |
+| `recessedHandle()` well | prism t=0.055 at `−0.026` | −0.0535 | **+0.0015** |
 | `recessedHandle()` bar | prism t=0.038 at `+0.026` | +0.007 | +0.045 |
 | `toggleLatch(s)` keeper | prism t=0.05s at `+0.012s` | −0.013s | +0.037s |
 | `toggleLatch(s)` paint | prism t=0.055s at `+0.045s` | +0.0175s | +0.0725s |
 | `toggleLatch(s)` lever | prism t=0.03s at `+0.075s` | +0.060s | +0.090s |
-| `louvreVent()` surround | prism t=0.045 at `+0.010` | −0.0125 | +0.0325 |
-| `louvreVent()` well | prism t=0.05 at `+0.032` | +0.007 | +0.057 |
-| `louvreVent()` slats | prism t=0.032 at `+0.050` | +0.034 | +0.066 |
+| `louvreVent()` surround | prism t=0.045 at `+0.010`, mouth cut through it | −0.0125 | +0.0325 |
+| `louvreVent()` well | prism t=0.05 at `+0.004` | −0.021 | +0.029 |
+| `louvreVent()` slats | prism t=0.032 at `+0.016` | 0 | +0.032 |
 | `forkPocket()` plate | prism t=0.05 at `+0.012` | −0.013 | +0.037 |
 | `forkPocket()` tunnel | prism t=depth at `−depth/2` | −depth | 0 |
+
+`facet` is `facetRadius(radius, segments)` = `radius·cos(π/segments)`, per §1.3. `s` in the
+`statusLens` rows is `margin / 0.05` where `margin = min(0.05, min(width, height)·0.6)`: the seat
+scales with the lamp, so a 20 × 12 mm rack lamp no longer gets a container's bezel (**K16**).
 
 **The implied convention — the one the helpers were designed around — is:**
 `position` is the host's **outer surface**, not its centre plane and not the surface plus a
@@ -104,10 +123,15 @@ Five failure patterns, in descending order of frequency across the wave:
 | 20 (`drum` default) | 0.0123·r | 4.7 mm | 12.9 mm |
 | 22 | 0.0102·r | 3.9 mm | 10.7 mm |
 
-`radialPlaque` puts its plate back face at `r − 0.004`. On a 20-facet drum of r = 0.38 the facet is
-at 0.3753, so the plate back is 0.3 mm proud — **coplanar, z-fights**. On the r = 1.05 silo the same
-plate back at 1.046 floats **6.7 mm** off the facet. Same helper, both failure modes, purely as a
-function of radius.
+As drawn, `radialPlaque` put its plate back face at `r − 0.004`. On a 20-facet drum of r = 0.38 the
+facet is at 0.3753, so the plate back was 0.3 mm proud — **coplanar, z-fights**. On the r = 1.05 silo
+the same plate back at 1.046 floated **6.7 mm** off the facet. Same helper, both failure modes,
+purely as a function of radius.
+
+**K3 landed.** `facetRadius(radius, segments)` is exported, and `radialPlaque`, `radialMark` and
+`radialFitting` all seat on it, so the embed is 4 mm inside the chord at every radius — *provided the
+caller passes the segment count it built the body with*. That argument is the whole contract: pass a
+default 20 to a 12-facet tank and you are back in the table above.
 
 ## 2. The joinery convention as it exists today
 
@@ -336,25 +360,51 @@ members through the 60 mm centre gap, and the **`back` tile** shows the dark ban
 
 ---
 
-## 5. Fixes that belong in the shared kit
+## 5. The shared kit's contract
 
-Do these **before** the per-model pass. Each one removes the same defect from many models at once.
-Numbers are exact; apply them literally.
+**K1–K23 are all applied.** This section is no longer a to-do list; it is the kit's current
+contract, and each entry records what landed and — where the specification below turned out to be
+wrong — what was built instead and why.
 
-Priority order:
+They went in as two passes. The first, `0676472 fix(cargo-kit): seat applied detail on the face it
+is actually applied to`, is K1–K23 as written below. The second,
+`7a32752 fix(scifi-kit): let the kit's marks, fasteners and hinges reach their hosts`, is what the
+per-model pass sent back:
 
-| | Fix | Reach |
-| --- | --- | --- |
-| **K1** | make `LAYER_CLEARANCE` the datum, add `layer()` | all 50 |
-| **K2** | `plaque()` decal clearance 1.5 mm → 5 mm | 37 models |
-| **K13** | `louvreVent()` / `recessedHandle()` layered inside-out | every vent and handle |
-| **K16** | `statusLens()` absolute bezel margins | every lamp, worst on small ones |
-| **K8**–**K10** | `containerShell` rib face, wall closure, door leaves | 7 container variants |
-| **K3**, **K4**, **K15** | curved-body helpers and the facet sagitta | 9 drums / tanks / silos |
-| **K12** | `castor` / `hookBlock` / `drum` mount origins | every wheeled and lifting prop |
-| **K14**, **K18** | `lidHinge()`, `cavityLiner()` | 7 lidded props, 3 cabinets |
-| **K19** | `member()` silently drops `dz` | 3 models with XZ-plane diagonals |
-| **K5**–**K7**, **K11**, **K17** | bare planes, `seam` lift, bore plug, profile anchoring, face spin | scattered |
+- **Container placement, re-derived from the members it registers on.** `sideWall()` now paints its
+  ownership block as a count of ribs and stops it clear of the marker lamps, clamps the lamps inside
+  the panel end and registers the chevron and manifest plaque on rib centres, so nothing hangs off
+  the end of a short wall. `skirtBand()` runs its bolt line and hazard stripe along the *band*
+  rather than a fraction of the overall length. `roofDeck()` seats its lift pads across a deck rib
+  and 20 mm down into the plate. `containerDoorFrame()` derives its rebate from the leaves it stops
+  instead of a flat 0.34. `containerDoorLeaf()` gained `closingStrip` — see **K10**.
+- **`centre`, `orient` and `proud` on the mark and fastener helpers.** `radialPlaque`, `radialMark`
+  and `radialFitting` take the cylinder's axis, because a rack of drums has four of them and a label
+  measured about the wrong one lands inside its neighbour. `bolt`, `paintMark`, `statusLens`,
+  `stencil`, `tick` and `plaque` take an `orient` rotation, so a fastener or a mark can sit on a
+  tank flank or a raked deck without being hand-rolled — this is **K17** generalised past the four
+  helpers it named.
+- **`bolt` takes `proud`**, and bites 7 mm, or its whole proud height on anything thinner. A
+  container's 23 mm seal bolt is taller than a pallet board.
+- **`radialMark` gained a width clamp** of its own, narrowing a stroke that outruns its facet rather
+  than letting the far corners peel off the shell.
+- **`lidHinge` was made usable.** As first written it had **zero** callers; it now has **six**. See
+  **K14**.
+
+Numbers below are exact; they are what the kit does.
+
+| | Fix | Reach | Landed as |
+| --- | --- | --- | --- |
+| **K1** | make `LAYER_CLEARANCE` the datum, add `layer()` | all 50 | as specified |
+| **K2** | `plaque()` decal clearance 1.5 mm → 5 mm | 37 models | as specified |
+| **K13** | `louvreVent()` / `recessedHandle()` layered inside-out | every vent and handle | **amended** — see below |
+| **K16** | `statusLens()` absolute bezel margins | every lamp, worst on small ones | as specified |
+| **K8**–**K10** | `containerShell` rib face, wall closure, door leaves | 7 container variants | **K10 amended** — see below |
+| **K3**, **K4**, **K15** | curved-body helpers and the facet sagitta | 9 drums / tanks / silos | as specified |
+| **K12** | `castor` / `hookBlock` / `drum` mount origins | every wheeled and lifting prop | as specified, via `castorMount()` |
+| **K14**, **K18** | `lidHinge()`, `cavityLiner()` | 7 lidded props, 3 cabinets | **K14 landed on 6** — see below |
+| **K19** | `member()` silently drops `dz` | 3 models with XZ-plane diagonals | as specified |
+| **K5**–**K7**, **K11**, **K17** | bare planes, `seam` lift, bore plug, profile anchoring, face spin | scattered | as specified, **K17** widened |
 
 ### K1 — make `LAYER_CLEARANCE` mean something
 `assets/prototypes/axiom-cargo-kit/parts.ts`. Nothing references it today. Add and export:
@@ -470,25 +520,52 @@ The slit scales with the casting size, so it is worse on the small variants: `co
 `container.ts`.
 1. **Centre gap.** `width = (o.width - casting*2 - 0.1)*0.5` = 0.87, but the models hinge at
    `o.width*0.5 - casting - 0.02` = 0.90, so the leaves span −0.90…−0.03 and 0.03…0.90 — a **60 mm
-   slit** (**70 mm** on `container-small`). Cleanest fix is at the hinge, not the leaf:
-   `hinge = o.width*0.5 - casting - 0.05` (= 0.87). If you want a real lap instead, give the
-   `side === 1` leaf a closing strip that runs 20 mm past z = 0.
+   slit** (**70 mm** on `container-small`). The diagnosis is right; the prescribed fix is not.
+
+   > **K10.1 and K10.3 cannot both be satisfied.** Moving the hinge in to
+   > `o.width*0.5 - casting - 0.05` (= 0.87) is what the spec asked for, and it reopens the lock-bar
+   > overlap K10.3 exists to close. The inner lock bar's far end sits `width/2 + 0.24 + 0.09 + 0.13`
+   > = `width/2 + 0.46` out from the hinge, so it stops short of the centreline only while
+   > `hinge − width/2 − 0.46 ≥ 0`. At width 2.44 / casting 0.3 that needs `hinge ≥ 0.895`: the
+   > shipped 0.90 clears by 5 mm and the proposed 0.87 fails by 25 mm, putting both inner bars back
+   > across the shut line as two identical boxes in the same paint. Two clauses of the same fix, each
+   > written without the other in view, and their overlap is empty.
+   >
+   > **What landed:** the hinge stays at 0.90 and the gap is closed with geometry.
+   > `containerDoorLeaf()` takes a `closingStrip?: number` — the leaf's own hinge offset, passed only
+   > by the leaf that shuts second. It builds a `[0.06, height − 0.62, (hinge − width)*2 + 0.08]`
+   > box behind the joint at leaf-local `side * hinge`, which on a standard box is 140 mm of shell
+   > centred on the shut line, lapping each leaf's edge by 40 mm — **R7**'s "give one leaf a closing
+   > strip; do not split the difference", which the same section already said. Seven models pass it,
+   > always on the `side === 1` leaf: `shipping-container-standard`, `-short`, `-open`,
+   > `container-small`, `container-door`, `damaged-container`, and `container-stack` per tier.
+   >
+   > The general lesson: a shut line is closed by lapping, not by moving the two leaves together.
+   > Moving them drags every fitting authored from each leaf's own centre along with them.
 2. **Detail plane.** Every face detail is placed at leaf-local `x = 0.108`, but the leaf skin is a
    0.1-thick panel centred at `x = 0`, so its face is at **0.05**. The `recessedHandle`, the hazard
    `plaque` and the `boltRun` float 25–55 mm. Either thicken the skin to `0.216` (face at 0.108) or
    — preferred — move the details to `x = 0.05` (`n = 1`) and `x = 0.066` (`n = 2`, on the 0.04
    sub-panels whose face is 0.075 → use 0.075).
 3. **Lock bars.** `prism(m.amberPaint, [0.1, 0.09, 0.36], [0.16, height*0.5, z + side*0.14])` — the
-   two inner bars overlap over **190 mm** of identical volume across the centreline. Change the
-   z-size to `0.26` and the offset to `side * 0.09`, giving world spans `−0.305…−0.045` and
-   `+0.045…+0.305`.
+   two inner bars overlap over **190 mm** of identical volume across the centreline. The z-size
+   becomes `0.26` and the offset `side * 0.09`, as specified.
+
+   > **The spans quoted for that change were wrong.** `−0.305…−0.045` and `+0.045…+0.305` do not
+   > follow from it. Work it through: the inner bar's centre is at leaf-local `width/2 + 0.24 + 0.09`
+   > = 0.765 from the hinge, the hinge is at 0.90, so the bar's centre is 135 mm out from the shut
+   > line and its half-length is 0.13. The real spans are **−0.265…−0.005** and **+0.005…+0.265**.
+   > The quoted pair is 40 mm too far outboard and reads as a comfortable 45 mm clearance either side
+   > of the centreline; the truth is 5 mm, which is the whole reason clause 1 above cannot also move
+   > the hinge. A quoted span that is not derived from the same offset it is quoting hides exactly
+   > the constraint it was meant to prove.
 4. **The leaves are inside the frame.** `containerDoorFrame()`'s head and sill bars are
    `[0.2, …]` at `x = length*0.5 − 0.14` → x **2.79 … 2.99**, while the leaf skins occupy
    2.76 … 2.86 and the lock rods 2.879 … 2.931 — **70–140 mm of interpenetration** across the whole
    door. Move the leaf group to `x = length*0.5 − 0.285` (skin 2.695 … 2.795).
 
-**Affects: `shipping-container-standard`, `-short`, `-open`, `container-door`, `damaged-container`,
-`container-stack`.**
+**Affects: `shipping-container-standard`, `-short`, `-open`, `container-small`, `container-door`,
+`damaged-container`, `container-stack` — all seven callers of `containerDoorLeaf()`.**
 
 ### K11 — document what `extrudeProfile` actually does with `position`
 
@@ -532,13 +609,37 @@ Same class of trap: `hookBlock()`'s origin is the **shackle cross pin** (ears to
 three in `parts.ts`.
 
 ### K13 — `louvreVent()` and `recessedHandle()` are layered inside-out
-`parts.ts:306` / `:356`. The `ink` "sunk well" of `louvreVent` sits at **+0.007 … +0.057** and its
-slats at **+0.034 … +0.066** — both entirely *in front of* the surround's rim at +0.0325. Every vent
-in the wave renders as a proud black brick, not a cavity (confirmed on the equipment rack's roof and
-plinth, the tool-cabinet doors and the shelving back panel). `recessedHandle`'s well ends at +0.0225,
-also proud of the host face.
-Fix: ink at `lift(…, 0.004)` → −0.021 … +0.029; slats at `lift(…, 0.016)` → 0 … +0.032;
-`recessedHandle` well at `−0.026` → −0.0535 … −0.0015.
+The diagnosis held. The `ink` "sunk well" of `louvreVent` sat at **+0.007 … +0.057** and its slats at
+**+0.034 … +0.066** — both entirely *in front of* the surround at +0.0325. Every vent in the wave
+rendered as a proud black brick, not a cavity (confirmed on the equipment rack's roof and plinth, the
+tool-cabinet doors and the shelving back panel). `recessedHandle`'s well ended at +0.0225, also proud
+of the host face.
+
+The depths specified — ink at `lift(…, 0.004)` → −0.021 … +0.029, slats at `lift(…, 0.016)` →
+0 … +0.032, `recessedHandle` well at `−0.026` — are what landed, and are in the §1.1 table. **But
+the reasoning that produced them was wrong on one point, and left alone it would have made the vent
+worse rather than better.**
+
+> **The surround is not a rim.** It is a solid `prism(width + 0.075, height + 0.075, 0.045)`. Calling
+> it "the surround's rim at +0.0325" treated its front face as the lip of a frame with a hole in the
+> middle, when in fact it is an unbroken slab spanning the whole vent. Push the well and the slats
+> behind it — which is exactly what the corrected depths do — and the slab covers both. The vent
+> stops being a proud black brick and becomes a plain dark plate: same defect, one layer further in,
+> and now with the slats hidden too.
+>
+> **What landed:** the depths as specified, *plus a mouth cut through the surround*. It is built with
+> `holes: [slot(width*0.5 − 0.004, height*0.5 − 0.004, …)]` — 4 mm tighter than the well all round,
+> so the rim laps the well's own walls instead of meeting them on a shared plane (**R2**), and the
+> well and slats are seen through the opening they are behind. Only now is the surround a rim.
+
+The second wrong number is arithmetic. `recessedHandle`'s well front face is **+0.0015**, not the
+−0.0015 specified: a 0.055-thick prism seated at −0.026 spans −0.026 ± 0.0275, and
+−0.026 + 0.0275 = **+0.0015**. The sign matters, because the two readings say opposite things — at
+−0.0015 the well's mouth is 1.5 mm *under* the host skin and the handle is a hole; at +0.0015 it
+stands 1.5 mm proud and the well's own chamfer is what reads as the recess. The built value is
++0.0015. Whenever this table is re-derived, check each front face against `position + t/2` rather
+than copying the sign of the position.
+
 **Affects: every model calling either helper.**
 
 ### K14 — add `lidHinge()` to `parts.ts`
@@ -547,8 +648,23 @@ local z **inside** the lid box, so they never render. `weapon-crate`'s lugs span
 inside a lid spanning −0.037…0.497; `polymer-case`'s living hinge is 39 mm inside its lid and the
 `back` tile shows a completely smooth back with no hinge at all. A shared helper that seats the
 knuckles **proud of the leaf's back face** fixes all of them.
-**Affects: `cargo-crate-medium`, `long-cargo-crate`, `weapon-crate`, `open-crate`,
-`hard-equipment-case`, `military-case`, `polymer-case`.**
+
+The helper landed in the first kit pass and **not one model could use it.** Its straps ran fore and
+aft of the pin, which on a 320 mm case put them 120 mm behind the shell in open air, and behind the
+rake on a sloped one. A lid hinged along a back edge has its two leaves stacked in *y*, so the straps
+have to run **across** the pin: one onto the body's back face, one onto the lid's. The second pass
+turned them, and added `reach` (how far each strap runs onto its leaf — think in lid heights, not pin
+radii) and `seat` (how far the leaves' back faces stand in front of the pin, signed along the
+horizontal axis the pin does not run in). Six models call it now:
+
+- **Adopted, of the seven named above:** `cargo-crate-medium`, `weapon-crate`,
+  `hard-equipment-case`, `military-case`.
+- **Adopted, not on the list:** `cargo-crate-large` and `industrial-tool-chest` — both had the same
+  hand-rolled knuckles and neither was caught by the §6 pass.
+- **Declined, with reasons:** see the limitations below.
+
+A helper nobody can call is worth exactly as much as no helper. Before writing the next one, place it
+on the two hardest hosts in the wave and check it reaches them.
 
 ### K15 — add a cylinder-wrap strap helper
 `shipping-container-open`'s tarp straps are flat quads laid tangent to a cylinder: each touches at
@@ -613,12 +729,51 @@ studs in y and z, i.e. strung along the nozzle's own axis instead of around its 
 `AXIS_Z` it offsets in x and z — again along the axis. Only `AXIS_X` is currently correct. Derive
 the two in-flange axes from the nozzle axis, and share the part.
 
+### 5.1 Known limitations of the kit as it stands
+
+These are open, not forgotten. A gap you can name is a gap the next person can price; a gap left
+silent gets rediscovered as a bug.
+
+- **`lidHinge()` sits in the lid group, so it animates with the lid.** All six callers add it to
+  their `lid` Group, which means the body-side strap swings open along with the leaf it should be
+  bolted *behind*. This is inherited behaviour — the hand-rolled knuckles it replaced were in the lid
+  group too — so nothing regressed, but on any prop whose lid actually opens the joint is wrong.
+  Splitting it needs two calls, one per leaf, with the pin shared: a `bodyHinge` / `lidHinge` pair,
+  or a `leaves: 'both' | 'body' | 'lid'` argument. Nobody has needed it yet because every sheet
+  angle in the QA rig is rendered shut or near-shut.
+- **`commercial-dumpster` has no modelled hinge hardware, and never had any.** It carries a
+  `lid_hinge` socket and nothing else. `lidHinge()` does not fit it: the helper seats a straight pin
+  and flat straps on a leaf's back face, and the dumpster's lids sit on a sloped shell. Adding one
+  means a raked variant of the helper, not a call to this one.
+- **`lidHinge()` was declined on three of the seven models K14 named**, each for a reason worth
+  keeping:
+  - `open-crate` renders with its lid at `rotation.x = −1.92` (−110°), fully open. A barrel hinge
+    whose body-side strap travels with the lid (see above) is at its most wrong here, and the model's
+    own lugs already straddle the shell's back face correctly.
+  - `polymer-case` is a moulded case with a deliberate **living hinge** — wide, shallow blocks, not
+    steel knuckles. Substituting a barrel would be a modelling error dressed as consistency.
+  - `long-cargo-crate` carries a rib field on the face the hinge would land on: the ribs are 0.04
+    deep about the skin, so they stand **20 mm proud** of it. A flat strap laid on that face either
+    floats over the valleys or is sliced by the ribs, whichever face it is measured from. Its lugs
+    straddle the leaf's own back face instead.
+- **`radialPlaque()`'s K20 width clamp is severe at small radii.** The clamp is
+  `w ≤ 2·√(0.008·facet) − 0.05`, which on `sealed-barrel` (r 0.31, 20 facets) takes a requested 0.24
+  down to **0.049**. That is honest — it is the width whose corners the 20 mm plate can still carry
+  on that curve — but it means several labels around the wave are small enough to read as a chip
+  rather than a plate. The real fix is the other half of K20: bow the plate into three chords, and
+  then the clamp can go. Until then, a curved-body label that needs to be legible wants a bigger
+  radius or a `plaque()` on a flat boss.
+
 ---
 
-## 6. Per-model defect table
+## 6. Per-model defect record
 
 Classes: **1** z-fighting/coplanar · **2** off-centre · **3** floating · **4** unclosed gap.
-**All 50 models were opened and their arithmetic checked.**
+**All 50 models were opened and their arithmetic checked** — and then all 50 were fixed, one commit
+each. This table is the record of what was found, kept because the failure modes repeat and the
+tiles named in it are the ones to look at first on the next wave. The coordinates in it are the
+pre-fix ones; do not paste them into anything. Where a prescription here turned out not to follow
+from its own arithmetic, the row carries a **Correction**.
 
 | Asset | Classes | What to fix |
 | --- | --- | --- |
@@ -629,7 +784,7 @@ Classes: **1** z-fighting/coplanar · **2** off-centre · **3** floating · **4*
 | `industrial-silo` | 1, 3 | (3) **headline:** the four legs top out at `y = LEG = 2.2` at radius 0.85, but the hopper cone reaches radius 0.85 at `y = 3.079` — the silo floats **879 mm** above its own legs (visible in every side tile of `renders/qa/industrial-silo.png`). Either raise the legs to `LEG = 3.08` or add a ring beam at `y = 2.2` joining the four legs to the cone. (3) fill-line pipe clamps at `y = 2.8` and `3.9` sit at radius 1.076 against a cone whose radius there is 0.643 / a barrel that starts at 3.35 — the two lower clamps clamp air. (1) the slide gate (0.035 thick at `apex − 0.03`) is entirely inside the 0.14-thick gate frame at the same centre — drop it to `apex − 0.11`. (3) `paintMark`s at `z = RADIUS + 0.004` with `x = −0.2 / 0.02` float **24.9 mm** off the barrel; use **K4** `radialMark`. (3) `radialPlaque` at nominal `RADIUS` floats 2–7 mm depending on angle — fixed by **K3**. (2) the control-box tie `member(... z = 0.1 …)` misses the control box (z ±0.07) by 5 mm; put it at z = 0. |
 | `industrial-hoist` | 1, 3 | (3) `plaque`/`statusLens` at `BODY_D*0.5 + 0.004 = 0.164` over a face at 0.16 — the plate back lands at 0.161, a **1 mm float**. Pass 0.16 (**R1**, n = 1). (1/3) `seam` at `BODY_D*0.5 + 0.002` double-lifts to a 4 mm proud rim — fixed by **K6** plus passing 0.16. (3) hazard `plaque` at `[BODY_W*0.34, …, BODY_D*0.42 = 0.1344]` over the chain-guide box whose face is 0.128 → 3.4 mm float, **and** the 0.24-wide plate overhangs the 0.168-wide host by 36 mm each side — shrink to `[0.14, 0.05]` and place at 0.128. |
 | `cargo-trolley` | 1, 3 | (1) `plaque(… [0, 0.9, −0.038], 'back')` — the plate's inner cap lands at **exactly −0.035**, the back panel's face. Pass `−0.035`. (3) `paintMark` at `[−0.14, 0.24, 0.026]` is in **empty space** — there is no geometry at that x/y/z. Move it onto the toe plate or the back panel. (3) the axle/wheels sit at `z = −0.09` but the raked frame's axle brackets span `z −0.069 … +0.021` → 21 mm gap; move `axleZ` to `−0.03` or extend the brackets. (3) rear stand feet at `z = −0.24` touch nothing — add a stub leg from the stile or move them to `z = −0.05`. (1) the two `member` X-braces share the z-slab `0.01 ± 0.015` and interpenetrate at the crossing — offset one by 0.032. |
-| `cargo-net` | 3 | (3) **headline:** the four corner hooks at `±(SPAN/2+0.05), ±(DEPTH/2+0.05)` are **68 mm** clear of the perimeter rope at `±(loadX+0.012), ±(loadZ+0.012)` and hang in mid-air (blatant in every tile of `renders/qa/cargo-net.png`). Move the hooks to the rope corners, or route a lashing from each rope corner to its hook. (3) the claw profile spans y **−0.015 … 0.11** — 15 mm below the floor. (3) `crown = LOAD + 0.035 = 0.695` with cord radius 0.008 → the net's cord bottoms sit **4 mm** above the load's cap (top 0.683). Set `crown = LOAD + 0.023`. (3) the side cords start at `±shoulderX = ±0.5` (50 mm **inside** the load flank at ±0.55) and end at `±0.562` (12 mm outside) — they cut through the shoulder. Route from `±0.556`. (3) the amber tensioner at `z = DEPTH*0.5 + 0.055 = 0.485` floats 55 mm off the skid face (0.43) and touches no rope. |
+| `cargo-net` | 3 | (3) **headline:** the four corner hooks at `±(SPAN/2+0.05), ±(DEPTH/2+0.05)` are **68 mm** clear of the perimeter rope at `±(loadX+0.012), ±(loadZ+0.012)` and hang in mid-air (blatant in every tile of `renders/qa/cargo-net.png`). Move the hooks to the rope corners, or route a lashing from each rope corner to its hook. (3) the claw profile spans y **−0.015 … 0.11** — 15 mm below the floor. (3) `crown = LOAD + 0.035 = 0.695` with cord radius 0.008 → the net's cord bottoms sit **4 mm** above the load's cap (top 0.683). **Correction: `crown = LOAD + 0.023` is not the answer — it buries the net.** 0.683 is the top of a wear plate that stands 23 mm proud of the load, and a crown *level with* that top puts half of every cord's 16 mm section inside it before any slack is counted; with the crown runs' 18–22 mm sag the middle of the net is **30 mm inside the plate** and vanishes. Two things had to change together: the plate is now **let into** the load (centre `LOAD − 0.007`, so it is 8 mm proud, not 23), `crown = LOAD + 0.016` — the plate's top face plus one cord radius, so the runs *bear* on it — and the crown-run sag is cut from 18 mm to **4 mm**, which is all a run carried along its whole length should have. Size a lying-on cord to the top of what it lies on plus its own radius, and check the sag at mid-span, not just the ends. **Residual, open:** 4 mm of fall across a 1.1 m run is visually straight, so on the wave contact sheet the net now reads as a welded cage over a smooth box rather than as slack netting. Correct, and not yet convincing. A crown run wants its slack somewhere the wear plate is not — cross the runs in the gaps between plate and shoulder, or narrow the plate — rather than less slack. (3) the side cords start at `±shoulderX = ±0.5` (50 mm **inside** the load flank at ±0.55) and end at `±0.562` (12 mm outside) — they cut through the shoulder. Route from `±0.556`. (3) the amber tensioner at `z = DEPTH*0.5 + 0.055 = 0.485` floats 55 mm off the skid face (0.43) and touches no rope. |
 | `wooden-pallet` | 1, 3 | (1) the stringer boards (`[LENGTH, BOARD, 0.1]` at `z ∈ {−0.35, 0, 0.35}`) are exactly as deep as the blocks (`[0.12, BLOCK, 0.1]` at the same z) and their tops coincide at `y = 0.112` — **four coincident same-facing planes per block**, visible along both long sides. Make the stringers `0.092` deep and `topY − BOARD − 0.002` high, or delete them (they are entirely inside the block volume). (3) the `box(m.shellShade, [0.1, 0.05, 0.008] … WIDTH*0.5 + 0.006)` placard floats 2 mm off the 0.4 board face — use `WIDTH*0.5 + 0.004`. The `seam` and `bolt` calls on the deck are **correct** (they pass `topY + BOARD*0.5`, the true top face) — use them as the reference example. |
 | `industrial-forklift-loader` | 1, 3 | (1) `louvreVent` at `x = −1.02, face 'left'` is **buried inside the counterweight**, whose real span is x −1.2…−0.2 (profile −0.9…0.1 plus the −0.3 offset): the surround occupies −1.0075…−1.0525, ~180 mm in from the rear face it should sit on. Pass `x = −1.2`. (3) all flank detail uses `BODY_W*0.5 − 0.02 = 0.54` while the counterweight face is `(BODY_W−0.06)/2 = 0.53` — the two `plaque`s float 7 mm, the `paintMark` 8.5 mm, the `seam` rim 12 mm, the `boltRun` 3 mm. Pass 0.53. (3) the four overhead-guard posts stand at `x = −0.78 / 0.22`, `z = ±0.47`, over a floor plate spanning `x −0.6…0.12`, `z ±0.44` — they rest on nothing. (3) `statusLens` at `x = 0.28` overhangs the guard roof (`x −0.85…0.29`) by 75 mm. (3) the two guard-to-mast `member`s end at `x = 0.5, z = ±0.47`; the mast tubes are at `x = 0.8, z = ±0.3`. |
 | `shipping-container-short` | 3 (+ **K8, K9, K10**) | (3) `panelZ = -(SPEC.width*0.5 − 0.02)` = −1.20 → the service panel (0.06 deep) is only **4 mm proud** of the ribs at −1.226; 30 mm of it is swallowed by the corrugation. Use −1.226. (3) `plaque(… panelZ − 0.045 …)` floats **12 mm** off the panel face and its bottom edge **overhangs the panel by 55 mm**. (3) the shared `paintMark` chevron is placed at `side*-o.length*0.4`, which on a 3.02 m unit puts **75 of its 210 mm off the end of the panel field into air** — visible far-left in the `front` tile. Snap the x to a rib centre (see **K8**). |
@@ -653,7 +808,7 @@ Classes: **1** z-fighting/coplanar · **2** off-centre · **3** floating · **4*
 | `industrial-tool-cabinet` | 1, 2, 4 | (1/2) **`const hingeX = side * leaf` is the inner edge, not the outer one the comment claims.** Verified: `hinge = WIDTH*0.5 − 0.04 = 0.42` and `leaf = (WIDTH − 0.08)*0.5 = 0.42` are equal, so `doorLeft` (at x −0.42, side +1) puts its hinge rod at world **0** and `doorRight` (at x +0.42, side −1) puts its rod at world **0** too — two exactly coincident 1.72 m cylinders plus six overlapping knuckle pairs down the centre seam (the `front` tile shows the bolt line down the middle). Use `hingeX = 0`. (2) the espagnolette rod, keeps, lever and lens use `centre − side*(leaf*0.5 − 0.06)`, putting them 60 mm from the **hinge** edge instead of the leading edge — the lever ends up at the far outer edge. Flip the sign. (1) the interior ink box's front face is at z **0.18, exactly coplanar** with both the shelf front and the shelf lip front — three co-facing surfaces — and it encloses every shelf and stock box (**K18**). (1) the door open rotations are signed backwards, so each leaf sweeps through the carcass side wall. (4) door top 1.88 vs top-slab underside 1.91 → a **30 mm full-width gap** into the carcass. (1) the door `seam` rim is buried 5 mm in the recessed panel it crosses. (3) levelling feet inside the plinth → invisible. |
 | `commercial-dumpster` | 1, 3, 4 | (1) `plaque(… WIDTH*0.5 + 0.016 = 0.516 …)` — the pressed pan's front face is at **exactly 0.513** and the plate's back face lands at **exactly 0.513**. Pass 0.513 (n = 1) or 0.529 (n = 2); over the panel gaps the host is the wall at 0.50, so the plate also floats 13 mm there. (3) `paintMark` at the same 0.516 floats 1.5 mm off the pan. (4) each lid leaf spans z ±0.485 against a 1.0-wide body — a 15 mm slit down each side; widen `leaf` to `WIDTH*0.5 + 0.01`. (3) **`castor()` needs its mount plate at `1.85·radius + 0.0175` = 0.3025 above the wheel centre**, but the bin's floor slab is y 0…0.07, so the entire fork and top plate sit inside the floor — which is why all eight tiles of `renders/qa/commercial-dumpster.png` show a bin flat on the ground with **no wheels at all**, most obviously in `below`. Raise the whole body by 0.30 (**K12**). (1) `lid.position.set(0, HEIGHT, −side*0.005)` makes the two leaves **interpenetrate by 10 mm over the full 1.32 m**, with their top faces coplanar — flip to `+side*0.005` for a shut line. (1/3) the lid box is placed about a pivot at its **middle** despite the comment claiming a back-edge hinge, so at the default ajar angle the +X edge drops to y 0.913 — **247 mm through the front wall** (`front`/`top`/`hero`). Set `lid.position.x = −0.58`, box local x = +0.66, and flip the rotation sign. (3) the foot-pedal linkage is 5 mm clear of the front wall. |
 | `industrial-dumpster` | 2, 3, 4 | (4/2) **the raked end walls have their rotation sign inverted** (`rotation: [0, 0, sx * slant]`): the −X wall runs (−2.02, 0) → (−1.60, 1.05) while the side profile rakes the opposite way, leaving a **420 mm triangular hole at the top of the tail** and a foot jutting 370 mm past the floor slab into thin air (168 mm / 118 mm at the +X end). Unmistakable in `left`, `right`, `hero` and `below`. Use `-sx * slant`. (3) every flank graphic is at `WIDTH*0.5 + 0.036` = 0.876 against a skin at 0.8395 and ribs at 0.861 → the plaque floats **33.5 mm**, the paint mark 34.8 mm, the lens 26.5 mm. (3) the skids are entirely inside the floor slab, so the "empty skip does not sit flush" comment describes exactly what happens; the tail rollers intersect both the floor slab and the side skin. (3) the lift eye floats 30 mm above the nose block. (3) the whole rubble load hangs **430–700 mm in mid-air** above the skip floor (`top` tile). |
-| `loading-dock-ramp` | 2, 3 | (3) **`beamTop(t)` does not describe the beam.** The real top chord is `0.055 + (x + 1.46)·0.31629`; the helper returns 0.254 at t = −0.3 where the beam is actually at **0.175** (stanchion foot floats 64 mm, post floats 69 mm) and 0.990 at t = 0.44 where it is 1.018 (sinks 28 mm) — precisely the failure its comment claims to have solved. (3/2) the deck hazard band is a **1.54 m horizontal** `plaque` on a 16.3° deck: flush at one end, **232 mm below the deck** at the other, and 430 mm past the ramp toe over bare ground (`left`/`top`/`front`). Shorten to 0.5 m and tilt it — needs **K17**. (3) the `paintMark` is **entirely inside the beam web**. (1/3) the cross bracing's slope does not match the deck's, so at t = −0.34 the brace sits **on the running deck**, 33 mm above the beam chord it should follow. (3) `statusLens` floats 10 mm off the control box. (—) `beamProfile()` dips 30 mm below y = 0. |
+| `loading-dock-ramp` | 2, 3 | (3) **`beamTop(t)` does not describe the beam.** The helper returns 0.254 at t = −0.3 where the beam is actually at **0.175** (stanchion foot floats 64 mm, post floats 69 mm) and 0.990 at t = 0.44 where it is **0.994** — precisely the failure its comment claims to have solved. **Correction:** the 1.018 first quoted here for t = 0.44 is not on the beam. `0.055 + (x + 1.46)·0.31629` is only the *lower* chord: `beamProfile()` has a knee at x = 1.18, past which the section eases onto the crest at the much shallower `0.16 / 0.62`. t = 0.44 is x = 1.584, which is beyond the knee, so the linear form extrapolates 24 mm high. The chord there is `RISE − 0.16 + (1.584 − 1.18)·0.16/0.62` = **0.994**, and the old helper sank its fitting by 4 mm, not 28. Solve a piecewise profile piecewise, or the correction inherits the error it is correcting. (3/2) the deck hazard band is a **1.54 m horizontal** `plaque` on a 16.3° deck: flush at one end, **232 mm below the deck** at the other, and 430 mm past the ramp toe over bare ground (`left`/`top`/`front`). Shorten to 0.5 m and tilt it — needs **K17**. (3) the `paintMark` is **entirely inside the beam web**. (1/3) the cross bracing's slope does not match the deck's, so at t = −0.34 the brace sits **on the running deck**, 33 mm above the beam chord it should follow. (3) `statusLens` floats 10 mm off the control box. (—) `beamProfile()` dips 30 mm below y = 0. |
 | `industrial-cable-tray` | 2, 3 | (2) the branch cover is placed at `z = WIDTH * 0.06` = 0.0264 — almost certainly a typo for `0` — so it swallows the +Z rail and leaves the −Z rail sticking **10.4 mm** out. (3) the hanger strut's bottom is 5 mm clear of the rail top along the whole run; the ceiling plate is 5 mm clear of the rod top. (3) the `paintMark` floats 4.9 mm and the `plaque` floats 3 mm while overhanging its 0.09 rail by 20 mm top and bottom. |
 | `equipment-shelving` | 3 | (3) `louvreVent` floats **15 mm** off the back panel (`back`/`rear 3/4`). (3) the fourth-level outlet spans y 1.79…1.93 while the back panel ends at **1.79** → the whole outlet hangs unsupported (top-right in `front`). (3) the top `plaque` floats **90 mm** above the top tray. (3) the busbar is 12.5 mm clear of the panel down its full 1.52 m. (3) the cable basket floats 60 mm under the top tray with no hangers. (3) the earth strap is 10 mm clear at one end and 55 mm short at the other — it connects nothing. (—) the rubber pads are inside the foot boxes → invisible. |
 | `warehouse-shelf` | 3 | (3) the rear X-brace is `WIDTH − POST` long but rotated 35.5°, so it spans only x ±0.665 against uprights at ±0.82 — **each of the four ends floats 155 mm short** (obvious in `back` and `rear 3/4`). Length should be `(WIDTH − POST)/cos(0.62)` = 2.015. (3) the `plaque` hangs **~55 %** into the open bay with only a 0.5 mm bite on the deck lip; the `statusLens`'s lower 43 mm is unsupported. Bins and stock boxes are correct — they bottom 2–3 mm into the wire deck at every level. |
@@ -670,14 +825,16 @@ Classes: **1** z-fighting/coplanar · **2** off-centre · **3** floating · **4*
 | `industrial-crane-trolley` | 1, 3, 4 | (3) the `plaque` is **157 mm out in the air** — at y = 0 the only body is the web, whose face is z 0.025, and the plate back is 0.182 (`hero` tile). (3) the festoon rail is 40 mm outboard of the bottom flange. (1) the running wheels straddle the flange they should roll on — half inside it. (4) the web stiffeners leave a **10 mm slit** top and bottom. (—) `statusLens` is entirely inside the carriage deck box → no cyan appears anywhere in the sheet. (4) the dead-end anchor leaves a 7.5–10 mm slit above the hook block (`front` tile). (3) the rope falls pass 4 mm outside the shackle pin, attached to nothing. (—) `drumY` is computed two different ways in `carriageBuild` and `build()`, leaving the rope origin 80 mm low. |
 | `cargo-bag` | 1, 3 | (3) **the whole handle assembly is buried.** The loft's crown sits at ≈0.42 across x −0.13…0.11, but the straps are placed at `HEIGHT*0.84 / 0.87`, the spine at `HEIGHT*0.9` and the grip at `0.92 / 0.95` → tops of 0.368, 0.380, 0.389 and 0.419, i.e. **20–40 mm below the surface**. The `front` and `top` tiles show no handle at all, only strap tips. Raise to 0.93·H / 0.99·H, spine 0.404, risers 0.42, grip 0.44. (3) `strap()` reuses the crown `depth` for its side runs and buckle, so those land at z ±0.186–0.216 against a flank at **0.22** — 27 mm inside the fabric; only the amber tongue shows. Key the side runs off `DEPTH` (±0.215, buckle 0.224). (3) `plaque` floats 7 mm off the flank while (—) `paintMark` at `DEPTH*0.5 − 0.01` is entirely **inside** it — the two disagree in sign. (1) the base pan spans y −0.0015…0.0335, **1.5 mm below the floor plane**. |
 | `sacks` | 3 | (3) **`model.ts:80` passes `position[1] + height*0.5`** to a profile already authored 0…height, double-shifting every sack (**K11**). Bases land at 0.185…0.48 against a sheet top of **0.032** — the whole stack hovers 155–170 mm in the air (`front` and `right` tiles). Pass `position[1]`. (3) the neck and tie, authored in the un-shifted frame at `height*0.99` / `*1.03`, consequently sit at ~50 % of the sack's height and are buried — no sack shows a gathered neck. Fixed by the same change. (3) the `plaque` and both `paintMark`s sit in the void under the lifted stack (the loose fin in the `right` tile); re-seat them at z ≈ 0.10 and 0.13 afterwards. |
-| `cargo-strap` | 2, 3 | Every tile shows the parts flying apart. (2) the two tail boxes use `rotation: [0, +0.3, 0]` and `[0, +0.85, 0]`, but Ry gives direction (cos θ, −sin θ): tail 1 ends at (0.433, 0.006) and tail 2 starts at (0.417, 0.080) → a **117 mm gap**, with the rivet and the free hook missing too. **Negate both** (the −Z tail already uses −0.5) and all four pieces meet within 25 mm. (3) both `hook()` calls sit at y 0.081–0.119 — **81 mm above the deck**; use y = 0.019. (2) `hook()`'s `rotation: [π/2, yaw, 0]` composes to an extrusion axis of (sin yaw, −cos yaw, 0), tipping the claw **29–49° out of horizontal** instead of spinning it in plane — use `[π/2, 0, yaw]`, which is the kit's own `faceSpin` rule. (3) the coil's first turn floats 4 mm; the ratchet frame is 6 mm above the top coil. |
+| `cargo-strap` | 2, 3 | Every tile shows the parts flying apart. (2) the two tail boxes use `rotation: [0, +0.3, 0]` and `[0, +0.85, 0]`, but Ry gives direction (cos θ, −sin θ): tail 1 ends at (0.433, 0.006) and tail 2 starts at (0.417, 0.080) → a **117 mm gap**, with the rivet and the free hook missing too. **Negate both** (the −Z tail already uses −0.5) and all four pieces meet within 25 mm. (3) both `hook()` calls sit at y 0.081–0.119 — **81 mm above the deck**. **Correction: the y to pass is 0.0415, not the 0.019 first written here.** `extrudeProfile` adds the outline's own bounding-box centre to the position it is handed (§1.2 pattern 5, **K11**), and this claw is authored −0.135…+0.09 about its throat, so its centre is 22.5 mm below the coordinate you type. With the `[π/2, 0, yaw]` rotation that centre lands on world y, so the claw occupies `y − 0.0225 ± 0.019`. At 0.019 the claw spans −0.0225…+0.0155 and **22.5 mm of it is under the deck** — the same defect, mirrored. At 0.0415 it spans **0…0.038** and sits on the floor. Any `extrudeProfile` part whose profile is not authored about its own centre needs that centre subtracted from the position, every time. (2) `hook()`'s `rotation: [π/2, yaw, 0]` composes to an extrusion axis of (sin yaw, −cos yaw, 0), tipping the claw **29–49° out of horizontal** instead of spinning it in plane — use `[π/2, 0, yaw]`, which is the kit's own `faceSpin` rule. (3) the coil's first turn floats 4 mm; the ratchet frame is 6 mm above the top coil. |
 | `cargo-pallet` | 1 | **Cleanest model in the wave** — deck, pans, locators, reader and marks all have 4–13 mm bite. Two fixes: (—) the two end-beam `plaque`s are **31 mm inside** the 0.1-thick end beam (plate 0.567–0.589 against faces at ±0.62), so no stripe appears in any tile — use `±(LENGTH*0.5 − 0.003)`. (1) the three rubber pads share a bottom face at **y = 0** with the runners, same facing → z-fight on the underside of all three (**K22**). |
 
-### 6.1 Triage, and the machine-derived risk order
+### 6.1 The order the wave was worked in
 
-As a first pass on any model — and as the order to work the wave in — this is the mechanical triage.
-The count is the number of face-applied helper calls that pass **face + an ad-hoc epsilon**, §1.2
-pattern 2, the most common defect source in the wave.
+This was the mechanical triage, and it is the order the fifty models were actually taken in. It is
+kept as the record of how a wave this size gets sequenced, and because the same grep is the right
+first move on the next one. The count is the number of face-applied helper calls that passed
+**face + an ad-hoc epsilon** — §1.2 pattern 2, the most common defect source in this wave. Run
+against the branch today it returns almost nothing, which is the point.
 
 ```
 grep -rcE "(plaque|stencil|paintMark|statusLens|seam|boltRun|bolt|tick)\(.*\+ 0\.0" \
@@ -714,16 +871,36 @@ floating in space above the shell.
 
 ---
 
-## 7. Fixer workflow
+## 7. The workflow, for the next prop or the next wave
 
-1. Apply the kit fixes **K1–K19** as one change, and re-render the whole sweep
-   (`bash scripts/qa-sweep.sh`). Many per-model rows will already be gone.
-2. Take one model. Open `renders/qa/<asset>.png` and look at `below` and `top` before reading code.
-3. For every face-applied helper call in the model, write down the host's **outer face** coordinate
-   and check the call passes exactly that (n = 1) or that plus `LAYER_CLEARANCE·(n−1)`.
-4. For every structural pair, write the two spans and check the lap is ≥ 20 mm (≥ 30 mm for skins).
-5. For every mirrored loop, check the offset is multiplied by the sign.
-6. Re-render with `node scripts/qa-sheet.mjs <asset>` (needs real GPU access — run it outside the
-   sandbox) and compare `below`, `top`, `front`/`back` against the checks in §4.
-7. Never "nudge until it looks right". If a number is not derived from a face position or a span,
-   it will drift again the next time the prop is resized.
+This is how the cargo wave was worked, and it is the procedure to run again. Steps 1 and 2 are the
+wave-scale opening; on a single new prop, start at step 3.
+
+1. **Fix the kit first, in one change, and re-render everything** (`bash scripts/qa-sweep.sh`; needs
+   real GPU access, so run it outside the sandbox). Whole per-model rows disappear when a shared
+   helper is corrected — and the ones that do not disappear are the ones worth reading. Then take
+   the *second* kit pass seriously: the cargo kit needed one, because a helper only proves it fits
+   when a model tries to call it. `lidHinge` shipped in pass one with zero callers.
+2. **Sequence the wave mechanically** (§6.1), not by which prop looks worst in the hero shot.
+3. **Take one model. Open `renders/qa/<asset>.png` and look at `below` and `top` before reading
+   code.** Form the hypothesis from the pixels; confirm it in the arithmetic.
+4. For every face-applied helper call, write down the host's **outer face** coordinate and check the
+   call passes exactly that (`layer(face, hostFace)`, n = 1) or that plus `LAYER_CLEARANCE·(n−1)`.
+5. For every structural pair, write the two spans and check the lap is ≥ 20 mm (≥ 30 mm for skins).
+6. For every mirrored loop, check the offset is multiplied by the sign.
+7. Re-render with `node scripts/qa-sheet.mjs <asset>` and compare `below`, `top`, `front`/`back`
+   against the checks in §4.
+8. Never "nudge until it looks right". If a number is not derived from a face position or a span, it
+   will drift again the next time the prop is resized.
+9. **Check the specification's own arithmetic before you trust it — including this one's.** Six of
+   this document's figures did not survive being built, and every one failed the same way: carried
+   over from a neighbouring calculation instead of re-derived from the part it describes. A quoted
+   span that does not follow from its own offset (**K10.3**); a linear form used past the knee of a
+   piecewise profile (`loading-dock-ramp`); a position typed as though `extrudeProfile` centred its
+   outline (`cargo-strap`); a clearance measured to a surface that was itself the thing to move
+   (`cargo-net`); a sign dropped between `position` and `position + t/2` (**K13**); a helper called
+   a rim when it was a slab (**K13** again). A seventh failure is worse and harder to see: two
+   clauses of one fix, **K10.1** and **K10.3**, whose solution sets do not intersect. Re-derive; do
+   not copy. That is step 8 applied to prose.
+10. **Write the limitations down** (§5.1). Everything the pass declined to do, and why, in the
+    document — not in a commit message, and not nowhere.
