@@ -223,8 +223,11 @@ function preview(options: CargoPreviewOptions & { state?: FuelDrumState } = {}):
   const model = createModel()
   model.setState(options.state ?? 'charged')
   return createCargoPreview(model, {
-    target: [0, (BASE + BODY) * 0.52, 0],
-    distance: 2.55,
+    // The drum stands on a plinth the camera looks down onto, so more of the
+    // prop reads below its mid-height than above it; on 0.52 the plinth's near
+    // edge sat exactly on the bottom of the frame.
+    target: [0, (BASE + BODY) * 0.45, 0],
+    distance: 2.6,
     yaw: 0.42,
     pitch: 0.28,
     fov: 30,
