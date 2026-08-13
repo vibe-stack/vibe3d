@@ -211,8 +211,12 @@ function preview(options: CargoPreviewOptions & { state?: VesselState } = {}): C
   const model = createModel()
   model.setState(options.state ?? 'pressurised')
   return createCargoPreview(model, {
-    target: [0, (SKIRT + BARREL) * 0.55, 0],
-    distance: 8.4,
+    // The relief stack and its elbow carry the prop 700 mm above the barrel's
+    // crown, and on 0.55 of the shell at 8.4 m the elbow was cut clean off the
+    // top of the frame. Height and distance are both taken from the stack rather
+    // than from the vessel it stands on.
+    target: [0, (SKIRT + BARREL) * 0.76, 0],
+    distance: 9.6,
     yaw: 0.66,
     pitch: 0.22,
     fov: 30,
