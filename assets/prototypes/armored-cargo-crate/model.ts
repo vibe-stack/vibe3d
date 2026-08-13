@@ -44,6 +44,18 @@ const WIDTH = 1.44
 const DEPTH = 1.06
 const HEIGHT = 1.12
 const SKIRT = 0.2
+/** How far the body reaches down past the skirt, so the two do not share a plane. */
+const LAP = 0.02
+const BODY_HEIGHT = HEIGHT - SKIRT + LAP
+const BODY_Y = SKIRT - LAP + BODY_HEIGHT * 0.5
+/**
+ * Outward offset from the shell's long face to the armour plate's own face.
+ *
+ * The plate is 70 mm thick about `DEPTH * 0.5 + 0.012`, so this is where
+ * anything bolted to the back of the crate has to sit. Every fitting back there
+ * was measured from an offset 15 mm past it and hung clear of the plate.
+ */
+const PLATE = 0.047
 
 interface ArmoredCrateSockets {
   hatch_face: Object3D
@@ -77,47 +89,50 @@ function plateProfile(width: number, height: number, cut: number): Vec2[] {
 }
 
 function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
-  const bodyHeight = HEIGHT - SKIRT
-  const bodyY = SKIRT + bodyHeight * 0.5
-
   box(hull, m.graphite, [WIDTH, SKIRT, DEPTH], [0, SKIRT * 0.5, 0], {
     chamfer: 0.075, fillet: 0.024, bevel: 0.018, capChamfer: 0.05,
   })
-  box(hull, m.ink, [WIDTH - 0.01, bodyHeight, DEPTH - 0.01], [0, bodyY, 0], {
+  box(hull, m.ink, [WIDTH - 0.01, BODY_HEIGHT, DEPTH - 0.01], [0, BODY_Y, 0], {
     chamfer: 0.1, fillet: 0.03, bevel: 0.02, capChamfer: 0.07,
   })
 
+  // The pockets fit inside the skirt. At 130 mm the wear plate around each mouth
+  // was 240 mm tall in a 200 mm band, so all four dipped 20 mm below the deck -
+  // four bright slivers hanging under the prop in the below tile.
   for (const x of [-0.42, 0.42]) {
-    forkPocket(hull, m, [0.42, 0.13], 0.36, [x, SKIRT * 0.5, DEPTH * 0.5], 'front')
-    forkPocket(hull, m, [0.42, 0.13], 0.36, [x, SKIRT * 0.5, -DEPTH * 0.5], 'back')
+    forkPocket(hull, m, [0.42, 0.07], 0.36, [x, SKIRT * 0.5, DEPTH * 0.5], 'front')
+    forkPocket(hull, m, [0.42, 0.07], 0.36, [x, SKIRT * 0.5, -DEPTH * 0.5], 'back')
   }
 
   // Bolted armour plate on both long faces and the back.
   for (const sz of [-1, 1]) {
     const z = sz * (DEPTH * 0.5 + 0.012)
-    hull.add(extrudeProfile(m.shell, plateProfile(WIDTH - 0.24, bodyHeight - 0.16, 0.19), 0.07, [0, bodyY, z], {
+    hull.add(extrudeProfile(m.shell, plateProfile(WIDTH - 0.24, BODY_HEIGHT - 0.16, 0.19), 0.07, [0, BODY_Y, z], {
       fillet: 0.02, bevel: 0.022, capChamfer: [0.035, 0],
       rotation: [0, sz > 0 ? 0 : Math.PI, 0],
     }))
   }
   for (const sx of [-1, 1]) {
     const x = sx * (WIDTH * 0.5 + 0.01)
-    hull.add(extrudeProfile(m.shellShade, plateProfile(DEPTH - 0.16, bodyHeight - 0.16, 0.17), 0.06, [x, bodyY, 0], {
+    hull.add(extrudeProfile(m.shellShade, plateProfile(DEPTH - 0.16, BODY_HEIGHT - 0.16, 0.17), 0.06, [x, BODY_Y, 0], {
       fillet: 0.02, bevel: 0.02, capChamfer: [0.03, 0],
       rotation: [0, sx > 0 ? Math.PI / 2 : -Math.PI / 2, 0],
     }))
-    boltRun(hull, m.steel, [x + sx * 0.03, bodyY + bodyHeight * 0.32, -0.3], [x + sx * 0.03, bodyY + bodyHeight * 0.32, 0.3], 3, 0.022, sx > 0 ? 'right' : 'left')
-    boltRun(hull, m.steel, [x + sx * 0.03, bodyY - bodyHeight * 0.32, -0.3], [x + sx * 0.03, bodyY - bodyHeight * 0.32, 0.3], 3, 0.022, sx > 0 ? 'right' : 'left')
+    boltRun(hull, m.steel, [x + sx * 0.03, BODY_Y + BODY_HEIGHT * 0.32, -0.3], [x + sx * 0.03, BODY_Y + BODY_HEIGHT * 0.32, 0.3], 3, 0.022, sx > 0 ? 'right' : 'left')
+    boltRun(hull, m.steel, [x + sx * 0.03, BODY_Y - BODY_HEIGHT * 0.32, -0.3], [x + sx * 0.03, BODY_Y - BODY_HEIGHT * 0.32, 0.3], 3, 0.022, sx > 0 ? 'right' : 'left')
   }
 
-  // Back face: conditioning louvres and the power interface.
-  const backZ = -(DEPTH * 0.5 + 0.062)
-  louvreVent(hull, m, [0.4, 0.4], [-0.3, bodyY, backZ], 4, 'back')
-  box(hull, m.graphite, [0.3, 0.24, 0.06], [0.32, bodyY, backZ], { chamfer: 0.05, fillet: 0.016, bevel: 0.012 })
-  hull.add(cylinder(m.steel, 0.055, 0.1, [0.32, bodyY, backZ - 0.05], AXIS_Z, 12))
-  hull.add(cylinder(m.ink, 0.03, 0.12, [0.32, bodyY, backZ - 0.07], AXIS_Z, 8))
+  // Back face: conditioning louvres and the power interface, all seated on the
+  // armour plate that carries them.
+  const backZ = -(DEPTH * 0.5 + PLATE)
+  louvreVent(hull, m, [0.4, 0.4], [-0.3, BODY_Y, backZ], 4, 'back')
+  box(hull, m.graphite, [0.3, 0.24, 0.06], [0.32, BODY_Y, backZ], { chamfer: 0.05, fillet: 0.016, bevel: 0.012 })
+  hull.add(cylinder(m.steel, 0.055, 0.1, [0.32, BODY_Y, backZ - 0.05], AXIS_Z, 12))
+  hull.add(cylinder(m.ink, 0.03, 0.12, [0.32, BODY_Y, backZ - 0.07], AXIS_Z, 8))
+  // The plate's top edge is at 0.38 of its own height; a band any higher than
+  // this overhangs it onto the shell 52 mm behind.
   const stripe = addStripeDecal(bundle, { count: 5, lean: -1 })
-  plaque(hull, m, stripe, [0.6, 0.1], [0, bodyY + bodyHeight * 0.36, backZ], 'back', m.ink)
+  plaque(hull, m, stripe, [0.6, 0.1], [0, BODY_Y + BODY_HEIGHT * 0.31, backZ], 'back', m.ink)
 
   // Top deck: castings, a lift spine, and the manifest.
   for (const sx of [-1, 1]) {
@@ -130,46 +145,52 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   box(hull, m.graphiteEdge, [WIDTH - 0.6, 0.06, 0.2], [0, HEIGHT + 0.01, 0], { chamfer: 0.05, fillet: 0.016, bevel: 0.012 })
   box(hull, m.amberPaint, [WIDTH - 0.72, 0.035, 0.09], [0, HEIGHT + 0.05, 0], { chamfer: 0.025, fillet: 0.01, bevel: 0.008 })
   const label = addLabelDecal(bundle, { variant: 21 })
-  plaque(hull, m, label, [0.36, 0.18], [0, HEIGHT + 0.002, -0.32], 'top', m.shellLight)
-  seam(hull, m.ink, WIDTH - 0.34, [0, HEIGHT + 0.002, 0.3], 'top', 'across', 0.03, 0.018)
+  plaque(hull, m, label, [0.36, 0.18], [0, HEIGHT, -0.32], 'top', m.shellLight)
+  seam(hull, m.ink, WIDTH - 0.34, [0, HEIGHT, 0.3], 'top', 'across', 0.03, 0.018)
 }
 
 function hatchFace(hull: Group, hatch: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
-  const bodyHeight = HEIGHT - SKIRT
-  const bodyY = SKIRT + bodyHeight * 0.5
   const z = DEPTH * 0.5 + 0.03
 
   // A real frame on the hull, so the moving leaf has something to seal against.
+  // The stiles are 90 mm about `z`, so a lamp on one seats 45 mm further out.
   for (const sx of [-1, 1]) {
-    box(hull, m.graphiteEdge, [0.15, bodyHeight - 0.1, 0.09], [sx * (WIDTH * 0.5 - 0.14), bodyY, z], {
+    box(hull, m.graphiteEdge, [0.15, BODY_HEIGHT - 0.1, 0.09], [sx * (WIDTH * 0.5 - 0.14), BODY_Y, z], {
       chamfer: 0.035, fillet: 0.012, bevel: 0.01,
     })
-    for (const y of [bodyY - 0.24, bodyY + 0.24]) {
-      statusLens(hull, m, [0.05, 0.14], [sx * (WIDTH * 0.5 - 0.14), y, z + 0.05], sx > 0 ? m.amber : m.cyan, 'front')
+    for (const y of [BODY_Y - 0.24, BODY_Y + 0.24]) {
+      statusLens(hull, m, [0.05, 0.14], [sx * (WIDTH * 0.5 - 0.14), y, z + 0.045], sx > 0 ? m.amber : m.cyan, 'front')
     }
   }
-  box(hull, m.graphiteEdge, [WIDTH - 0.2, 0.13, 0.09], [0, bodyY + bodyHeight * 0.5 - 0.06, z], { chamfer: 0.035 })
-  box(hull, m.graphiteEdge, [WIDTH - 0.2, 0.13, 0.09], [0, bodyY - bodyHeight * 0.5 + 0.06, z], { chamfer: 0.035 })
+  box(hull, m.graphiteEdge, [WIDTH - 0.2, 0.13, 0.09], [0, BODY_Y + BODY_HEIGHT * 0.5 - 0.06, z], { chamfer: 0.035 })
+  box(hull, m.graphiteEdge, [WIDTH - 0.2, 0.13, 0.09], [0, BODY_Y - BODY_HEIGHT * 0.5 + 0.06, z], { chamfer: 0.035 })
 
   // The leaf itself slides down into the skirt; its origin is its closed centre.
-  hatch.position.set(0, bodyY, z + 0.03)
-  box(hatch, m.shellLight, [WIDTH - 0.42, bodyHeight - 0.28, 0.075], [0, 0, 0], {
+  // Its skin is 75 mm about that origin and the recessed pan 30 mm about the
+  // skin's face, so those two planes are what everything else on the leaf seats
+  // on. Measured from neither, the grab bar stood 7.5 mm clear of the leaf and
+  // read as a stub floating in front of it.
+  hatch.position.set(0, BODY_Y, z + 0.03)
+  const skin = 0.0375
+  const pan = skin + 0.015
+  box(hatch, m.shellLight, [WIDTH - 0.42, BODY_HEIGHT - 0.28, 0.075], [0, 0, 0], {
     chamfer: 0.09, fillet: 0.028, bevel: 0.018, capChamfer: [0.04, 0],
   })
-  box(hatch, m.shellShade, [WIDTH - 0.56, bodyHeight - 0.44, 0.03], [0, 0.015, 0.05], {
+  box(hatch, m.shellShade, [WIDTH - 0.56, BODY_HEIGHT - 0.44, 0.03], [0, 0.015, skin], {
     chamfer: 0.07, fillet: 0.022, bevel: 0.012,
   })
-  paintMark(hatch, m.amberPaint, slashProfile(0.11, 0.3, 0.55), [-0.16, 0.02, 0.065], 'front', 0.013)
-  paintMark(hatch, m.amberPaint, slashProfile(0.055, 0.3, 0.55), [-0.02, 0.02, 0.065], 'front', 0.013)
-  box(hatch, m.ink, [0.3, 0.1, 0.04], [0.22, -0.16, 0.06], { chamfer: 0.03, fillet: 0.01, bevel: 0.008 })
+  paintMark(hatch, m.amberPaint, slashProfile(0.11, 0.3, 0.55), [-0.16, 0.02, pan], 'front', 0.013)
+  paintMark(hatch, m.amberPaint, slashProfile(0.055, 0.3, 0.55), [-0.02, 0.02, pan], 'front', 0.013)
+  box(hatch, m.ink, [0.3, 0.1, 0.04], [0.22, -0.16, pan], { chamfer: 0.03, fillet: 0.01, bevel: 0.008 })
   const label = addLabelDecal(bundle, { variant: 17 })
-  plaque(hatch, m, label, [0.26, 0.12], [0.22, 0.16, 0.05], 'front', m.shell)
+  plaque(hatch, m, label, [0.26, 0.12], [0.22, 0.16, pan], 'front', m.shell)
+  // Outboard of the pan rather than astride its edge, so each head has one host.
   for (const sx of [-1, 1]) {
     for (const sy of [-1, 1]) {
-      bolt(hatch, m.steel, [sx * (WIDTH * 0.5 - 0.28), sy * (bodyHeight * 0.5 - 0.2), 0.04], 0.024, 'front')
+      bolt(hatch, m.steel, [sx * (WIDTH * 0.5 - 0.245), sy * (BODY_HEIGHT * 0.5 - 0.2), skin], 0.024, 'front')
     }
   }
-  hatch.add(cylinder(m.steel, 0.035, 0.16, [0, -bodyHeight * 0.5 + 0.2, 0.08], AXIS_X, 10))
+  hatch.add(cylinder(m.steel, 0.035, 0.16, [0, -BODY_HEIGHT * 0.5 + 0.2, skin + 0.018], AXIS_X, 10))
 }
 
 function build(): { root: Group; hull: Group; hatch: Group; sockets: ArmoredCrateSockets; bundle: CargoMaterialBundle } {
@@ -208,9 +229,11 @@ export function createModel(): ArmoredCrateController {
   let state: ArmorState = 'locked'
   let blend = 0
   let elapsed = 0
-  const drop = HEIGHT - SKIRT - 0.3
+  // The leaf slides until it stands on the deck. At `HEIGHT - SKIRT - 0.3` it
+  // ran 280 mm past it, and a released hatch was a plate half underground.
+  const drop = BODY_Y - (BODY_HEIGHT - 0.28) * 0.5
   const applyBlend = (): void => {
-    hatch.position.y = SKIRT + (HEIGHT - SKIRT) * 0.5 - blend * drop
+    hatch.position.y = BODY_Y - blend * drop
     hatch.name = blend > 0.02
       ? 'AXR_CARGO_ARMORED-CARGO-CRATE_PART_HATCH_RELEASED'
       : 'AXR_CARGO_ARMORED-CARGO-CRATE_PART_HATCH_LOCKED'
