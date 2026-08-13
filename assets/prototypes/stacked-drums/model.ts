@@ -195,8 +195,10 @@ export function createModel(): DrumStackController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0, (PALLET + BODY * 2 + DECK) * 0.5, 0],
-    distance: 4.5,
+    // Half the stack's height puts the frame's centre above the drums' own
+    // visual mass, and the pallet's near corner then sat on the bottom edge.
+    target: [0, (PALLET + BODY * 2 + DECK) * 0.41, 0],
+    distance: 4.6,
     yaw: 0.72,
     pitch: 0.3,
     fov: 30,
