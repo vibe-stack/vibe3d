@@ -101,6 +101,35 @@ function prepareRequest(request: CliffInstanceRequest): Promise<PreparedGraniteA
   })
 }
 
+function prepareRequests(
+  requests: CliffInstanceRequest[],
+  maximumWorkers = 4,
+): Promise<PreparedGraniteAsset>[] {
+  const completions = requests.map(() => {
+    let resolve!: (asset: PreparedGraniteAsset) => void
+    let reject!: (error: unknown) => void
+    const promise = new Promise<PreparedGraniteAsset>((onResolve, onReject) => {
+      resolve = onResolve
+      reject = onReject
+    })
+    return { promise, resolve, reject }
+  })
+  let cursor = 0
+  const runner = async () => {
+    while (cursor < requests.length) {
+      const index = cursor++
+      try {
+        completions[index]!.resolve(await prepareRequest(requests[index]!))
+      } catch (error) {
+        completions[index]!.reject(error)
+      }
+    }
+  }
+  const workers = Math.min(maximumWorkers, requests.length)
+  for (let index = 0; index < workers; index += 1) void runner()
+  return completions.map((completion) => completion.promise)
+}
+
 const request = workerRequest()
 if (request) {
   console.log(JSON.stringify(await compileRequest(request)))
@@ -147,30 +176,41 @@ if (request) {
   let backend = 'cache'
   const canUseGpu = !process.argv.includes('--cpu') && !process.execPath.endsWith('/bun')
   if (pending.length > 0 && canUseGpu) {
-    let gpuCompleted = 0
+    const gpuCompleted = new Set<string>()
     try {
       const { createGraniteGpuBaker } = await import('./gpu-bake.ts')
       const baker = await createGraniteGpuBaker()
       try {
         backend = 'webgpu'
         jobs = 1
-        // Topology extraction and UV unwrap are CPU work. Prepare all unique
-        // seed assets concurrently while one GPU device owns the bake queue.
-        const prepared = await Promise.all(pending.map(prepareRequest))
-        for (let index = 0; index < pending.length; index += 1) {
-          const candidate = pending[index]!
-          const row = await compileRequestGpu(baker, candidate, prepared[index]!)
-          report.push(row)
-          console.log(JSON.stringify(row))
-          gpuCompleted += 1
+        // Topology extraction/unwrap and independent GPU command streams overlap.
+        // Four CPU workers avoid the contention seen when all seven dense
+        // extractors run at once, while one device retains pipeline caches.
+        const prepared = prepareRequests(pending)
+        const outcomes = await Promise.all(pending.map(async (candidate, index) => {
+          try {
+            const asset = await prepared[index]!
+            return { candidate, row: await compileRequestGpu(baker, candidate, asset) }
+          } catch (error) {
+            return { candidate, error }
+          }
+        }))
+        for (const outcome of outcomes) {
+          if (!outcome.row) continue
+          report.push(outcome.row)
+          console.log(JSON.stringify(outcome.row))
+          gpuCompleted.add(cliffArtifactName(outcome.candidate))
         }
+        const failed = outcomes.find((outcome) => outcome.error)
+        if (failed) throw failed.error
       } finally {
         baker.dispose()
       }
     } catch (error) {
       console.warn(`WebGPU unavailable; using the exact CPU compiler: ${(error as Error).message}`)
       const scriptPath = fileURLToPath(import.meta.url)
-      const compiled = await compileInParallel<Row>(scriptPath, pending.slice(gpuCompleted), (row) => {
+      const remaining = pending.filter((candidate) => !gpuCompleted.has(cliffArtifactName(candidate)))
+      const compiled = await compileInParallel<Row>(scriptPath, remaining, (row) => {
         report.push(row)
         console.log(JSON.stringify(row))
       })

@@ -25,6 +25,7 @@ import type { PreparedGraniteAsset } from './topology.ts'
 const SEARCH_DISTANCE = 0.055
 const GRADIENT_STEP = 0.0016
 const DILATION_PASSES = 4
+const WORKGROUP_SIZE = 128
 
 const shader = /* wgsl */ `
 struct Params {
@@ -45,11 +46,8 @@ struct Params {
 
 const INV_U32_RANGE: f32 = 1.0 / 4294967296.0;
 
-fn hash_bits(x: i32, y: i32, z: i32, seed: i32) -> u32 {
-  var value = bitcast<u32>(x) * 0x1f123bb5u;
-  value = value ^ (bitcast<u32>(y) * 0x5f356495u);
-  value = value ^ (bitcast<u32>(z) * 0x6c8e9cf5u);
-  value = value ^ (bitcast<u32>(seed) * 0x27d4eb2du);
+fn hash_mix(input: u32) -> u32 {
+  var value = input;
   value = value ^ (value >> 15u);
   value = value * 0x85ebca6bu;
   value = value ^ (value >> 13u);
@@ -58,45 +56,46 @@ fn hash_bits(x: i32, y: i32, z: i32, seed: i32) -> u32 {
   return value;
 }
 
+fn coordinate_bits(x: i32, y: i32, z: i32) -> u32 {
+  return (bitcast<u32>(x) * 0x1f123bb5u)
+    ^ (bitcast<u32>(y) * 0x5f356495u)
+    ^ (bitcast<u32>(z) * 0x6c8e9cf5u);
+}
+
+fn hash_bits(x: i32, y: i32, z: i32, seed: i32) -> u32 {
+  return hash_mix(coordinate_bits(x, y, z) ^ (bitcast<u32>(seed) * 0x27d4eb2du));
+}
+
 fn hash01(x: i32, y: i32, z: i32, seed: i32) -> f32 {
   return f32(hash_bits(x, y, z, seed)) * INV_U32_RANGE;
 }
 
-fn gradient(base: u32) -> vec3<f32> {
-  switch base {
-    case 0u, 12u: { return vec3<f32>(1.0, 1.0, 0.0); }
-    case 1u: { return vec3<f32>(-1.0, 1.0, 0.0); }
-    case 2u: { return vec3<f32>(1.0, -1.0, 0.0); }
-    case 3u: { return vec3<f32>(-1.0, -1.0, 0.0); }
-    case 4u: { return vec3<f32>(1.0, 0.0, 1.0); }
-    case 5u: { return vec3<f32>(-1.0, 0.0, 1.0); }
-    case 6u: { return vec3<f32>(1.0, 0.0, -1.0); }
-    case 7u: { return vec3<f32>(-1.0, 0.0, -1.0); }
-    case 8u: { return vec3<f32>(0.0, 1.0, 1.0); }
-    case 9u, 13u: { return vec3<f32>(0.0, -1.0, 1.0); }
-    case 10u: { return vec3<f32>(0.0, 1.0, -1.0); }
-    case 11u, 15u: { return vec3<f32>(0.0, -1.0, -1.0); }
-    default: { return vec3<f32>(-1.0, 1.0, 0.0); }
-  }
-}
-
-fn gradient_dot(ix: i32, iy: i32, iz: i32, seed: i32, x: f32, y: f32, z: f32) -> f32 {
-  let base = hash_bits(ix, iy, iz, seed) & 15u;
-  return dot(gradient(base), vec3<f32>(x, y, z));
+fn gradient_dot_bits(bits: u32, x: f32, y: f32, z: f32) -> f32 {
+  let h = hash_mix(bits) & 15u;
+  let u = select(y, x, h < 8u);
+  let v = select(y, select(z, x, h == 12u || h == 14u), h >= 4u);
+  return select(-u, u, (h & 1u) == 0u) + select(-v, v, (h & 2u) == 0u);
 }
 
 fn gradient_noise(p: vec3<f32>, seed: i32) -> f32 {
   let cell = vec3<i32>(floor(p));
   let f = p - vec3<f32>(cell);
   let u = f * f * f * (f * (f * 6.0 - vec3<f32>(15.0)) + vec3<f32>(10.0));
-  let n000 = gradient_dot(cell.x, cell.y, cell.z, seed, f.x, f.y, f.z);
-  let n100 = gradient_dot(cell.x + 1, cell.y, cell.z, seed, f.x - 1.0, f.y, f.z);
-  let n010 = gradient_dot(cell.x, cell.y + 1, cell.z, seed, f.x, f.y - 1.0, f.z);
-  let n110 = gradient_dot(cell.x + 1, cell.y + 1, cell.z, seed, f.x - 1.0, f.y - 1.0, f.z);
-  let n001 = gradient_dot(cell.x, cell.y, cell.z + 1, seed, f.x, f.y, f.z - 1.0);
-  let n101 = gradient_dot(cell.x + 1, cell.y, cell.z + 1, seed, f.x - 1.0, f.y, f.z - 1.0);
-  let n011 = gradient_dot(cell.x, cell.y + 1, cell.z + 1, seed, f.x, f.y - 1.0, f.z - 1.0);
-  let n111 = gradient_dot(cell.x + 1, cell.y + 1, cell.z + 1, seed, f.x - 1.0, f.y - 1.0, f.z - 1.0);
+  let hx0 = bitcast<u32>(cell.x) * 0x1f123bb5u;
+  let hx1 = bitcast<u32>(cell.x + 1) * 0x1f123bb5u;
+  let hy0 = bitcast<u32>(cell.y) * 0x5f356495u;
+  let hy1 = bitcast<u32>(cell.y + 1) * 0x5f356495u;
+  let hz0 = bitcast<u32>(cell.z) * 0x6c8e9cf5u;
+  let hz1 = bitcast<u32>(cell.z + 1) * 0x6c8e9cf5u;
+  let seeded = bitcast<u32>(seed) * 0x27d4eb2du;
+  let n000 = gradient_dot_bits(hx0 ^ hy0 ^ hz0 ^ seeded, f.x, f.y, f.z);
+  let n100 = gradient_dot_bits(hx1 ^ hy0 ^ hz0 ^ seeded, f.x - 1.0, f.y, f.z);
+  let n010 = gradient_dot_bits(hx0 ^ hy1 ^ hz0 ^ seeded, f.x, f.y - 1.0, f.z);
+  let n110 = gradient_dot_bits(hx1 ^ hy1 ^ hz0 ^ seeded, f.x - 1.0, f.y - 1.0, f.z);
+  let n001 = gradient_dot_bits(hx0 ^ hy0 ^ hz1 ^ seeded, f.x, f.y, f.z - 1.0);
+  let n101 = gradient_dot_bits(hx1 ^ hy0 ^ hz1 ^ seeded, f.x - 1.0, f.y, f.z - 1.0);
+  let n011 = gradient_dot_bits(hx0 ^ hy1 ^ hz1 ^ seeded, f.x, f.y - 1.0, f.z - 1.0);
+  let n111 = gradient_dot_bits(hx1 ^ hy1 ^ hz1 ^ seeded, f.x - 1.0, f.y - 1.0, f.z - 1.0);
   let x00 = mix(n000, n100, u.x);
   let x10 = mix(n010, n110, u.x);
   let x01 = mix(n001, n101, u.x);
@@ -104,36 +103,39 @@ fn gradient_noise(p: vec3<f32>, seed: i32) -> f32 {
   return mix(mix(x00, x10, u.y), mix(x01, x11, u.y), u.z);
 }
 
-fn fbm(p: vec3<f32>, seed: i32, octaves: u32) -> f32 {
-  var amplitude = 0.5;
-  var frequency = 1.0;
-  var total = 0.0;
-  var weight = 0.0;
-  for (var octave = 0u; octave < 4u; octave += 1u) {
-    if (octave >= octaves) { break; }
-    total += gradient_noise(p * frequency, seed + i32(octave) * 1013) * amplitude;
-    weight += amplitude;
-    amplitude *= 0.5;
-    frequency *= 2.0173;
-  }
-  return (total / weight) * 0.71;
+fn fbm2(p: vec3<f32>, seed: i32) -> f32 {
+  let total = gradient_noise(p, seed) * 0.5
+    + gradient_noise(p * 2.0173, seed + 1013) * 0.25;
+  return (total / 0.75) * 0.71;
 }
 
-fn ridged(p: vec3<f32>, seed: i32, octaves: u32) -> f32 {
-  var amplitude = 0.5;
-  var frequency = 1.0;
-  var total = 0.0;
-  var weight = 0.0;
-  for (var octave = 0u; octave < 4u; octave += 1u) {
-    if (octave >= octaves) { break; }
-    let raw = 1.0 - abs(gradient_noise(p * frequency, seed + i32(octave) * 1013) * 2.2);
-    let band = max(0.0, raw);
-    total += band * band * amplitude;
-    weight += amplitude;
-    amplitude *= 0.52;
-    frequency *= 2.0173;
-  }
-  return total / weight;
+fn fbm3(p: vec3<f32>, seed: i32) -> f32 {
+  var frequency = 2.0173;
+  let first = gradient_noise(p, seed) * 0.5;
+  let second = gradient_noise(p * frequency, seed + 1013) * 0.25;
+  frequency *= 2.0173;
+  let third = gradient_noise(p * frequency, seed + 2026) * 0.125;
+  return ((first + second + third) / 0.875) * 0.71;
+}
+
+fn ridge_value(p: vec3<f32>, seed: i32) -> f32 {
+  let band = max(0.0, 1.0 - abs(gradient_noise(p, seed) * 2.2));
+  return band * band;
+}
+
+fn ridged2(p: vec3<f32>, seed: i32) -> f32 {
+  let total = ridge_value(p, seed) * 0.5
+    + ridge_value(p * 2.0173, seed + 1013) * 0.26;
+  return total / 0.76;
+}
+
+fn ridged3(p: vec3<f32>, seed: i32) -> f32 {
+  var frequency = 2.0173;
+  let first = ridge_value(p, seed) * 0.5;
+  let second = ridge_value(p * frequency, seed + 1013) * 0.26;
+  frequency *= 2.0173;
+  let third = ridge_value(p * frequency, seed + 2026) * 0.1352;
+  return (first + second + third) / 0.8952;
 }
 
 fn worley_border(p: vec3<f32>, seed: i32) -> f32 {
@@ -144,10 +146,11 @@ fn worley_border(p: vec3<f32>, seed: i32) -> f32 {
     for (var dy = -1; dy <= 1; dy += 1) {
       for (var dx = -1; dx <= 1; dx += 1) {
         let c = cell + vec3<i32>(dx, dy, dz);
+        let coordinate = coordinate_bits(c.x, c.y, c.z);
         let point = vec3<f32>(c) + vec3<f32>(
-          hash01(c.x, c.y, c.z, seed),
-          hash01(c.x, c.y, c.z, seed + 31),
-          hash01(c.x, c.y, c.z, seed + 67)
+          f32(hash_mix(coordinate ^ (bitcast<u32>(seed) * 0x27d4eb2du))) * INV_U32_RANGE,
+          f32(hash_mix(coordinate ^ (bitcast<u32>(seed + 31) * 0x27d4eb2du))) * INV_U32_RANGE,
+          f32(hash_mix(coordinate ^ (bitcast<u32>(seed + 67) * 0x27d4eb2du))) * INV_U32_RANGE
         );
         let delta = p - point;
         let squared = dot(delta, delta);
@@ -251,32 +254,32 @@ fn mass_sdf(p: vec3<f32>, seed: i32) -> f32 {
 }
 
 fn displacement(p: vec3<f32>, seed: i32) -> f32 {
-  let wx = p.x + fbm(vec3<f32>(p.x * 1.05 + 3.1, p.y * 1.05, p.z * 1.05), seed + 11, 3u) * 0.4;
-  let wy = p.y + fbm(vec3<f32>(p.x, p.y - 5.7, p.z), seed + 43, 3u) * 0.3;
-  let wz = p.z + fbm(vec3<f32>(p.x * 1.1, p.y * 1.1, p.z * 1.1 + 8.4), seed + 79, 3u) * 0.4;
-  let macro_spine = ridged(vec3<f32>(wx * 1.75, wy * 1.35, wz * 1.75), seed + 137, 3u);
-  let broad = fbm(vec3<f32>(wx * 1.5, wy * 1.25, wz * 1.5), seed + 101, 3u) * 2.0;
+  let wx = p.x + fbm3(vec3<f32>(p.x * 1.05 + 3.1, p.y * 1.05, p.z * 1.05), seed + 11) * 0.4;
+  let wy = p.y + fbm3(vec3<f32>(p.x, p.y - 5.7, p.z), seed + 43) * 0.3;
+  let wz = p.z + fbm3(vec3<f32>(p.x * 1.1, p.y * 1.1, p.z * 1.1 + 8.4), seed + 79) * 0.4;
+  let macro_spine = ridged3(vec3<f32>(wx * 1.75, wy * 1.35, wz * 1.75), seed + 137);
+  let broad = fbm3(vec3<f32>(wx * 1.5, wy * 1.25, wz * 1.5), seed + 101) * 2.0;
   let macro_band = broad * 0.42 + (macro_spine - 0.4) * 1.15;
 
-  let warp = fbm(vec3<f32>(p.x * 2.9 + 6.7, p.y * 2.9, p.z * 2.9), seed + 307, 3u) * 0.26;
+  let warp = fbm3(vec3<f32>(p.x * 2.9 + 6.7, p.y * 2.9, p.z * 2.9), seed + 307) * 0.26;
   let cells = worley_border(vec3<f32>((p.x + warp) * 5.4, p.y * 4.3, (p.z - warp) * 5.4), seed + 389);
   let plate = 1.0 - min(1.0, cells / 0.44);
-  let meso_spine = ridged(vec3<f32>((p.x + warp) * 4.6, p.y * 3.9, (p.z + warp) * 4.6), seed + 421, 2u);
-  let broken = fbm(vec3<f32>((p.x + warp) * 5.6, (p.y - warp * 0.45) * 4.4, (p.z + warp) * 5.6), seed + 347, 3u) * 2.0;
+  let meso_spine = ridged2(vec3<f32>((p.x + warp) * 4.6, p.y * 3.9, (p.z + warp) * 4.6), seed + 421);
+  let broken = fbm3(vec3<f32>((p.x + warp) * 5.6, (p.y - warp * 0.45) * 4.4, (p.z + warp) * 5.6), seed + 347) * 2.0;
   let meso = broken * 0.34 + (meso_spine - 0.42) * 0.7 - plate * plate * 0.62;
 
-  let fine_warp = fbm(p * 7.0 + vec3<f32>(1.3, 0.0, 0.0), seed + 503, 2u) * 0.14;
+  let fine_warp = fbm2(p * 7.0 + vec3<f32>(1.3, 0.0, 0.0), seed + 503) * 0.14;
   let chips = worley_border(vec3<f32>((p.x + fine_warp) * 14.5, p.y * 11.5, (p.z - fine_warp) * 14.5), seed + 541);
   let scar = 1.0 - min(1.0, chips / 0.42);
-  let bedding = ridged(vec3<f32>(p.x * 6.5, p.y * 21.5, p.z * 6.5), seed + 577, 2u);
-  let grit = fbm(p * 13.5, seed + 613, 3u) * 2.0;
+  let bedding = ridged2(vec3<f32>(p.x * 6.5, p.y * 21.5, p.z * 6.5), seed + 577);
+  let grit = fbm3(p * 13.5, seed + 613) * 2.0;
   let fine = grit * 0.36 - scar * scar * 0.62 - (bedding - 0.4) * 0.5;
   return macro_band * 0.052 + meso * 0.017 + fine * 0.0055;
 }
 
 fn micro_relief(p: vec3<f32>, seed: i32) -> f32 {
-  let grain = fbm(p * 44.0, seed + 701, 3u) * 2.0;
-  let crystal = ridged(p * 72.0, seed + 743, 2u);
+  let grain = fbm3(p * 44.0, seed + 701) * 2.0;
+  let crystal = ridged2(p * 72.0, seed + 743);
   let flake = worley_border(p * 56.0, seed + 787);
   let pit = 1.0 - min(1.0, flake / 0.36);
   return grain * 0.0021 + (crystal - 0.42) * 0.0017 - pit * pit * 0.0018;
@@ -286,7 +289,7 @@ fn detailed_sdf(p: vec3<f32>, seed: i32) -> f32 {
   return mass_sdf(p, seed) - displacement(p, seed) - micro_relief(p, seed);
 }
 
-@compute @workgroup_size(32)
+@compute @workgroup_size(128)
 fn trace_main(@builtin(global_invocation_id) id: vec3<u32>) {
   let active_index = id.x;
   if (active_index >= u32(params.values.z)) { return; }
@@ -343,7 +346,7 @@ fn trace_main(@builtin(global_invocation_id) id: vec3<u32>) {
 @group(0) @binding(10) var<storage, read> queries: array<vec4<f32>>;
 @group(0) @binding(11) var<storage, read_write> query_results: array<vec4<f32>>;
 
-@compute @workgroup_size(32)
+@compute @workgroup_size(128)
 fn evaluate_main(@builtin(global_invocation_id) id: vec3<u32>) {
   let index = id.x;
   if (index >= arrayLength(&queries)) { return; }
@@ -422,7 +425,9 @@ export async function createGraniteGpuBaker(): Promise<GraniteGpuBaker> {
       // insufficient and lets the native implementation be finalized early.
       if (disposed) throw new Error('Granite GPU baker has been disposed')
       void gpuOwner
+      const compileStarted = performance.now()
       const raster = rasterizeCharts(asset.unwrapped, atlasSize, atlasSize)
+      const rasterFinished = performance.now()
       const texelCount = atlasSize * atlasSize
       const activeTexels = new Uint32Array(raster.covered.reduce((sum, value) => sum + value, 0))
       let activeCursor = 0
@@ -497,7 +502,7 @@ export async function createGraniteGpuBaker(): Promise<GraniteGpuBaker> {
             const pass = encoder.beginComputePass()
             pass.setPipeline(evaluatePipeline)
             pass.setBindGroup(0, bindGroup)
-            pass.dispatchWorkgroups(Math.ceil(chunkCount / 32))
+            pass.dispatchWorkgroups(Math.ceil(chunkCount / WORKGROUP_SIZE))
             pass.end()
             encoder.copyBufferToBuffer(resultBuffer, 0, resultReadBuffer, 0, resultSize)
             device.queue.submit([encoder.finish()])
@@ -528,12 +533,13 @@ export async function createGraniteGpuBaker(): Promise<GraniteGpuBaker> {
           const tracePass = traceEncoder.beginComputePass()
           tracePass.setPipeline(tracePipeline)
           tracePass.setBindGroup(0, traceBindGroup)
-          tracePass.dispatchWorkgroups(Math.ceil(activeTexels.length / 32))
+          tracePass.dispatchWorkgroups(Math.ceil(activeTexels.length / WORKGROUP_SIZE))
           tracePass.end()
         }
         traceEncoder.copyBufferToBuffer(traceBuffer, 0, traceReadBuffer, 0, traceSize)
         device.queue.submit([traceEncoder.finish()])
         await traceReadBuffer.mapAsync(globalThis.GPUMapMode.READ)
+        const traceFinished = performance.now()
         const traceOutput = new Float32Array(traceReadBuffer.getMappedRange())
         const hitPoints = new Float32Array(activeTexels.length * 3)
         const reliefs = new Float32Array(activeTexels.length)
@@ -559,6 +565,7 @@ export async function createGraniteGpuBaker(): Promise<GraniteGpuBaker> {
           }
         }
         const normalSamples = await evaluate(normalQueries)
+        const normalsFinished = performance.now()
         if (process.env.TERRAIN_GPU_DEBUG === '1') console.error('granite gpu: normal queries complete')
         const detailNormals = new Float32Array(activeTexels.length * 3)
         const normalFrom = (values: Float32Array, offset: number, target: Float32Array, targetOffset: number) => {
@@ -608,6 +615,7 @@ export async function createGraniteGpuBaker(): Promise<GraniteGpuBaker> {
           }
         }
         const responseSamples = await evaluate(responseQueries)
+        const responsesFinished = performance.now()
         if (process.env.TERRAIN_GPU_DEBUG === '1') console.error('granite gpu: response queries complete')
         const normalData = new Uint8Array(texelCount * 3)
         const heightData = new Uint8Array(texelCount)
@@ -652,6 +660,7 @@ export async function createGraniteGpuBaker(): Promise<GraniteGpuBaker> {
           hitTexels += hits[index]!
           if (Math.abs(relief) > peakHeight) peakHeight = Math.abs(relief)
         }
+        const packingFinished = performance.now()
         dilate(
           [normalData, heightData, aoData, curvatureData],
           [3, 1, 1, 1],
@@ -660,6 +669,16 @@ export async function createGraniteGpuBaker(): Promise<GraniteGpuBaker> {
           atlasSize,
           DILATION_PASSES,
         )
+        if (debug) console.error(JSON.stringify({
+          seed,
+          atlasSize,
+          rasterMs: rasterFinished - compileStarted,
+          traceMs: traceFinished - rasterFinished,
+          normalsMs: normalsFinished - traceFinished,
+          responsesMs: responsesFinished - normalsFinished,
+          packingMs: packingFinished - responsesFinished,
+          dilationMs: performance.now() - packingFinished,
+        }))
         const channels: CompiledSurfaceBake['channels'] = [
           { semantic: 'normal-object', components: 3, encoding: 'unorm8', scale: 2, bias: -1, data: normalData },
           { semantic: 'height', components: 1, encoding: 'unorm8', scale: SEARCH_DISTANCE * 4, bias: -SEARCH_DISTANCE * 2, data: heightData },
