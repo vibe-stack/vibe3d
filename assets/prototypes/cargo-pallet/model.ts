@@ -103,10 +103,10 @@ function locators(root: Group, m: CargoMaterials): void {
 function skidFrame(root: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
   for (const sz of [-1, 0, 1]) {
     const z = sz * (WIDTH * 0.5 - 0.075)
-    // The pad under each skid is the part in contact, so the skid itself starts
-    // a face clearance above the deck; run to zero it laid its own sole on the
-    // pad's, a millimetre apart down the whole 1.12 m of every runner.
-    box(root, m.graphite, [LENGTH - 0.02, SKID - FACE_CLEARANCE, 0.15], [0, (SKID + FACE_CLEARANCE) * 0.5, z], {
+    // The skid runs to the deck and the pad under it drops clear on its own: the
+    // helper's own drop is the face clearance the runner used to buy by starting
+    // above it, and doing both left the pallet riding 4 mm higher than it reads.
+    box(root, m.graphite, [LENGTH - 0.02, SKID, 0.15], [0, SKID * 0.5, z], {
       chamfer: 0.035, fillet: 0.013, bevel: 0.011, capChamfer: 0.025,
     })
     groundPad(root, m.rubber, [LENGTH - 0.12, 0.11], [0, 0, z], 0.018)
