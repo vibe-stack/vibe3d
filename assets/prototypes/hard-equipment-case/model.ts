@@ -81,10 +81,17 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   // over kerbs actually has, and they take the kerb below the feet as well as at
   // the corners. The 3 mm they used to reach past the skids is the playbook's
   // floor to the millimetre, so it is a face clearance now.
+  //
+  // Their flanks stand the same clearance out from the shell's. Set 35 mm in
+  // from each face the 75 mm section left them 2.5 mm proud, which is under the
+  // floor over the 44 x 483 mm each one shares with the skin behind it.
+  const extrusion = 0.075
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      box(hull, m.graphiteEdge, [0.075, bodyHeight + FACE_CLEARANCE + 0.003, 0.075], [
-        sx * (WIDTH * 0.5 - 0.035), (bodyHeight + 0.003 - FACE_CLEARANCE) * 0.5, sz * (DEPTH * 0.5 - 0.035),
+      box(hull, m.graphiteEdge, [extrusion, bodyHeight + FACE_CLEARANCE + 0.003, extrusion], [
+        sx * (WIDTH * 0.5 + FACE_CLEARANCE - extrusion * 0.5),
+        (bodyHeight + 0.003 - FACE_CLEARANCE) * 0.5,
+        sz * (DEPTH * 0.5 + FACE_CLEARANCE - extrusion * 0.5),
       ], { chamfer: 0.028, fillet: 0.01, bevel: 0.008 })
     }
   }
