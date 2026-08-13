@@ -4,6 +4,7 @@ import { cylinder, extrudeProfile, type Vec2 } from '../../../src/asset-forge/ge
 import {
   AXIS_X,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -153,13 +154,17 @@ function hatchFace(hull: Group, hatch: Group, m: CargoMaterials, bundle: CargoMa
   const z = DEPTH * 0.5 + 0.03
 
   // A real frame on the hull, so the moving leaf has something to seal against.
-  // The stiles are 90 mm about `z`, so a lamp on one seats 45 mm further out.
+  // The head and sill bars are 90 mm about `z` and carry the frame's face; the
+  // stiles are a face clearance shallower, because at the same depth the two
+  // members meet on one plane over the whole 57 x 97 mm they cross at each of
+  // the frame's four corners. A lamp seats on the stile's own face.
+  const stileDepth = 0.09 - FACE_CLEARANCE * 2
   for (const sx of [-1, 1]) {
-    box(hull, m.graphiteEdge, [0.15, BODY_HEIGHT - 0.1, 0.09], [sx * (WIDTH * 0.5 - 0.14), BODY_Y, z], {
+    box(hull, m.graphiteEdge, [0.15, BODY_HEIGHT - 0.1, stileDepth], [sx * (WIDTH * 0.5 - 0.14), BODY_Y, z], {
       chamfer: 0.035, fillet: 0.012, bevel: 0.01,
     })
     for (const y of [BODY_Y - 0.24, BODY_Y + 0.24]) {
-      statusLens(hull, m, [0.05, 0.14], [sx * (WIDTH * 0.5 - 0.14), y, z + 0.045], sx > 0 ? m.amber : m.cyan, 'front')
+      statusLens(hull, m, [0.05, 0.14], [sx * (WIDTH * 0.5 - 0.14), y, z + stileDepth * 0.5], sx > 0 ? m.amber : m.cyan, 'front')
     }
   }
   box(hull, m.graphiteEdge, [WIDTH - 0.2, 0.13, 0.09], [0, BODY_Y + BODY_HEIGHT * 0.5 - 0.06, z], { chamfer: 0.035 })
