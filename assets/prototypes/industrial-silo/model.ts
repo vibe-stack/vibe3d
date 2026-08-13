@@ -262,8 +262,12 @@ function preview(options: CargoPreviewOptions & { state?: SiloState } = {}): Car
   const model = createModel()
   model.setState(options.state ?? 'closed')
   return createCargoPreview(model, {
-    target: [0, (LEG + CONE + BARREL) * 0.46, 0],
-    distance: 13.4,
+    // The fill line and its crown railing stand above the barrel, and framing on
+    // 0.46 of the stack at 13.4 m cut 80 mm off the top of that pipework. The
+    // prop's visible top is well above its structural mid-height, so the frame
+    // is centred above it.
+    target: [0, (LEG + CONE + BARREL) * 0.53, 0],
+    distance: 13.9,
     yaw: 0.6,
     pitch: 0.2,
     fov: 30,
