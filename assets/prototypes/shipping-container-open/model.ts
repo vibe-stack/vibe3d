@@ -131,7 +131,11 @@ function tarpRoll(shell: Group, m: CargoMaterials, k: ContainerMetrics): void {
     // off. The run is authored about +Y and stood on the roll's X axis.
     const strap = wrapStrap(shell, m.fabric, radius, [x, y, z], 0, Math.PI * 1.35, 0.07, 0.014, 6)
     strap.rotation.z = Math.PI / 2
-    box(shell, m.amberPaint, [0.07, 0.05, 0.03], [x, y, z + radius - 0.008], { chamfer: 0.012, fillet: 0.005, bevel: 0.004 })
+    // The keeper is held 4 mm inside the strap on each side. Cut to the strap's
+    // own 70 mm, its two end caps landed on the strap's and faced the same way,
+    // and the strap is the part that runs the full wrap and has to keep its
+    // width.
+    box(shell, m.amberPaint, [0.062, 0.05, 0.03], [x, y, z + radius - 0.008], { chamfer: 0.012, fillet: 0.005, bevel: 0.004 })
   }
   // End bands, standing proud of the roll instead of inside it: at r 0.05 they
   // were 90 mm under a 0.14 surface and appeared in no frame.
