@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   bolt,
@@ -114,7 +115,14 @@ function build(): { root: Group; sockets: ShelfSockets; bundle: CargoMaterialBun
     // A brace is cut to the diagonal, not to the span it covers: at the bare
     // frame width and laid over 36 degrees, all four ends stopped 155 mm short
     // of the posts they are supposed to tie together.
-    box(root, m.shellShade, [BRACE, 0.05, 0.02], [0, HEIGHT * 0.62, -(DEPTH * 0.5 - POST * 0.5)], {
+    // The two straps cross at the middle of the frame, so on one plane their
+    // 20 mm slabs are coincident over the whole lozenge where they meet. Lapping
+    // the second one a face clearance in front of the first is how a crossed pair
+    // is bolted up anyway, and it leaves the rear face the `back` tile reads
+    // exactly where it was.
+    box(root, m.shellShade, [BRACE, 0.05, 0.02], [
+      0, HEIGHT * 0.62, -(DEPTH * 0.5 - POST * 0.5) + (sx > 0 ? FACE_CLEARANCE : 0),
+    ], {
       chamfer: 0.012, fillet: 0.005, bevel: 0.004, rotation: [0, 0, sx * BRACE_LEAN],
     })
   }
