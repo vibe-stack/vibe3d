@@ -5,6 +5,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -154,8 +155,14 @@ function chassisBuild(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBu
   chassis.add(cylinder(m.graphiteEdge, 0.11, 0.05, [-0.14, 1.32, 0], [0, 0, -0.22 + Math.PI / 2], 12))
   chassis.add(cylinder(m.amberPaint, 0.05, 0.07, [-0.19, 1.36, 0.09], [0, 0, -0.22 + Math.PI / 2], 8))
   box(chassis, m.graphite, [0.16, 0.24, 0.1], [-0.3, 1.0, 0.3], { chamfer: 0.03, fillet: 0.011, bevel: 0.009 })
+  // The two levers are raked apart and stepped, but they still cross in one 40 mm
+  // band of z, so the upper one is drawn a clearance inside the lower's width. At
+  // a common 0.04 both of its side faces lay on the lower's own, facing the same
+  // way, over 46 cm² of that crossing.
   for (const sy of [0, 1]) {
-    box(chassis, sy > 0 ? m.amberPaint : m.graphiteEdge, [0.05, 0.16, 0.04], [-0.3, 1.12 + sy * 0.02, 0.36], {
+    box(chassis, sy > 0 ? m.amberPaint : m.graphiteEdge, [
+      0.05, 0.16, 0.04 - sy * FACE_CLEARANCE * 2,
+    ], [-0.3, 1.12 + sy * 0.02, 0.36], {
       chamfer: 0.012, fillet: 0.005, bevel: 0.004, rotation: [0, 0, sy * 0.2 - 0.1],
     })
   }
@@ -207,9 +214,13 @@ function mastBuild(chassis: Group, m: CargoMaterials): void {
     const z = sz * 0.3
     tubeSection(chassis, m.graphite, [0.11, 0.16], 0.016, MAST_H, [AXLE_X + 0.18, MAST_H * 0.5, z], [Math.PI / 2, 0, 0])
   }
-  box(chassis, m.graphite, [0.2, 0.14, 0.72], [AXLE_X + 0.18, MAST_H - 0.07, 0], {
-    chamfer: 0.035, fillet: 0.013, bevel: 0.011,
-  })
+  // Head tie across the two outer channels, kept a clearance under the mast's own
+  // top and a clearance inside the inner channels' flanks. Drawn to MAST_H and to
+  // a full 0.72 it capped the channels on their top plane and ended on the inner
+  // mast's outer faces, which slide past it for the whole of the lift.
+  box(chassis, m.graphite, [0.2, 0.14 - FACE_CLEARANCE, 0.72 - FACE_CLEARANCE * 2], [
+    AXLE_X + 0.18, MAST_H - 0.07 - FACE_CLEARANCE * 0.5, 0,
+  ], { chamfer: 0.035, fillet: 0.013, bevel: 0.011 })
   box(chassis, m.graphite, [0.24, 0.18, 0.76], [AXLE_X + 0.16, 0.24, 0], {
     chamfer: 0.045, fillet: 0.016, bevel: 0.012,
   })
