@@ -75,20 +75,40 @@ export function createModel(): ShortContainerController {
 
   // Service interface: a bolted panel with an isolator and two feed ports. It
   // sits on the aft third of the -Z flank so the two sides stay asymmetric.
-  const panelZ = -(SPEC.width * 0.5 - 0.02)
-  box(shell, m.graphite, [0.68, 0.52, 0.06], [-0.62, 1.34, panelZ], { chamfer: 0.07, fillet: 0.022, bevel: 0.014 })
+  //
+  // The panel is bolted to the corrugation, so its seat is the rib's outer face
+  // and not the wall's centre plane: measured from `width*0.5 - 0.02` the 60 mm
+  // box stood 4 mm proud of the ribs and the other 56 mm of it was inside them.
+  const panelZ = -(SPEC.width * 0.5 - 0.075 + k.ribFace)
+  const panelFace = panelZ - 0.03
+  const wellFace = panelZ - 0.065
+  box(shell, m.graphite, [0.68, 0.62, 0.06], [-0.62, 1.3, panelZ], { chamfer: 0.07, fillet: 0.022, bevel: 0.014 })
   box(shell, m.ink, [0.52, 0.36, 0.05], [-0.62, 1.36, panelZ - 0.04], { chamfer: 0.05, fillet: 0.016, bevel: 0.011 })
-  statusLens(shell, m, [0.09, 0.09], [-0.86, 1.44, panelZ - 0.07], m.cyan, 'back')
-  statusLens(shell, m, [0.09, 0.09], [-0.66, 1.44, panelZ - 0.07], m.amber, 'back')
-  box(shell, m.amberPaint, [0.12, 0.1, 0.05], [-0.4, 1.26, panelZ - 0.07], { chamfer: 0.026, fillet: 0.01, bevel: 0.008 })
+  statusLens(shell, m, [0.09, 0.09], [-0.8, 1.44, wellFace], m.cyan, 'back')
+  statusLens(shell, m, [0.09, 0.09], [-0.6, 1.44, wellFace], m.amber, 'back')
+  box(shell, m.amberPaint, [0.12, 0.1, 0.05], [-0.44, 1.26, panelZ - 0.07], { chamfer: 0.026, fillet: 0.01, bevel: 0.008 })
   const label = addLabelDecal(bundle, { variant: 63 })
-  plaque(shell, m, label, [0.3, 0.11], [-0.62, 1.1, panelZ - 0.045], 'back', m.shellLight)
+  plaque(shell, m, label, [0.3, 0.11], [-0.62, 1.1, panelFace], 'back', m.shellLight)
 
   const hinge = SPEC.width * 0.5 - k.casting - 0.02
-  doorLeft.position.set(SPEC.length * 0.5 - 0.22, 0, -hinge)
-  doorRight.position.set(SPEC.length * 0.5 - 0.22, 0, hinge)
+  // The leaves hang behind the door frame's head and sill bars, whose inboard
+  // face is at `length*0.5 - 0.24`. Set 130 mm further forward the 0.1-thick
+  // skins ran straight through both bars for the full width of the opening.
+  doorLeft.position.set(SPEC.length * 0.5 - 0.285, 0, -hinge)
+  doorRight.position.set(SPEC.length * 0.5 - 0.285, 0, hinge)
   containerDoorLeaf(doorLeft, m, bundle, { ...SPEC, side: 1 })
   containerDoorLeaf(doorRight, m, bundle, { ...SPEC, side: -1 })
+  // Each leaf is half the clear opening, so the pair shuts on a mathematical
+  // point and the 0.1 taken out for clearance is a 60 mm slit you see the
+  // cross members through. The leaf that shuts second carries a closing strip
+  // behind the joint, lapping both skins by 40 mm. Hinging the pair 30 mm
+  // further in would bring the leaves edge to edge instead, but the lock bars
+  // are set out from each leaf's own centre and would then cross the shut line
+  // and duplicate each other for 50 mm.
+  const leaf = (SPEC.width - k.casting * 2 - 0.1) * 0.5
+  box(doorLeft, m.shell, [0.06, SPEC.height - 0.62, (hinge - leaf) * 2 + 0.08], [-0.06, (SPEC.height - 0.5) * 0.5 + 0.24, hinge], {
+    chamfer: 0.02, fillet: 0.008, bevel: 0.007,
+  })
 
   const cornerX = SPEC.length * 0.5 - k.casting * 0.5
   const sockets: ShortContainerSockets = {
