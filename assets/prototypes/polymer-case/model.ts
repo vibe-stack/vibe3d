@@ -8,6 +8,7 @@ import {
   box,
   createCargoPreview,
   finishModel,
+  groundPad,
   paintMark,
   plaque,
   seam,
@@ -35,6 +36,14 @@ const WIDTH = 0.62
 const DEPTH = 0.44
 const HEIGHT = 0.23
 const LID = 0.095
+/**
+ * Hinge line, behind the lid's own back face.
+ *
+ * The lid box is offset forward by the same amount the group is set back, so the
+ * closed case is unchanged and the moulded pin becomes the axis the leaf swings
+ * about instead of a rod buried 39 mm inside it.
+ */
+const LID_PIVOT = DEPTH * 0.5 + 0.019
 
 interface PolymerCaseSockets {
   lid_hinge: Object3D
@@ -70,29 +79,36 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   // The parting line is the case's strongest single feature; it wraps the whole
   // shell just under the lid and is what says "moulded in two halves".
   for (const sz of [-1, 1]) {
-    seam(hull, m.shellLight, WIDTH - 0.12, [0, bodyHeight - 0.014, sz * (DEPTH * 0.5 + 0.004)], sz > 0 ? 'front' : 'back', 'across', 0.02, 0.012)
+    seam(hull, m.shellLight, WIDTH - 0.12, [0, bodyHeight - 0.014, sz * DEPTH * 0.5], sz > 0 ? 'front' : 'back', 'across', 0.02, 0.012)
   }
   for (const sx of [-1, 1]) {
-    seam(hull, m.shellLight, DEPTH - 0.1, [sx * (WIDTH * 0.5 + 0.004), bodyHeight - 0.014, 0], sx > 0 ? 'right' : 'left', 'across', 0.02, 0.012)
+    seam(hull, m.shellLight, DEPTH - 0.1, [sx * WIDTH * 0.5, bodyHeight - 0.014, 0], sx > 0 ? 'right' : 'left', 'across', 0.02, 0.012)
   }
 
   // Blade ribs on the underside corners: the moulded stand-offs a case rests on.
+  // They reach past the base band in plan and sit a millimetre below its sole,
+  // because a stand-off drawn inside the band is a foot the case never uses.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      box(hull, m.shellShade, [0.11, 0.016, 0.11], [
-        sx * (WIDTH * 0.5 - 0.08), 0.008, sz * (DEPTH * 0.5 - 0.08),
-      ], { chamfer: 0.03, fillet: 0.01, bevel: 0.006 })
+      groundPad(hull, m.shellShade, [0.11, 0.11], [
+        sx * (WIDTH * 0.5 - 0.06), 0, sz * (DEPTH * 0.5 - 0.06),
+      ], 0.016)
     }
   }
 
-  const frontZ = DEPTH * 0.5 + 0.006
-  box(hull, m.shellShade, [WIDTH - 0.26, bodyHeight - 0.05, 0.014], [0, bodyY - 0.008, frontZ], {
-    chamfer: 0.04, fillet: 0.014, bevel: 0.008,
+  // The graphic field is the host for everything on the front, so it laps the
+  // shell by half its thickness and the details measure from its own face.
+  const panelThickness = 0.014
+  box(hull, m.shellShade, [WIDTH - 0.16, bodyHeight - 0.03, panelThickness], [0, bodyY - 0.008, DEPTH * 0.5], {
+    chamfer: 0.025, fillet: 0.014, bevel: 0.008,
   })
+  const panelZ = DEPTH * 0.5 + panelThickness * 0.5
   const label = addLabelDecal(bundle, { variant: 41 })
-  plaque(hull, m, label, [0.18, 0.06], [-0.1, bodyY - 0.008, frontZ + 0.008], 'front', m.shell)
-  statusLens(hull, m, [0.055, 0.02], [0.12, bodyY - 0.008, frontZ + 0.008], m.cyan, 'front')
-  paintMark(hull, m.orangePaint, slashProfile(0.04, 0.055, 0.5), [0.2, bodyY - 0.008, frontZ + 0.008], 'front', 0.008)
+  plaque(hull, m, label, [0.18, 0.055], [-0.11, bodyY - 0.008, panelZ], 'front', m.shell)
+  statusLens(hull, m, [0.055, 0.02], [0.06, bodyY - 0.008, panelZ], m.cyan, 'front')
+  // Dropped below the panel's centre line to clear the latch keeper, which comes
+  // down to y 0.077 over the same stretch of panel.
+  paintMark(hull, m.orangePaint, slashProfile(0.04, 0.055, 0.5), [0.19, 0.044, panelZ], 'front', 0.008)
 
   // Recessed side grips moulded into the short ends.
   for (const sx of [-1, 1]) {
@@ -106,22 +122,26 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
 }
 
 function lidBody(lid: Group, m: CargoMaterials): void {
-  box(lid, m.shell, [WIDTH + 0.006, LID, DEPTH + 0.006], [0, LID * 0.5, DEPTH * 0.5 - 0.024], {
+  const lidBack = LID_PIVOT - (DEPTH + 0.006) * 0.5
+
+  box(lid, m.shell, [WIDTH + 0.006, LID, DEPTH + 0.006], [0, LID * 0.5, LID_PIVOT], {
     chamfer: 0.065, fillet: 0.024, bevel: 0.018, capChamfer: 0.04,
   })
   // A single sunk oval on the crown, the moulded badge recess.
-  box(lid, m.shellShade, [WIDTH - 0.22, 0.016, DEPTH - 0.16], [0, LID - 0.004, DEPTH * 0.5 - 0.024], {
+  box(lid, m.shellShade, [WIDTH - 0.22, 0.016, DEPTH - 0.16], [0, LID - 0.004, LID_PIVOT], {
     chamfer: 0.05, fillet: 0.018, bevel: 0.009,
   })
-  box(lid, m.graphiteEdge, [0.13, 0.012, 0.09], [0, LID + 0.004, DEPTH * 0.5 - 0.024], {
+  box(lid, m.graphiteEdge, [0.13, 0.012, 0.09], [0, LID + 0.004, LID_PIVOT], {
     chamfer: 0.028, fillet: 0.01, bevel: 0.006,
   })
-  // Living-hinge blocks: wide and shallow, not steel knuckles.
+  // Living-hinge blocks: wide and shallow, not steel knuckles. The pin is the
+  // swing axis and the blocks lap the leaf from behind it, so both are outside
+  // the lid box - drawn inside it the whole hinge appeared in no frame.
   for (const sx of [-1, 1]) {
-    lid.add(prism(m.shellShade, [0.16, 0.05, 0.05], [sx * 0.17, LID * 0.5, 0.012], {
+    lid.add(prism(m.shellShade, [0.16, 0.05, 0.05], [sx * 0.17, 0.025, lidBack + 0.014], {
       chamfer: 0.016, fillet: 0.006, bevel: 0.005,
     }))
-    lid.add(cylinder(m.graphiteEdge, 0.011, 0.19, [sx * 0.17, LID * 0.5, 0], AXIS_X, 8))
+    lid.add(cylinder(m.graphiteEdge, 0.016, 0.19, [sx * 0.17, 0, 0], AXIS_X, 8))
   }
 }
 
@@ -138,14 +158,14 @@ function build(): { root: Group; hull: Group; lid: Group; sockets: PolymerCaseSo
   root.add(hull, lid)
 
   hullBody(hull, m, bundle)
-  lid.position.set(0, HEIGHT - LID, -(DEPTH * 0.5 - 0.024))
+  lid.position.set(0, HEIGHT - LID, -LID_PIVOT)
   lidBody(lid, m)
   for (const x of [-0.17, 0.17]) {
-    toggleLatch(hull, m, [x, HEIGHT - LID - 0.006, DEPTH * 0.5 + 0.006], 0.52, 'front', m.orangePaint)
+    toggleLatch(hull, m, [x, HEIGHT - LID - 0.006, DEPTH * 0.5], 0.52, 'front', m.orangePaint)
   }
 
   const sockets: PolymerCaseSockets = {
-    lid_hinge: socket('lid_hinge', [0, HEIGHT - LID, -(DEPTH * 0.5 - 0.024)]),
+    lid_hinge: socket('lid_hinge', [0, HEIGHT - LID, -LID_PIVOT]),
     grip: socket('grip', [WIDTH * 0.5 + 0.04, (HEIGHT - LID) * 0.5, 0]),
     stack_top: socket('stack_top', [0, HEIGHT, 0]),
   }
