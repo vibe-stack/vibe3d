@@ -67,11 +67,11 @@ export interface CraneTrolleyController {
 /** An I-beam stub: two flanges and a web, with a festoon rail alongside. */
 function beamBuild(beam: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
   for (const sy of [-1, 1]) {
-    box(beam, m.shell, [BEAM, 0.05, FLANGE], [0, sy * (BEAM_H * 0.5 - 0.025), 0], {
+    box(beam, m.graphite, [BEAM, 0.05, FLANGE], [0, sy * (BEAM_H * 0.5 - 0.025), 0], {
       chamfer: 0.018, fillet: 0.007, bevel: 0.007, capChamfer: 0.012,
     })
   }
-  box(beam, m.shellShade, [BEAM, BEAM_H - 0.1, 0.05], [0, 0, 0], {
+  box(beam, m.graphiteEdge, [BEAM, BEAM_H - 0.1, 0.05], [0, 0, 0], {
     chamfer: 0.014, fillet: 0.006, bevel: 0.006,
   })
   // Web stiffeners, the rhythm that keeps a long beam from reading as a slab.

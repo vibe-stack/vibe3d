@@ -227,7 +227,11 @@ export function cornerCasting(
   position: Vec3,
   socketRadius = 0.055,
   axis: 'x' | 'y' | 'z' = 'z',
-  plate: MeshPhysicalMaterial = m.shellLight,
+  // Castings default dark. They were defaulting to the kit's *lightest*
+  // material, which put eight near-white blocks on every container - and the
+  // corner casting is the one part every reference sheet draws as the darkest
+  // thing on the prop, because it is raw unpainted steel.
+  plate: MeshPhysicalMaterial = m.graphiteEdge,
 ): Group {
   const casting = new Group()
   casting.name = 'axiom-cargo-kit / corner casting'
@@ -705,7 +709,10 @@ export function drum(
   const segments = options.segments ?? 20
   const chime = options.chime ?? 0.022
   const body = options.body ?? m.shell
-  const band = options.band ?? m.graphiteEdge
+  // Hoops and chimes default to the dark tier, not the lifted one. A drum's
+  // whole weight read comes from being bracketed top and bottom in near-black;
+  // banding it in mid slate is what makes a procedural drum look like a can.
+  const band = options.band ?? m.graphite
 
   shell.add(cylinder(body, radius, height, [0, height * 0.5, 0], AXIS_Y, segments))
   for (const y of [0.035, height - 0.035]) {
@@ -769,16 +776,20 @@ export function hookBlock(
   block.add(cylinder(m.graphiteEdge, 0.09 * s, 0.08 * s, [0, -0.33 * s, 0], AXIS_Y, 12))
   block.add(cylinder(m.steel, 0.055 * s, 0.07 * s, [0, -0.39 * s, 0], AXIS_Y, 10))
 
-  block.add(extrudeProfile(m.steel, hookProfile(0.62 * s), 0.14 * s, [0, -0.86 * s, 0], {
+  // Extruded at 0.31 of its profile width, which is the proportion the older
+  // wave's crane hook uses. At the previous 0.21 the same silhouette read as a
+  // laser-cut plate rather than a forging - the profile was never the problem.
+  block.add(extrudeProfile(m.steel, hookProfile(0.62 * s), 0.21 * s, [0, -0.86 * s, 0], {
     fillet: 0.03 * s, bevel: 0.022 * s, capChamfer: 0.02 * s,
   }))
   if (latch) {
-    // Safety latch across the throat, in painted caution so it reads as the one
-    // moving part on an otherwise forged assembly.
-    block.add(prism(m.amberPaint, [0.22 * s, 0.035 * s, 0.05 * s], [0.02 * s, -0.94 * s, 0.09 * s], {
-      chamfer: 0.012 * s, fillet: 0.005 * s, bevel: 0.005 * s, rotation: [0, 0, -0.42],
+    // A safety latch is a short sprung flap hinged along one jaw, not a bar
+    // across the mouth. Bridging the throat turns the hook into a closed
+    // shackle and throws away the open-throat silhouette the profile exists for.
+    block.add(prism(m.amberPaint, [0.13 * s, 0.03 * s, 0.045 * s], [-0.12 * s, -1.02 * s, 0.07 * s], {
+      chamfer: 0.01 * s, fillet: 0.004 * s, bevel: 0.004 * s, rotation: [0, 0, -0.9],
     }))
-    block.add(cylinder(m.steel, 0.016 * s, 0.09 * s, [-0.09 * s, -0.88 * s, 0.09 * s], AXIS_Z, 8))
+    block.add(cylinder(m.steel, 0.014 * s, 0.08 * s, [-0.16 * s, -0.95 * s, 0.07 * s], AXIS_Z, 8))
   }
   return block
 }

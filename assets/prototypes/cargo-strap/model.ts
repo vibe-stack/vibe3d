@@ -107,23 +107,23 @@ function build(): { root: Group; sockets: StrapSockets; bundle: CargoMaterialBun
   for (let turn = 0; turn < TURNS; turn += 1) {
     const radius = COIL_R - turn * (WEB * 0.42)
     const lift = 0.004 + turn * 0.0035
-    root.add(cylinder(m.fabric, radius, WEB, [0, WEB * 0.5 + lift, 0], AXIS_Y, 22))
+    root.add(cylinder(m.webbing, radius, WEB, [0, WEB * 0.5 + lift, 0], AXIS_Y, 22))
     root.add(cylinder(m.shellShade, radius - 0.004, WEB - 0.006, [0, WEB * 0.5 + lift, 0], AXIS_Y, 22))
   }
   root.add(cylinder(m.ink, COIL_R - TURNS * WEB * 0.42 - 0.012, WEB + 0.02, [0, WEB * 0.5 + 0.012, 0], AXIS_Y, 18))
 
   // The loose tail leaving the coil, and the free hook at the end of it.
-  box(root, m.fabric, [0.3, 0.012, WEB], [COIL_R + 0.12, 0.006, 0.05], {
+  box(root, m.webbing, [0.3, 0.012, WEB], [COIL_R + 0.12, 0.006, 0.05], {
     chamfer: 0.005, fillet: 0.003, bevel: 0.003, rotation: [0, 0.3, 0],
   })
-  box(root, m.fabric, [0.16, 0.012, WEB], [COIL_R + 0.3, 0.006, 0.14], {
+  box(root, m.webbing, [0.16, 0.012, WEB], [COIL_R + 0.3, 0.006, 0.14], {
     chamfer: 0.005, fillet: 0.003, bevel: 0.003, rotation: [0, 0.85, 0],
   })
   // Raised to the claw's own half-height: the profile straddles y = 0, so
   // planting it at deck level buries the throat and leaves a stub.
   hook(root, m, [COIL_R + 0.36, 0.1, 0.21], 0.85)
   hook(root, m, [-COIL_R - 0.06, 0.1, -0.11], -0.5)
-  box(root, m.fabric, [0.12, 0.012, WEB], [-COIL_R - 0.02, 0.006, -0.06], {
+  box(root, m.webbing, [0.12, 0.012, WEB], [-COIL_R - 0.02, 0.006, -0.06], {
     chamfer: 0.005, fillet: 0.003, bevel: 0.003, rotation: [0, -0.5, 0],
   })
 

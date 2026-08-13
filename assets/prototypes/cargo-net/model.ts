@@ -87,7 +87,7 @@ function cord(
     // Ry leaves +Y untouched. Rolling about Z first is what buys the third axis.
     const roll = -Math.asin(Math.min(1, Math.max(-1, dx / length)))
     const tilt = Math.atan2(dz, dy)
-    root.add(cylinder(m.fabric, CORD * 0.5, length, mid, [tilt, 0, roll], 5))
+    root.add(cylinder(m.webbing, CORD * 0.5, length, mid, [tilt, 0, roll], 5))
   }
 }
 
@@ -101,7 +101,7 @@ function hook(root: Group, m: CargoMaterials, x: number, z: number): void {
   root.add(extrudeProfile(m.steel, claw, 0.026, [x, 0.06, z], {
     fillet: 0.006, bevel: 0.005, rotation: [0, Math.atan2(x, z), 0],
   }))
-  box(root, m.fabric, [0.055, 0.05, 0.014], [x, 0.14, z], {
+  box(root, m.webbing, [0.055, 0.05, 0.014], [x, 0.14, z], {
     chamfer: 0.008, fillet: 0.004, bevel: 0.004, rotation: [0, Math.atan2(x, z), 0],
   })
 }

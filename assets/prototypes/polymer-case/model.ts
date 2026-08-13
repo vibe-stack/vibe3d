@@ -58,8 +58,14 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   const bodyHeight = HEIGHT - LID
   const bodyY = bodyHeight * 0.5
 
-  box(hull, m.shellLight, [WIDTH, bodyHeight, DEPTH], [0, bodyY, 0], {
+  box(hull, m.shell, [WIDTH, bodyHeight, DEPTH], [0, bodyY, 0], {
     chamfer: 0.07, fillet: 0.026, bevel: 0.02, capChamfer: 0.045,
+  })
+  // A base band, which is what the reference has and what stops the case from
+  // being a single unbroken light value. Even a moulded case is two-tier: the
+  // shell is one moulding and the base it stands on is another.
+  box(hull, m.graphite, [WIDTH - 0.03, 0.028, DEPTH - 0.03], [0, 0.014, 0], {
+    chamfer: 0.045, fillet: 0.016, bevel: 0.009,
   })
   // The parting line is the case's strongest single feature; it wraps the whole
   // shell just under the lid and is what says "moulded in two halves".

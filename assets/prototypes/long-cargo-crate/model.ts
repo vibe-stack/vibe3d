@@ -69,6 +69,13 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
     chamfer: 0.075, fillet: 0.024, bevel: 0.018, capChamfer: 0.05,
   })
 
+  // A continuous base rail rather than two isolated pads. On a crate this long
+  // and shallow, two small feet leave the silhouette as one unbroken light bar;
+  // the rail gives it the dark lower third every reference in the family has,
+  // and still leaves the strap route clear between the saddles.
+  box(hull, m.graphite, [LENGTH - 0.06, FOOT * 0.55, DEPTH - 0.04], [0, FOOT * 0.28, 0], {
+    chamfer: 0.03, fillet: 0.011, bevel: 0.01, capChamfer: 0.02,
+  })
   // Saddle feet. Two, not four, because a long shallow box wants a strap route
   // under its middle third and legs at the ends would fight it.
   for (const x of [-0.78, 0.78]) {

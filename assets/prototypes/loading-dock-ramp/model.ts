@@ -77,7 +77,7 @@ function deck(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void
   const slope = Math.atan2(RISE - 0.12, RUN - 0.5)
   const length = Math.hypot(RUN - 0.5, RISE - 0.12)
   // One continuous running surface, tilted once.
-  box(body, m.shellShade, [length, 0.05, WIDTH - 0.24], [0, RISE * 0.5 - 0.02, 0], {
+  box(body, m.graphite, [length, 0.05, WIDTH - 0.24], [0, RISE * 0.5 - 0.02, 0], {
     chamfer: 0.05, fillet: 0.018, bevel: 0.012, rotation: [0, 0, slope],
   })
   // Grip cleats across the run, at the pitch a wheel actually needs.

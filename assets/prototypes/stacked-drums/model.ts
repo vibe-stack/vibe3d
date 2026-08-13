@@ -101,7 +101,7 @@ function build(): { root: Group; sockets: DrumStackSockets; bundle: CargoMateria
         // The back tier is one drum short, so the stack has a readable gap and
         // does not present as a solid block from every angle.
         if (tier === 1 && sx < 0 && sz < 0) continue
-        const band = (tier + (sx > 0 ? 1 : 0) + (sz > 0 ? 1 : 0)) % 2 === 0 ? m.ironOxide : m.graphiteEdge
+        const band = (tier + (sx > 0 ? 1 : 0) + (sz > 0 ? 1 : 0)) % 2 === 0 ? m.graphite : m.ink
         drum(root, m, RADIUS, BODY, [sx * SPREAD, baseY, sz * SPREAD], {
           hoops: [0.32, 0.64],
           chime: 0.024,
@@ -119,10 +119,10 @@ function build(): { root: Group; sockets: DrumStackSockets; bundle: CargoMateria
   const top = PALLET + BODY * 2 + DECK
   const span = SPREAD * 2 + RADIUS * 2 - 0.04
   for (const sx of [-1, 1]) {
-    box(root, m.fabric, [0.075, 0.014, span + 0.06], [sx * SPREAD, top + 0.03, 0], {
+    box(root, m.webbing, [0.075, 0.014, span + 0.06], [sx * SPREAD, top + 0.03, 0], {
       chamfer: 0.006, fillet: 0.003, bevel: 0.003,
     })
-    box(root, m.fabric, [0.075, BODY * 2 + DECK, 0.014], [sx * SPREAD, PALLET + (BODY * 2 + DECK) * 0.5, span * 0.5 + 0.03], {
+    box(root, m.webbing, [0.075, BODY * 2 + DECK, 0.014], [sx * SPREAD, PALLET + (BODY * 2 + DECK) * 0.5, span * 0.5 + 0.03], {
       chamfer: 0.006, fillet: 0.003, bevel: 0.003,
     })
   }

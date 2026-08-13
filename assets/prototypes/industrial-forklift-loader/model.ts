@@ -146,7 +146,7 @@ function chassisBuild(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBu
   for (const sx of [-0.78, 0.22]) {
     for (const sz of [-1, 1]) {
       const z = sz * (BODY_W * 0.5 - 0.09)
-      tubeSection(chassis, m.shell, [0.07, 0.07], 0.012, guardY - 0.8, [sx, 0.8 + (guardY - 0.8) * 0.5, z], [Math.PI / 2, 0, 0])
+      tubeSection(chassis, m.graphite, [0.07, 0.07], 0.012, guardY - 0.8, [sx, 0.8 + (guardY - 0.8) * 0.5, z], [Math.PI / 2, 0, 0])
     }
   }
   box(chassis, m.shell, [1.14, 0.05, BODY_W - 0.1], [-0.28, guardY, 0], {
@@ -176,7 +176,7 @@ function chassisBuild(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBu
 function mastBuild(chassis: Group, m: CargoMaterials): void {
   for (const sz of [-1, 1]) {
     const z = sz * 0.3
-    tubeSection(chassis, m.shellShade, [0.11, 0.16], 0.016, MAST_H, [AXLE_X + 0.18, MAST_H * 0.5, z], [Math.PI / 2, 0, 0])
+    tubeSection(chassis, m.graphite, [0.11, 0.16], 0.016, MAST_H, [AXLE_X + 0.18, MAST_H * 0.5, z], [Math.PI / 2, 0, 0])
   }
   box(chassis, m.graphite, [0.2, 0.14, 0.72], [AXLE_X + 0.18, MAST_H - 0.07, 0], {
     chamfer: 0.035, fillet: 0.013, bevel: 0.011,

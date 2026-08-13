@@ -147,7 +147,7 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
 function lidBuild(lid: Group, m: CargoMaterials, side: -1 | 1): void {
   const leaf = WIDTH * 0.5 - 0.01
   const centre = side * leaf * 0.5
-  box(lid, m.shellLight, [LENGTH - SLOPE + 0.06, 0.05, leaf], [SLOPE * 0.5, 0.025, centre], {
+  box(lid, m.graphite, [LENGTH - SLOPE + 0.06, 0.05, leaf], [SLOPE * 0.5, 0.025, centre], {
     chamfer: 0.045, fillet: 0.016, bevel: 0.012, capChamfer: 0.028,
   })
   box(lid, m.shellShade, [LENGTH - SLOPE - 0.16, 0.02, leaf - 0.14], [SLOPE * 0.5, 0.055, centre], {

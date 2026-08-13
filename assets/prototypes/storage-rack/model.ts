@@ -75,17 +75,26 @@ function upright(root: Group, m: CargoMaterials, x: number, z: number): void {
   }
 }
 
-/** A beam with hooked ends and a safety pin at each connector. */
+/**
+ * A beam with hooked ends and a safety pin at each connector.
+ *
+ * The beam web is graphite and only its end connectors are painted. Amber is
+ * an accent everywhere else in the catalogue - lamps, latches, kerbs, lift
+ * points. Running it as a field colour down every beam put it on 62% of this
+ * prop's silhouette, which both broke the house language and, because the wear
+ * shader desaturates rubbed paint toward bare alloy, came back as khaki rather
+ * than caution.
+ */
 function beam(root: Group, m: CargoMaterials, x: number, y: number, z: number, length: number): void {
-  box(root, m.amberPaint, [length, 0.11, 0.055], [x, y, z], {
+  box(root, m.graphite, [length, 0.11, 0.055], [x, y, z], {
     chamfer: 0.022, fillet: 0.008, bevel: 0.008, capChamfer: 0.014,
   })
-  box(root, m.amberPaint, [length, 0.03, 0.075], [x, y + 0.04, z], {
+  box(root, m.graphiteEdge, [length, 0.03, 0.075], [x, y + 0.04, z], {
     chamfer: 0.012, fillet: 0.005, bevel: 0.005,
   })
   for (const sx of [-1, 1]) {
     const end = x + sx * (length * 0.5 + 0.02)
-    box(root, m.graphiteEdge, [0.05, 0.19, 0.05], [end, y - 0.01, z], {
+    box(root, m.amberPaint, [0.05, 0.19, 0.05], [end, y - 0.01, z], {
       chamfer: 0.014, fillet: 0.005, bevel: 0.005,
     })
     root.add(cylinder(m.steel, 0.009, 0.07, [end, y + 0.07, z], AXIS_Z, 6))

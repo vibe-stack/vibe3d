@@ -95,7 +95,7 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
   // Drawer fronts. Shallow and full width, with a lipped pull along the top.
   for (let index = 0; index < DRAWERS; index += 1) {
     const y = foot + DRAWER * (index + 0.5)
-    box(body, m.shellLight, [WIDTH - 0.06, DRAWER - 0.008, 0.026], [0, y, DEPTH * 0.5 - 0.008], {
+    box(body, m.shell, [WIDTH - 0.06, DRAWER - 0.008, 0.026], [0, y, DEPTH * 0.5 - 0.008], {
       chamfer: 0.014, fillet: 0.006, bevel: 0.005,
     })
     box(body, m.ink, [WIDTH - 0.16, DRAWER * 0.36, 0.018], [0, y + DRAWER * 0.22, DEPTH * 0.5 + 0.008], {

@@ -66,7 +66,9 @@ function deckPlate(root: Group, m: CargoMaterials): void {
   // Pressed anti-slip field: two sunk pans, not a texture. The pans also give
   // the deck a reason to have a rim, which is what carries its silhouette.
   for (const sx of [-1, 1]) {
-    box(root, m.shellShade, [LENGTH * 0.42, 0.016, WIDTH - 0.16], [sx * LENGTH * 0.23, y + DECK * 0.5, 0], {
+    // The anti-slip pans are the deck's working surface and the reference
+    // paints them dark - a light pan on a light deck is one flat plane.
+    box(root, m.graphite, [LENGTH * 0.42, 0.016, WIDTH - 0.16], [sx * LENGTH * 0.23, y + DECK * 0.5, 0], {
       chamfer: 0.05, fillet: 0.018, bevel: 0.008,
     })
     for (let index = 0; index < 5; index += 1) {

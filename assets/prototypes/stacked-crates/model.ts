@@ -160,10 +160,10 @@ function build(): { root: Group; sockets: CrateStackSockets; bundle: CargoMateri
   // One strap over the whole stack, with its ratchet on the front runner.
   const top = deck + Math.max(...UNITS.map((unit) => unit.lift + unit.size[1]))
   for (const sx of [-1, 1]) {
-    box(root, m.fabric, [0.08, 0.012, SKID_D + 0.05], [sx * 0.24, top + 0.012, 0], {
+    box(root, m.webbing, [0.08, 0.012, SKID_D + 0.05], [sx * 0.24, top + 0.012, 0], {
       chamfer: 0.005, fillet: 0.003, bevel: 0.003,
     })
-    box(root, m.fabric, [0.08, top - SKID_H, 0.012], [sx * 0.24, SKID_H + (top - SKID_H) * 0.5, SKID_D * 0.5 + 0.02], {
+    box(root, m.webbing, [0.08, top - SKID_H, 0.012], [sx * 0.24, SKID_H + (top - SKID_H) * 0.5, SKID_D * 0.5 + 0.02], {
       chamfer: 0.005, fillet: 0.003, bevel: 0.003,
     })
   }

@@ -93,7 +93,7 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
 
   // Shelves on a punched pilaster, so the interior reads adjustable.
   for (const y of SHELVES) {
-    box(body, m.shellShade, [WIDTH - 0.1, 0.02, DEPTH - 0.08], [0, y, -0.01], {
+    box(body, m.graphite, [WIDTH - 0.1, 0.02, DEPTH - 0.08], [0, y, -0.01], {
       chamfer: 0.02, fillet: 0.008, bevel: 0.006,
     })
     box(body, m.graphiteEdge, [WIDTH - 0.1, 0.03, 0.02], [0, y + 0.02, DEPTH * 0.5 - 0.06], {
@@ -131,7 +131,7 @@ function doorBuild(
   const height = HEIGHT - PLINTH - 0.08
   const centre = side * leaf * 0.5
 
-  box(door, m.shellLight, [leaf, height, 0.032], [centre, PLINTH + height * 0.5, 0], {
+  box(door, m.shell, [leaf, height, 0.032], [centre, PLINTH + height * 0.5, 0], {
     chamfer: 0.03, fillet: 0.011, bevel: 0.01,
   })
   box(door, m.shellShade, [leaf - 0.1, height - 0.34, 0.014], [centre, PLINTH + height * 0.5 + 0.06, 0.018], {

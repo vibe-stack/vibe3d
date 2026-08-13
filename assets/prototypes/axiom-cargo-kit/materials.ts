@@ -45,8 +45,10 @@ export interface CargoMaterials {
   ironOxide: MeshPhysicalMaterial
   /** Safety rubber: bumpers, feet, seals, wheels, hoses. MAT-07. */
   rubber: MeshPhysicalMaterial
-  /** Technical fabric: bags, sacks, nets, straps, tarps. MAT-10. */
+  /** Technical fabric: bag and sack bodies, tarps. MAT-10. */
   fabric: MeshPhysicalMaterial
+  /** Load webbing: straps, nets, lashings. Near-black by design. MAT-10. */
+  webbing: MeshPhysicalMaterial
   /** Salvaged timber for the old-world half of the pack. MAT-16. */
   timber: MeshPhysicalMaterial
   /** Painted caution. Handles, latches, lift points. MAT-17, never emissive. */
@@ -106,10 +108,40 @@ export function createDecalMaterial(map: DataTexture, name: string, roughness = 
   })
 }
 
+/**
+ * A colour-system token is a *swatch*, not an albedo.
+ *
+ * This distinction cost the whole wave its coherence once already. The wave
+ * originally fed `TOKEN.SHELL_200` (`#D9E6E9`) straight into `tuneMaterial` as
+ * a hull colour. That swatch is a UI value: lightness 0.88 at saturation 0.27
+ * of cyan. Measured across the 110 models of the preceding wave, the albedo
+ * actually bound to the `shell` slot sits at lightness 0.80 and saturation
+ * 0.05 - a near-neutral coated alloy that lets the warm key light do the
+ * tinting. Painting hulls in the raw swatch made every prop read both too
+ * bright and permanently cold, because a saturated albedo fights the key
+ * instead of taking it.
+ *
+ * So each member below is *derived* from its token to the measured house
+ * value. The tokens stay canonical and untouched; this is the translation
+ * layer the older models perform by hand.
+ */
+const HOUSE = {
+  /** Coated alloy hull. Median of 58 `shell` slots in the preceding wave. */
+  shell: 0xcacfce,
+  /** Structural charcoal. Same value as the token, half its blue skew. */
+  graphite: 0x232a31,
+  /** Deepest cavity. The token is both too light and twice as blue. */
+  ink: 0x06090b,
+  /** Brushed hardware. The token derivation ran 0.14 lightness too dark. */
+  steel: 0x8f999c,
+  /** Painted caution. The token is a light swatch; paint is deeper. */
+  amber: 0xe88008,
+} as const
+
 export function acquireCargoMaterials(seed: number, options: CargoMaterialOptions = {}): CargoMaterialBundle {
   const library = new MaterialLibrary()
   const condition = Math.min(1, Math.max(0, options.condition ?? 0.45))
-  const shellBase = options.shellToken ?? TOKEN.SHELL_200
+  const shellBase = options.shellToken ?? HOUSE.shell
 
   let counter = 0
   const acquire = (recipeId: string, palette: string): MaterialHandle => {
@@ -126,22 +158,33 @@ export function acquireCargoMaterials(seed: number, options: CargoMaterialOption
 
   const materials: CargoMaterials = {
     shell: tuneMaterial(claim('MAT-02', 'SHELL-200'), shellBase, 0.47, 0.2, { clearcoat: 0.22, clearcoatRoughness: 0.4 }),
-    shellLight: tuneMaterial(claim('MAT-02', 'SHELL-050'), shade(shellBase, 0.4), 0.42, 0.16, { clearcoat: 0.26, clearcoatRoughness: 0.34 }),
-    shellShade: tuneMaterial(claim('MAT-02', 'SHELL-200'), shade(shellBase, -0.36), 0.55, 0.24, { clearcoat: 0.12 }),
-    graphite: tuneMaterial(claim('MAT-02', 'GRAPHITE-800'), TOKEN.GRAPHITE_800, 0.5, 0.46, { clearcoat: 0.16 }),
-    graphiteEdge: tuneMaterial(claim('MAT-02', 'GRAPHITE-800'), shade(TOKEN.GRAPHITE_800, 0.22), 0.44, 0.52, { clearcoat: 0.18 }),
-    ink: tuneMaterial(claim('MAT-02', 'INK-950'), TOKEN.INK_950, 0.68, 0.3),
-    steel: tuneMaterial(claim('MAT-03', 'SLATE-650'), shade(TOKEN.SLATE_650, 0.16), 0.32, 0.93, { clearcoat: 0.14 }),
-    ironOxide: tuneMaterial(claim('MAT-04', 'SLATE-650'), shade(TOKEN.SLATE_650, -0.22), 0.56, 0.86),
+    // The highlight tier only has to read a step above the hull. At the old
+    // +0.4 it reached lightness 0.93 - brighter than any surface in the
+    // preceding 110 models - and clipped to flat white on every lid.
+    shellLight: tuneMaterial(claim('MAT-02', 'SHELL-050'), shade(shellBase, 0.3), 0.42, 0.16, { clearcoat: 0.26, clearcoatRoughness: 0.34 }),
+    shellShade: tuneMaterial(claim('MAT-02', 'SHELL-200'), shade(shellBase, -0.28), 0.55, 0.24, { clearcoat: 0.12 }),
+    graphite: tuneMaterial(claim('MAT-02', 'GRAPHITE-800'), HOUSE.graphite, 0.5, 0.46, { clearcoat: 0.16 }),
+    graphiteEdge: tuneMaterial(claim('MAT-02', 'GRAPHITE-800'), shade(HOUSE.graphite, 0.22), 0.44, 0.52, { clearcoat: 0.18 }),
+    ink: tuneMaterial(claim('MAT-02', 'INK-950'), HOUSE.ink, 0.68, 0.3),
+    // Metalness 0.93 with no environment map leaves no diffuse term at all, so
+    // a rod swings between blown-out and black with orientation and mirrors
+    // whatever colour the ambient happens to be. 0.68 is the house value.
+    steel: tuneMaterial(claim('MAT-03', 'SLATE-650'), HOUSE.steel, 0.36, 0.68, { clearcoat: 0.14 }),
+    // Oxide has to contain some oxide. Derived toward the rust token so the
+    // pack owns one warm metal instead of a second cool grey.
+    ironOxide: tuneMaterial(claim('MAT-04', 'SLATE-650'), shade(mixToken(TOKEN.SLATE_650, TOKEN.RUST_500, 0.34), -0.2), 0.56, 0.4),
     rubber: tuneMaterial(claim('MAT-07', 'INK-900'), TOKEN.INK_900, 0.74, 0.03),
-    fabric: tuneMaterial(claim('MAT-10', 'DUST-300'), shade(TOKEN.DUST_300, -0.16), 0.82, 0.02),
-    // Salvaged timber leans warm against the pack's cool alloys. Derived by
-    // pulling the dust token toward the oxide token rather than by picking a
-    // brown, so it still traces back to two approved values.
-    timber: tuneMaterial(claim('MAT-16', 'DUST-300'), shade(mixToken(TOKEN.DUST_300, TOKEN.RUST_500, 0.42), -0.14), 0.78, 0.02),
-    amberPaint: tuneMaterial(claim('MAT-17', 'AMBER-400'), TOKEN.AMBER_400, 0.46, 0.18, { clearcoat: 0.2 }),
-    orangePaint: tuneMaterial(claim('MAT-17', 'ORANGE-500'), TOKEN.ORANGE_500, 0.48, 0.16, { clearcoat: 0.18 }),
-    redPaint: tuneMaterial(claim('MAT-17', 'RED-500'), TOKEN.RED_500, 0.48, 0.14, { clearcoat: 0.18 }),
+    fabric: tuneMaterial(claim('MAT-10', 'DUST-300'), shade(TOKEN.DUST_300, -0.34), 0.82, 0.02),
+    // Strap, net, and lashing webbing. Every reference sheet draws these
+    // near-black; without a member for them the models reached for `fabric`
+    // and a cargo net came out the colour of a bandage.
+    webbing: tuneMaterial(claim('MAT-10', 'GRAPHITE-800'), shade(HOUSE.graphite, 0.12), 0.86, 0.02),
+    // Salvaged timber is the pack's single warm note. The earlier 0.42 rust
+    // mix made it pink; weathered timber is a desaturated khaki.
+    timber: tuneMaterial(claim('MAT-16', 'DUST-300'), shade(mixToken(TOKEN.DUST_300, TOKEN.RUST_500, 0.16), -0.28), 0.78, 0.02),
+    amberPaint: tuneMaterial(claim('MAT-17', 'AMBER-400'), HOUSE.amber, 0.46, 0.18, { clearcoat: 0.2 }),
+    orangePaint: tuneMaterial(claim('MAT-17', 'ORANGE-500'), shade(TOKEN.ORANGE_500, -0.2), 0.48, 0.16, { clearcoat: 0.18 }),
+    redPaint: tuneMaterial(claim('MAT-17', 'RED-500'), shade(TOKEN.RED_500, -0.24), 0.48, 0.14, { clearcoat: 0.18 }),
     amber: tuneMaterial(claim('MAT-09', 'AMBER-400'), TOKEN.AMBER_400, 0.2, 0.02, { emissive: 2.2 }),
     amberDim: tuneMaterial(claim('MAT-09', 'AMBER-400'), shade(TOKEN.AMBER_400, -0.35), 0.34, 0.06, { emissive: 0.1 }),
     cyan: tuneMaterial(claim('MAT-09', 'CYAN-400'), TOKEN.CYAN_400, 0.18, 0.02, { emissive: 1.7 }),
@@ -169,9 +212,14 @@ export function acquireCargoMaterials(seed: number, options: CargoMaterialOption
     [materials.ironOxide, profile(0.78, 0.72, 0.7)],
     [materials.timber, profile(0.5, 0.8, 0.34)],
     [materials.fabric, profile(0.22, 0.82, 0.16)],
-    [materials.amberPaint, profile(0.72, 0.42, 0.62)],
-    [materials.orangePaint, profile(0.7, 0.44, 0.6)],
-    [materials.redPaint, profile(0.7, 0.44, 0.6)],
+    [materials.webbing, profile(0.24, 0.8, 0.18)],
+    // Safety paint rubs, but the wear shader mixes rubbed-through surface
+    // toward a light neutral metal. At 0.7 the accents came back as cream and
+    // the pack lost every saturated warm it had. A thin top coat still chips;
+    // it does not turn the whole marking into bare alloy.
+    [materials.amberPaint, profile(0.34, 0.42, 0.62)],
+    [materials.orangePaint, profile(0.32, 0.44, 0.6)],
+    [materials.redPaint, profile(0.32, 0.44, 0.6)],
   ])
 
   return { materials, handles, wearProfiles, decals: { materials: [], textures: [] } }

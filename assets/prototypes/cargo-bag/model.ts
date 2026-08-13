@@ -79,11 +79,11 @@ function bodyProfile(): Vec2[] {
  * rather than as webbing lying on fabric.
  */
 function strap(root: Group, m: CargoMaterials, x: number, height: number, depth: number): void {
-  box(root, m.fabric, [0.06, 0.014, depth * 0.66], [x, height + 0.008, 0], {
+  box(root, m.webbing, [0.06, 0.014, depth * 0.66], [x, height + 0.008, 0], {
     chamfer: 0.005, fillet: 0.003, bevel: 0.003,
   })
   for (const sz of [-1, 1]) {
-    box(root, m.fabric, [0.06, height * 0.72, 0.014], [x, height * 0.42, sz * (depth * 0.5 - 0.012)], {
+    box(root, m.webbing, [0.06, height * 0.72, 0.014], [x, height * 0.42, sz * (depth * 0.5 - 0.012)], {
       chamfer: 0.005, fillet: 0.003, bevel: 0.003,
     })
   }
@@ -102,7 +102,7 @@ function build(): { root: Group; sockets: CargoBagSockets; bundle: CargoMaterial
   const root = new Group()
   root.name = 'AXR_CARGO_CARGO-BAG_ROOT_DEFAULT'
 
-  root.add(extrudeProfile(m.fabric, bodyProfile(), DEPTH, [0, 0, 0], {
+  root.add(extrudeProfile(m.shellShade, bodyProfile(), DEPTH, [0, 0, 0], {
     fillet: 0.06,
     bevel: 0.07,
     capChamfer: 0.09,

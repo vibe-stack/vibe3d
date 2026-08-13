@@ -105,7 +105,7 @@ function build(): {
     const angle = (Math.PI / 2) * index + Math.PI / 4
     const x = Math.sin(angle) * LEG_R
     const z = Math.cos(angle) * LEG_R
-    body.add(cylinder(m.shell, 0.09, LEG, [x, LEG * 0.5, z], AXIS_Y, 10))
+    body.add(cylinder(m.graphite, 0.09, LEG, [x, LEG * 0.5, z], AXIS_Y, 10))
     box(body, m.graphite, [0.3, 0.06, 0.3], [x, 0.03, z], { chamfer: 0.07, fillet: 0.024, bevel: 0.01, rotation: [0, angle, 0] })
     for (const dx of [-1, 1]) bolt(body, m.steel, [x + Math.cos(angle) * dx * 0.1, 0.06, z - Math.sin(angle) * dx * 0.1], 0.02, 'top')
     const next = angle + Math.PI / 2

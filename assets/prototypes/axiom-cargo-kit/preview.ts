@@ -58,14 +58,20 @@ export function createCargoPreview(model: CargoPreviewModel, options: CargoPrevi
   scene.background = new Color(0x000000)
   scene.add(model.root)
 
-  scene.add(new HemisphereLight(0x9fb3c2, 0x05070a, 0.5))
-  const key = new DirectionalLight(0xfff1de, 2.5)
+  // These are the preceding wave's numbers, not new ones. Their key is only
+  // 9% dimmer than the rig this replaced, but their ambient-fill-rim tier is
+  // 28% dimmer and a shade warmer, and that tier is what sets the shadow side.
+  // Photographing two waves under different fill is enough on its own to make
+  // them look like different packs, so the newer wave adopts the older rig
+  // rather than the other way round.
+  scene.add(new HemisphereLight(0x91a4b0, 0x080b0f, 0.42))
+  const key = new DirectionalLight(0xffeee0, 2.3)
   key.position.set(-6, 8, 7)
   scene.add(key)
-  const fill = new DirectionalLight(0x8fb4d2, 0.72)
+  const fill = new DirectionalLight(0x83a8be, 0.58)
   fill.position.set(7, 2.4, 5.5)
   scene.add(fill)
-  const rim = new DirectionalLight(0xa9c6d6, 0.95)
+  const rim = new DirectionalLight(0xa8bdca, 0.7)
   rim.position.set(4.5, 6, -7)
   scene.add(rim)
 
