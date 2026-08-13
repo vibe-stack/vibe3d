@@ -80,9 +80,14 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   })
 
   // Corner posts, kept narrow so the crate reads lighter than the large one.
+  //
+  // A post is 8 mm narrower than twice the 75 mm it is set in from, so its
+  // flanks clear the skirt's by a face clearance. Squared to 0.13 they were on
+  // the skirt's own faces on both axes, and the chamfered corner of the skirt's
+  // cap crossed the post's over a 3 x 44 mm sliver at all four corners.
   for (const sx of [-1, 1] as Side[]) {
     for (const sz of [-1, 1] as Side[]) {
-      box(hull, m.graphiteEdge, [0.13, BODY_HEIGHT + 0.02, 0.13], [
+      box(hull, m.graphiteEdge, [0.122, BODY_HEIGHT + 0.02, 0.122], [
         sx * (WIDTH * 0.5 - 0.075), BODY_Y, sz * (DEPTH * 0.5 - 0.075),
       ], { chamfer: 0.045, fillet: 0.014, bevel: 0.01 })
       // The crate stands on its skirt, so the painted foot beds a face clearance
