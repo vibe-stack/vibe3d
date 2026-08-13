@@ -66,9 +66,55 @@ button { color: inherit; }
 .item-card:hover > svg, .item-card[aria-pressed="true"] > svg { opacity: 1; transform: translateX(0); }
 .empty-state { margin: 35px 15px; color: #777d79; font-size: 11px; line-height: 1.6; text-align: center; }
 
-.animation-toggle { position: absolute; z-index: 5; top: 18px; right: 18px; height: 39px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; color: #c7cbc8; background: rgba(14,16,17,.46); box-shadow: 0 8px 30px rgba(0,0,0,.14); backdrop-filter: blur(16px); cursor: pointer; font-size: 10px; font-weight: 600; }
-.animation-toggle:hover { color: white; border-color: rgba(255,255,255,.18); background: rgba(14,16,17,.68); }
-.animation-toggle svg { width: 13px; fill: currentColor; }
+.stage-tools { position: absolute; z-index: 5; top: 18px; right: 18px; display: flex; gap: 8px; }
+.stage-tool { height: 39px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; color: #c7cbc8; background: rgba(14,16,17,.46); box-shadow: 0 8px 30px rgba(0,0,0,.14); backdrop-filter: blur(16px); cursor: pointer; font-size: 10px; font-weight: 600; }
+.stage-tool:hover { color: white; border-color: rgba(255,255,255,.18); background: rgba(14,16,17,.68); }
+.stage-tool svg { width: 13px; flex: 0 0 auto; }
+.stage-tool[aria-pressed="true"] { color: #12150f; border-color: rgba(209,255,140,.5); background: var(--accent); }
+.stage-tool em { padding: 0 5px; border-radius: 20px; color: #f3f4f3; background: rgba(0,0,0,.32); font-family: 'DM Mono', monospace; font-size: 8px; font-style: normal; line-height: 15px; }
+.animation-toggle svg { fill: currentColor; }
+/* The play glyph is a filled triangle, so pressing it must not fill the icon
+   with the accent the pressed state paints the button. */
+.animation-toggle[aria-pressed="true"] { color: #c7cbc8; border-color: rgba(255,255,255,.1); background: rgba(14,16,17,.46); }
+.animation-toggle[aria-pressed="true"]:hover { color: white; background: rgba(14,16,17,.68); }
+
+.pin-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.pin-marker { position: absolute; top: 0; left: 0; width: 24px; height: 24px; display: grid; place-items: center; visibility: hidden; border: 1px solid rgba(209,255,140,.55); border-radius: 999px; color: #12150f; background: var(--accent); box-shadow: 0 2px 12px rgba(0,0,0,.45), 0 0 0 4px rgba(209,255,140,.14); cursor: pointer; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; pointer-events: auto; }
+.pin-marker:hover { box-shadow: 0 2px 12px rgba(0,0,0,.45), 0 0 0 7px rgba(209,255,140,.2); }
+.pin-marker[aria-pressed="true"] { color: #fff; border-color: #fff; background: #1c2f0a; box-shadow: 0 2px 12px rgba(0,0,0,.45), 0 0 0 7px rgba(209,255,140,.32); }
+.stage[data-annotating="true"] canvas { cursor: crosshair; }
+
+.annotate-panel { position: absolute; z-index: 6; top: 69px; right: 18px; bottom: 18px; width: 330px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 24px 70px rgba(0,0,0,.28); backdrop-filter: blur(24px) saturate(125%); }
+.annotate-panel > header { padding: 13px 10px 13px 15px; display: flex; align-items: center; gap: 9px; flex: 0 0 auto; border-bottom: 1px solid var(--line); }
+.annotate-panel > header strong { font-size: 11px; letter-spacing: -.01em; }
+.annotate-panel > header > span { min-width: 22px; height: 19px; display: grid; place-items: center; border-radius: 999px; color: #12150f; background: var(--accent); font-family: 'DM Mono', monospace; font-size: 9px; }
+.annotate-panel > header .panel-icon { margin-left: auto; }
+.panel-icon { width: 26px; height: 26px; display: grid; place-items: center; flex: 0 0 auto; border: 0; border-radius: 7px; color: #838a86; background: transparent; cursor: pointer; }
+.panel-icon:hover { color: #f7f8f7; background: rgba(255,255,255,.07); }
+.panel-icon svg { width: 13px; }
+.annotate-hint { margin: 26px 18px; color: #777d79; font-size: 10px; line-height: 1.65; text-align: center; }
+
+.pin-list { min-height: 0; margin: 0; padding: 7px; list-style: none; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #3e4441 transparent; }
+.pin-list::-webkit-scrollbar { width: 5px; }
+.pin-list::-webkit-scrollbar-thumb { border-radius: 9px; background: #3e4441; }
+.pin-row { padding: 9px 8px; display: flex; align-items: flex-start; gap: 9px; border-radius: 10px; }
+.pin-row[data-active="true"] { background: rgba(255,255,255,.055); box-shadow: inset 0 0 0 1px rgba(209,255,140,.22); }
+.pin-number { width: 21px; height: 21px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(209,255,140,.4); border-radius: 999px; color: #12150f; background: var(--accent); cursor: pointer; font-family: 'DM Mono', monospace; font-size: 9px; }
+.pin-body { min-width: 0; flex: 1 1 auto; display: grid; gap: 4px; }
+.pin-body code { overflow: hidden; color: #c6cdc0; font-family: 'DM Mono', monospace; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.pin-body small { color: #626864; font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: .04em; }
+.pin-body textarea { width: 100%; margin-top: 3px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; color: #eef0ee; background: rgba(0,0,0,.2); font-family: inherit; font-size: 10px; line-height: 1.5; resize: vertical; }
+.pin-body textarea:focus { outline: 0; border-color: rgba(209,255,140,.4); }
+.pin-body textarea::placeholder { color: #6b716d; }
+.pin-actions { display: grid; gap: 2px; flex: 0 0 auto; }
+
+.annotate-panel > footer { padding: 9px; display: flex; gap: 6px; flex: 0 0 auto; border-top: 1px solid var(--line); }
+.annotate-action { height: 32px; padding: 0 10px; display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 auto; border: 1px solid var(--line); border-radius: 8px; color: #c7cbc8; background: rgba(255,255,255,.03); cursor: pointer; font-size: 9px; font-weight: 600; }
+.annotate-action:hover:not(:disabled) { color: #fff; border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.08); }
+.annotate-action:disabled { opacity: .38; cursor: default; }
+.annotate-action svg { width: 12px; flex: 0 0 auto; }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .object-caption { position: absolute; z-index: 3; right: 22px; bottom: 22px; max-width: min(420px, calc(100vw - 380px)); text-align: right; pointer-events: none; }
 .object-caption > span { color: var(--accent); font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: .16em; }
@@ -87,7 +133,9 @@ button { color: inherit; }
 @media (max-width: 720px) {
   .library-panel { display: none; }
   .stage-shade { background: linear-gradient(0deg, rgba(7,8,9,.8), transparent 48%), linear-gradient(180deg, rgba(7,8,9,.32), transparent 18%); }
-  .animation-toggle { top: 14px; right: 14px; height: 37px; padding: 0 12px; }
+  .stage-tools { top: 14px; right: 14px; }
+  .stage-tool { height: 37px; padding: 0 12px; }
+  .annotate-panel { top: 61px; right: 14px; bottom: auto; left: 14px; width: auto; max-height: min(52dvh, 420px); }
   .object-caption { top: 16px; right: auto; bottom: auto; left: 16px; max-width: calc(100vw - 175px); text-align: left; }
   .object-caption h1 { max-width: 230px; margin-top: 5px; overflow: hidden; font-size: 19px; text-overflow: ellipsis; white-space: nowrap; }
   .object-caption p { display: none; }

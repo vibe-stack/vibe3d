@@ -6,18 +6,27 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  Raycaster,
   RenderPipeline,
   SRGBColorSpace,
+  Vector2,
+  Vector3,
   WebGPURenderer,
 } from 'three/webgpu'
 import { emissive, mrt, output, pass } from 'three/tsl'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { bloom } from 'three/addons/tsl/display/BloomNode.js'
+import { describeHit, type Pin, type PinHit } from './annotations.ts'
 import type { CatalogItem, ModelPreview } from './catalog.ts'
 
 interface StageProps {
   item: CatalogItem
   isAnimating: boolean
+  annotating: boolean
+  pins: readonly Pin[]
+  activePinId: string | null
+  onAnnotate(hit: PinHit): void
+  onSelectPin(id: string): void
   onLoadingChange(loading: boolean): void
   onError(message: string | null): void
 }
@@ -32,6 +41,14 @@ const actionPriority = [
 const BLOOM_STRENGTH = 2
 const BLOOM_RADIUS = 0.35
 const BLOOM_THRESHOLD = 0.1
+
+/**
+ * How far a pointer may travel between press and release and still count as a
+ * click rather than an orbit. Annotating shares the canvas with OrbitControls,
+ * and a drag that ends on the model would otherwise drop a pin every time the
+ * user turned the object round to look at it.
+ */
+const CLICK_SLOP = 4
 
 function triggerAnimation(preview: ModelPreview): void {
   const fallback = Object.keys(preview).find((key) => /^(trigger|toggle)[A-Z]/.test(key))
@@ -66,12 +83,35 @@ function addStudioLighting(preview: ModelPreview): void {
   preview.scene.add(studio)
 }
 
-export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProps) {
+export function Stage({
+  item,
+  isAnimating,
+  annotating,
+  pins,
+  activePinId,
+  onAnnotate,
+  onSelectPin,
+  onLoadingChange,
+  onError,
+}: StageProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<ModelPreview | undefined>(undefined)
   const animatingRef = useRef(isAnimating)
   const previousAnimatingRef = useRef(isAnimating)
+  // The render loop outlives every prop it reads, so annotation state reaches it
+  // through refs. Putting any of this in the effect's dependencies would tear
+  // down the renderer and rebuild the model on each pin.
+  const annotatingRef = useRef(annotating)
+  const pinsRef = useRef(pins)
+  const onAnnotateRef = useRef(onAnnotate)
+  const markersRef = useRef(new Map<string, HTMLButtonElement>())
   const [webGpuReady, setWebGpuReady] = useState(false)
+
+  useEffect(() => {
+    annotatingRef.current = annotating
+    pinsRef.current = pins
+    onAnnotateRef.current = onAnnotate
+  })
 
   useEffect(() => {
     animatingRef.current = isAnimating
@@ -108,6 +148,61 @@ export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProp
     }
     const observer = new ResizeObserver(resize)
     observer.observe(host)
+
+    const raycaster = new Raycaster()
+    const pointer = new Vector2()
+    const projected = new Vector3()
+    let pressedAt: { x: number; y: number } | null = null
+
+    const handlePointerDown = (event: PointerEvent) => {
+      pressedAt = event.button === 0 ? { x: event.clientX, y: event.clientY } : null
+    }
+
+    const handlePointerUp = (event: PointerEvent) => {
+      const pressed = pressedAt
+      pressedAt = null
+      if (!pressed || !annotatingRef.current || !preview) return
+      if (Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > CLICK_SLOP) return
+
+      const bounds = canvas.getBoundingClientRect()
+      pointer.set(
+        ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+        -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+      )
+      raycaster.setFromCamera(pointer, preview.camera)
+      // Only the model answers. The studio lights and the scene's own helpers
+      // are recorder furniture and mean nothing to whoever reads the report.
+      const [hit] = raycaster.intersectObject(preview.root, true)
+      if (!hit) return
+      const target = controls?.target ?? new Vector3()
+      onAnnotateRef.current(describeHit(hit, preview.root, preview.camera, target))
+    }
+
+    // Pins are HTML anchored to a world point rather than geometry, because the
+    // preview scene is rebuilt and disposed on every model change and a review
+    // must not be able to leak into what the recorder captures.
+    const positionMarkers = () => {
+      if (!preview) return
+      const width = canvas.clientWidth
+      const height = canvas.clientHeight
+      preview.camera.updateMatrixWorld()
+      for (const pin of pinsRef.current) {
+        const marker = markersRef.current.get(pin.id)
+        if (!marker) continue
+        projected.set(...pin.hit.world).project(preview.camera)
+        // Behind the camera the projection folds back through the origin, which
+        // would otherwise park the marker on the opposite side of the frame.
+        const visible = projected.z < 1
+        marker.style.visibility = visible ? 'visible' : 'hidden'
+        if (!visible) continue
+        const x = (projected.x * 0.5 + 0.5) * width
+        const y = (projected.y * -0.5 + 0.5) * height
+        marker.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`
+      }
+    }
+
+    canvas.addEventListener('pointerdown', handlePointerDown)
+    canvas.addEventListener('pointerup', handlePointerUp)
 
     void (async () => {
       renderer = new WebGPURenderer({ canvas, antialias: true })
@@ -154,6 +249,7 @@ export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProp
         previousTime = time
         if (animatingRef.current) preview.update(delta)
         controls?.update()
+        positionMarkers()
         pipeline.render()
       })
     })().catch((error: unknown) => {
@@ -166,6 +262,8 @@ export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProp
     return () => {
       stopped = true
       observer.disconnect()
+      canvas.removeEventListener('pointerdown', handlePointerDown)
+      canvas.removeEventListener('pointerup', handlePointerUp)
       renderer?.setAnimationLoop(null)
       controls?.dispose()
       pipeline?.dispose()
@@ -176,8 +274,28 @@ export function Stage({ item, isAnimating, onLoadingChange, onError }: StageProp
   }, [item, onError, onLoadingChange])
 
   return (
-    <div className="stage" ref={hostRef} data-ready={webGpuReady}>
+    <div className="stage" ref={hostRef} data-ready={webGpuReady} data-annotating={annotating}>
       <canvas aria-label={`Interactive 3D showcase of ${item.name}`} />
+      <div className="pin-layer">
+        {pins.map((pin, index) => (
+          <button
+            key={pin.id}
+            ref={(node) => {
+              if (node) markersRef.current.set(pin.id, node)
+              else markersRef.current.delete(pin.id)
+            }}
+            className="pin-marker"
+            type="button"
+            aria-pressed={pin.id === activePinId}
+            onClick={() => onSelectPin(pin.id)}
+          >
+            {index + 1}
+            <span className="visually-hidden">
+              {pin.note.trim() || `Annotation ${index + 1} on ${pin.hit.path}`}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
