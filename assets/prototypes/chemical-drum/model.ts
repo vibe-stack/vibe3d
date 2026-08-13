@@ -4,6 +4,7 @@ import { cylinder, extrudeProfile } from '../../../src/asset-forge/generator/ind
 import {
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addStripeDecal,
   bolt,
@@ -63,10 +64,11 @@ function build(): { root: Group; sockets: ChemicalDrumSockets; bundle: CargoMate
   root.name = 'AXR_CARGO_CHEMICAL-DRUM_ROOT_SEALED'
 
   // A skid ring rather than a bund: this drum is palletised in groups, so it
-  // needs a foot that clears a strap, not a tray of its own. The pad drops a
-  // millimetre below the ring's sole because the pad is the part in contact -
-  // sharing the floor plane with the steel puts two down-facing skins on it.
-  root.add(cylinder(m.graphite, RADIUS + 0.02, BASE, [0, BASE * 0.5, 0], AXIS_Y, 20))
+  // needs a foot that clears a strap, not a tray of its own. The pad is the part
+  // in contact, so the ring keeps the top face the shell stands on and gives up
+  // a face clearance underneath - a millimetre of it left the two soles inside
+  // the floor the playbook sizes to.
+  root.add(cylinder(m.graphite, RADIUS + 0.02, BASE - FACE_CLEARANCE, [0, (BASE + FACE_CLEARANCE) * 0.5, 0], AXIS_Y, 20))
   root.add(cylinder(m.rubber, RADIUS - 0.02, 0.022, [0, 0.01, 0], AXIS_Y, 18))
 
   const shell = drum(root, m, RADIUS, BODY, [0, BASE, 0], {
