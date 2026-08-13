@@ -148,8 +148,11 @@ export function createModel(): PalletController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0, 0.09, 0],
-    distance: 2.35,
+    // A pallet is all plan and no elevation, so its diagonal is what sets the
+    // frame. At 2.35 m the boards ran off both sides of it; the target drops to
+    // the floor because there is nothing above the deck to leave room for.
+    target: [0, 0, 0],
+    distance: 3.1,
     yaw: 0.78,
     pitch: 0.4,
     fov: 30,
