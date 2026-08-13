@@ -1,6 +1,7 @@
 import { Group, Object3D } from 'three/webgpu'
 
 import {
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   bolt,
   box,
@@ -87,9 +88,14 @@ function build(): { root: Group; sockets: PalletSockets; bundle: CargoMaterialBu
   // Stringer boards tie the blocks along the length. Cut 8 mm narrower than the
   // blocks they run through: sawn to the same 0.1 they shared both side planes
   // with every block for the pallet's whole length, which is four coincident
-  // same-facing faces per block and the flicker down both flanks.
+  // same-facing faces per block and the flicker down both flanks. The ends are
+  // held back from the outer blocks' end faces for the same reason, and by three
+  // clearances rather than one: a millimetre off the length is worth only 0.7 of
+  // one across the 45 degree arrises the sawn end and the block share, and those
+  // two start 2.4 mm apart, so one clearance walks the board straight through
+  // them and out the other side.
   for (const z of [-WIDTH * 0.5 + 0.05, 0, WIDTH * 0.5 - 0.05]) {
-    board(root, m, [LENGTH, BOARD, 0.092], [0, topY - BOARD, z])
+    board(root, m, [LENGTH - FACE_CLEARANCE * 6, BOARD, 0.092], [0, topY - BOARD, z])
   }
 
   // Deck: seven boards at an irregular pitch, two of them noticeably narrower.
