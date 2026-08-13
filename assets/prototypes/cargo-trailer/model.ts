@@ -44,6 +44,13 @@ const DECK = 0.58
 const WHEEL = 0.28
 const CASTING_X = 1.9
 const CASTING_Z = 0.72
+// The jack clamps to the nose cross member. Its foot is authored 205 mm below
+// the group origin, so JACK_DOWN is what stands that foot on the floor, and the
+// lift is short enough that the retracted leg stays inside its own tube.
+const JACK_X = -LENGTH * 0.5 + 0.2
+const JACK_Z = 0.36
+const JACK_DOWN = 0.205
+const JACK_LIFT = 0.22
 
 interface TrailerSockets {
   hitch_ring: Object3D
@@ -67,8 +74,12 @@ export interface CargoTrailerController {
 
 function bogie(chassis: Group, m: CargoMaterials, x: number): void {
   for (const sz of [-1, 1]) {
+    // Springs hang off the longitudinal, wheels run outboard of the deck edge.
+    // On the wheel track the leaf pack ran through both tyres, and a tyre there
+    // would in turn run through the longitudinal it is meant to hang from - the
+    // rail's underside is 0.38 and the wheel stands 0.56 tall.
     const z = sz * (WIDTH * 0.5 - 0.11)
-    // Leaf pack and hanger, so the wheels hang off something.
+    const track = sz * (WIDTH * 0.5 + 0.14)
     box(chassis, m.graphite, [0.9, 0.06, 0.13], [x, DECK - 0.22, z], {
       chamfer: 0.024, fillet: 0.009, bevel: 0.008,
     })
@@ -76,21 +87,25 @@ function bogie(chassis: Group, m: CargoMaterials, x: number): void {
       chamfer: 0.02, fillet: 0.008, bevel: 0.007,
     })
     for (const dx of [-0.32, 0.32]) {
-      chassis.add(cylinder(m.rubber, WHEEL, 0.19, [x + dx, WHEEL, z], AXIS_X, 18))
-      chassis.add(cylinder(m.shellShade, WHEEL * 0.52, 0.2, [x + dx, WHEEL, z], AXIS_X, 14))
-      chassis.add(cylinder(m.graphiteEdge, WHEEL * 0.3, 0.22, [x + dx, WHEEL, z], AXIS_X, 12))
-      chassis.add(cylinder(m.ink, WHEEL * 0.1, 0.24, [x + dx, WHEEL, z], AXIS_X, 8))
-      // Mudguard over each wheel: a shallow arc of three plates.
+      chassis.add(cylinder(m.rubber, WHEEL, 0.19, [x + dx, WHEEL, track], AXIS_Z, 18))
+      chassis.add(cylinder(m.shellShade, WHEEL * 0.52, 0.2, [x + dx, WHEEL, track], AXIS_Z, 14))
+      chassis.add(cylinder(m.graphiteEdge, WHEEL * 0.3, 0.22, [x + dx, WHEEL, track], AXIS_Z, 12))
+      chassis.add(cylinder(m.ink, WHEEL * 0.1, 0.24, [x + dx, WHEEL, track], AXIS_Z, 8))
+      // Mudguard over each wheel: a shallow arc of three plates, wide enough to
+      // reach back under the deck's amber edge rail and be carried by it.
       for (const angle of [-0.5, 0, 0.5]) {
-        box(chassis, m.shellShade, [0.3, 0.02, 0.24], [
+        box(chassis, m.shellShade, [0.3, 0.02, 0.3], [
           x + dx + Math.sin(angle) * (WHEEL + 0.06),
           WHEEL + Math.cos(angle) * (WHEEL + 0.06),
-          z,
+          track,
         ], { chamfer: 0.01, fillet: 0.004, bevel: 0.004, rotation: [0, 0, -angle] })
       }
     }
-    chassis.add(cylinder(m.steel, 0.035, WIDTH - 0.1, [x - 0.32, WHEEL, 0], AXIS_X, 10))
-    chassis.add(cylinder(m.steel, 0.035, WIDTH - 0.1, [x + 0.32, WHEEL, 0], AXIS_X, 10))
+  }
+  // One beam axle per wheel pair, running across the track rather than down the
+  // centreline - and built once, not once per side.
+  for (const dx of [-0.32, 0.32]) {
+    chassis.add(cylinder(m.steel, 0.035, WIDTH + 0.34, [x + dx, WHEEL, 0], AXIS_Z, 10))
   }
 }
 
@@ -141,36 +156,48 @@ function chassisBody(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBun
   })
   chassis.add(cylinder(m.steel, 0.075, 0.05, [nose - 0.98, DECK - 0.16, 0], AXIS_Z, 12))
   chassis.add(cylinder(m.ink, 0.045, 0.062, [nose - 0.98, DECK - 0.16, 0], AXIS_Z, 10))
-  box(chassis, m.amberPaint, [0.16, 0.06, 0.1], [nose - 0.56, DECK - 0.08, 0], {
+  // The marker spans both drawbar legs, which are 157 mm off the centreline
+  // where it crosses them.
+  box(chassis, m.amberPaint, [0.16, 0.06, 0.42], [nose - 0.56, DECK - 0.13, 0], {
     chamfer: 0.018, fillet: 0.007, bevel: 0.006,
   })
 
-  // Tail lamps and a rear underrun bar.
-  box(chassis, m.graphite, [0.1, 0.16, WIDTH - 0.2], [LENGTH * 0.5 - 0.02, DECK - 0.3, 0], {
+  // Tail lamps and a rear underrun bar, lapped 20 mm into the longitudinals it
+  // is bolted to instead of hanging 20 mm below them.
+  const tailY = DECK - 0.26
+  box(chassis, m.graphite, [0.1, 0.16, WIDTH - 0.2], [LENGTH * 0.5 - 0.02, tailY, 0], {
     chamfer: 0.028, fillet: 0.01, bevel: 0.009,
   })
+  // The bar's aft face is 2.33; everything applied to it is placed from there.
+  const tailFace = LENGTH * 0.5 + 0.03
   for (const sz of [-1, 1]) {
-    statusLens(chassis, m, [0.09, 0.09], [LENGTH * 0.5 + 0.04, DECK - 0.3, sz * (WIDTH * 0.5 - 0.24)], sz > 0 ? m.amber : m.cyan, 'right')
+    statusLens(chassis, m, [0.09, 0.09], [tailFace, tailY, sz * (WIDTH * 0.5 - 0.24)], sz > 0 ? m.amber : m.cyan, 'right')
   }
   const stripe = addStripeDecal(bundle, { count: 7, lean: 1 })
-  plaque(chassis, m, stripe, [WIDTH - 0.6, 0.08], [LENGTH * 0.5 + 0.04, DECK - 0.12, 0], 'right', m.ink)
+  plaque(chassis, m, stripe, [WIDTH - 0.72, 0.08], [tailFace, tailY, 0], 'right', m.ink)
 
+  // The longitudinal's outer face is 0.87. The flank graphics were placed from
+  // the rail's centre and sat entirely inside it.
+  const railFace = WIDTH * 0.5 - 0.06
   const label = addLabelDecal(bundle, { variant: 210 })
-  plaque(chassis, m, label, [0.3, 0.11], [-LENGTH * 0.28, DECK - 0.1, WIDTH * 0.5 - 0.12], 'front', m.shellLight)
-  paintMark(chassis, m.amberPaint, slashProfile(0.07, 0.14, 0.45), [LENGTH * 0.2, DECK - 0.1, WIDTH * 0.5 - 0.12], 'front', 0.01)
-  boltRun(chassis, m.steel, [-LENGTH * 0.4, DECK - 0.1, WIDTH * 0.5 - 0.13], [LENGTH * 0.4, DECK - 0.1, WIDTH * 0.5 - 0.13], 7, 0.016, 'front')
-  for (const sx of [-1, 1]) bolt(chassis, m.steel, [sx * CASTING_X, DECK + 0.021, 0], 0.016, 'top')
+  plaque(chassis, m, label, [0.3, 0.11], [-LENGTH * 0.28, DECK - 0.1, railFace], 'front', m.shellLight)
+  paintMark(chassis, m.amberPaint, slashProfile(0.07, 0.14, 0.45), [LENGTH * 0.2, DECK - 0.1, railFace], 'front', 0.01)
+  boltRun(chassis, m.steel, [-LENGTH * 0.4, DECK - 0.1, railFace], [LENGTH * 0.4, DECK - 0.1, railFace], 7, 0.016, 'front')
+  for (const sx of [-1, 1]) bolt(chassis, m.steel, [sx * CASTING_X, DECK + 0.02, 0], 0.016, 'top')
+
+  // Parking jack tube, clamped to the nose cross member. Only the leg inside it
+  // travels, so the tube can sit under the deck instead of through it.
+  chassis.add(cylinder(m.graphite, 0.055, 0.34, [JACK_X, JACK_DOWN + 0.17, JACK_Z], AXIS_Y, 10))
+  chassis.add(cylinder(m.steel, 0.012, 0.16, [JACK_X + 0.1, JACK_DOWN + 0.3, JACK_Z], AXIS_X, 8))
+  chassis.add(cylinder(m.rubber, 0.018, 0.07, [JACK_X + 0.17, JACK_DOWN + 0.3, JACK_Z], AXIS_Y, 8))
 }
 
-/** Parking jack: an outer tube, an inner leg, a foot, and a crank handle. */
+/** The travelling part of the parking jack: the inner leg and its foot. */
 function jackBody(jack: Group, m: CargoMaterials): void {
-  jack.add(cylinder(m.graphite, 0.055, 0.34, [0, 0.17, 0], AXIS_Y, 10))
   jack.add(cylinder(m.steel, 0.038, 0.3, [0, -0.05, 0], AXIS_Y, 10))
   box(jack, m.graphiteEdge, [0.16, 0.03, 0.16], [0, -0.19, 0], {
     chamfer: 0.04, fillet: 0.014, bevel: 0.008,
   })
-  jack.add(cylinder(m.steel, 0.012, 0.16, [0.1, 0.3, 0], AXIS_X, 8))
-  jack.add(cylinder(m.rubber, 0.018, 0.07, [0.17, 0.3, 0], AXIS_Y, 8))
 }
 
 function build(): {
@@ -192,7 +219,7 @@ function build(): {
   root.add(chassis, jack)
 
   chassisBody(chassis, m, bundle)
-  jack.position.set(-LENGTH * 0.5 + 0.3, DECK - 0.26, 0.36)
+  jack.position.set(JACK_X, JACK_DOWN, JACK_Z)
   jackBody(jack, m)
 
   const sockets: TrailerSockets = {
@@ -200,7 +227,7 @@ function build(): {
     deck_centre: socket('deck_centre', [0, DECK + 0.02, 0]),
     lock_fore_left: socket('lock_fore_left', [-CASTING_X, DECK + 0.1, -CASTING_Z]),
     lock_aft_right: socket('lock_aft_right', [CASTING_X, DECK + 0.1, CASTING_Z]),
-    jack_foot: socket('jack_foot', [-LENGTH * 0.5 + 0.3, 0, 0.36]),
+    jack_foot: socket('jack_foot', [JACK_X, 0, JACK_Z]),
   }
   return { root, chassis, jack, sockets, bundle }
 }
@@ -217,9 +244,8 @@ export function createModel(): CargoTrailerController {
   let state: TrailerState = 'parked'
   let blend = 0
   let elapsed = 0
-  const downY = DECK - 0.26
   const applyBlend = (): void => {
-    jack.position.y = downY + blend * 0.26
+    jack.position.y = JACK_DOWN + blend * JACK_LIFT
     jack.name = blend > 0.02
       ? 'AXR_CARGO_CARGO-TRAILER_PART_JACK_RAISED'
       : 'AXR_CARGO_CARGO-TRAILER_PART_JACK_DOWN'
