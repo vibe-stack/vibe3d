@@ -267,9 +267,11 @@ function preview(options: CargoPreviewOptions & { state?: HoistState } = {}): Ca
   model.setState(options.state ?? 'idle')
   return createCargoPreview(model, {
     // The prop runs y 0.50 down to -1.23. Framed on -0.5 at three metres the
-    // whole suspension yoke fell off the top of every catalogue frame.
-    target: [0, -0.38, 0],
-    distance: 3.4,
+    // whole suspension yoke fell off the top of every catalogue frame; at 3.4 m
+    // the top shackle was still shaving the frame's edge, which on a prop this
+    // narrow costs nothing to clear.
+    target: [0, -0.37, 0],
+    distance: 3.75,
     yaw: 0.7,
     pitch: 0.12,
     fov: 30,
