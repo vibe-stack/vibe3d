@@ -2,8 +2,8 @@
  * Authoritative signed distance recipe for red sandstone canyon rock.
  *
  * Formation intent: stratified aeolian sandstone as it appears in a canyon -
- * horizontally bedded, cut into vertical fins and walls, with hard beds standing
- * out as ledges and soft beds weathered back into shadowed recesses. This is a
+ * cross-bedded, cut into massive slot walls, with water-smoothed buttresses,
+ * undercut bowls, and restrained resistant ledges. This is a
  * fundamentally different structure from the granite recipe next door, and the
  * difference is not cosmetic: granite is isotropic and fails along joint planes
  * in three directions, whereas sandstone is layered, so its dominant structure is
@@ -12,14 +12,14 @@
  * The three rules from the granite recipe still hold (Nyquist per band, fold
  * safety, never displace a resampled field), and one more is specific to strata:
  *
- * 4. Bedding is boolean, never displacement. A ledge is a step in the surface,
+ * 4. Structural bedding is boolean, never sharp displacement. A ledge is a step in the surface,
  *    and a step of depth A over a transition height h has gradient A/h, so any
  *    displacement sharp enough to read as a ledge is past the fold limit by
  *    construction. Beds are therefore cut as a union of laterally inset slabs,
  *    which is gradient-free at any sharpness and can even undercut. What limits
- *    them instead is grid resolution: two step edges closer together than a
- *    couple of voxels cannot both survive extraction, so `bedBudget` measures the
- *    thinnest bed in voxels and the compiler reports it.
+ *    them instead is grid resolution. The slot-wall family deliberately reserves
+ *    most laminae for the analytic bake so the macro envelope remains a continuous
+ *    water-carved mass rather than a stack of slabs.
  *
  * Performance contract is inherited: nothing allocates on the hot path.
  */
@@ -43,19 +43,20 @@ export type { Vec3 }
 export const DOMAIN_TO_METRES_X = 3.4
 
 /**
- * Canyon rock appears in three shapes, and they are not interchangeable: a
+ * Canyon rock appears in four shapes, and they are not interchangeable: a
  * corridor needs walls, a floor needs collapsed blocks, and the middle distance
- * needs freestanding stacks or the assembly reads as a trench rather than a
- * canyon.
+ * needs freestanding stacks and natural windows or the assembly reads as a
+ * trench rather than a canyon.
  *
  * Formation is derived from the seed rather than passed as an argument so that
  * every downstream signature - extractor, bake, LOD chain - stays identical to
  * the granite pipeline's and no plumbing has to know this recipe is polymorphic.
  */
-export type Formation = 'wall' | 'butte' | 'block'
+export type Formation = 'wall' | 'butte' | 'block' | 'arch'
 
 export function formationOf(seed: number): Formation {
   const normalized = Math.max(1, Math.floor(seed))
+  if (normalized === 11 || normalized === 12) return 'arch'
   if (normalized <= 4) return 'wall'
   if (normalized <= 7) return 'butte'
   return 'block'
@@ -78,6 +79,9 @@ interface MassParameters {
   /** Flat [cx, cy, cz, rx, ry, rz, blend] per seep alcove. */
   alcoves: Float64Array
   alcoveCount: number
+  /** Flat [cx, cy, cz, rx, ry, rz, blend] per welded wall buttress. */
+  lobes: Float64Array
+  lobeCount: number
   /** Rounding radius applied when unioning beds, in domain units. */
   lipBlend: number
   /** Amplitude of the plan-view outline meander. */
@@ -122,13 +126,14 @@ function buildMassParameters(seed: number): MassParameters {
   const formation = formationOf(seed)
   const pick = (index: number) => hash01(seed, index, 131, 0x9e3779b1)
 
-  // Plan-view section. A wall is a fin: wide, thin, and read from one side. A
-  // butte is a stack, roughly square. A block is a collapsed slab, squatter and
-  // fatter, and the scene rolls it so its bedding tilts.
+  // Slot walls are thick eroded masses, not facade fins. Their depth is close to
+  // their frontage because the visible corridor is the narrow void between two
+  // volumes. Buttes and collapsed blocks retain their family proportions.
   const sections = {
-    wall: { radiusX: 0.88, radiusZ: 0.38, beds: 15, recess: 0.1, lip: 0.006, meander: 0.04 },
+    wall: { radiusX: 0.86, radiusZ: 0.74, beds: 14, recess: 0.045, lip: 0.018, meander: 0.09 },
     butte: { radiusX: 0.6, radiusZ: 0.56, beds: 12, recess: 0.085, lip: 0.008, meander: 0.05 },
     block: { radiusX: 0.76, radiusZ: 0.7, beds: 6, recess: 0.06, lip: 0.022, meander: 0.06 },
+    arch: { radiusX: 0.84, radiusZ: 0.4, beds: 14, recess: 0.09, lip: 0.007, meander: 0.045 },
   } as const
   const section = sections[formation]
   const radiusX = section.radiusX + (pick(1) - 0.5) * 0.06
@@ -163,7 +168,7 @@ function buildMassParameters(seed: number): MassParameters {
     // clean plateau rim for the same reason - so both get a hard top bed, which is
     // what lets neighbouring wall segments share one continuous skyline.
     if (
-      (formation === 'butte' || formation === 'wall')
+      (formation === 'butte' || formation === 'wall' || formation === 'arch')
       && cursor + thickness >= ceiling - 1e-6
     ) hardness = 1
 
@@ -188,12 +193,14 @@ function buildMassParameters(seed: number): MassParameters {
     // plane is guaranteed to cut rather than graze.
     joints.push(unit[0], unit[1], unit[2], extent * support, blend)
   }
-  const jointCount = formation === 'wall' ? 7 : 5
+  const jointCount = formation === 'wall' ? 4 : formation === 'arch' ? 6 : 5
   for (let joint = 0; joint < jointCount; joint += 1) {
     const theta = (joint / jointCount) * Math.PI * 2 + pick(120 + joint) * 1.1
     addJoint(
       [Math.cos(theta), (pick(140 + joint) - 0.5) * 0.26, Math.sin(theta)],
-      0.72 + pick(160 + joint) * 0.24,
+      formation === 'wall'
+        ? 0.9 + pick(160 + joint) * 0.08
+        : 0.72 + pick(160 + joint) * 0.24,
       0.002 + pick(180 + joint) * 0.005,
     )
   }
@@ -209,21 +216,50 @@ function buildMassParameters(seed: number): MassParameters {
   // bed above it and leaves a domed overhang. Centres sit at or beyond the
   // surface - a centre inside the mass hollows it into a shell, which reads as a
   // cave from behind and sheds thin plates as detached debris.
-  const alcoveCount = formation === 'block' ? 1 : 3
+  const alcoveCount = formation === 'wall' ? 7 : formation === 'block' || formation === 'arch' ? 1 : 3
   const alcoves = new Float64Array(alcoveCount * 7)
   for (let alcove = 0; alcove < alcoveCount; alcove += 1) {
-    const theta = pick(200 + alcove) * Math.PI * 2
-    const radius = 0.22 + pick(220 + alcove) * 0.2
-    const distance = 0.94 + radius * (0.68 + pick(240 + alcove) * 0.3)
-    alcoves[alcove * 7] = Math.cos(theta) * distance * radiusX
-    // Low on the face: alcoves form where a seep line meets the wall, and a seep
-    // line is near the base of the exposed section.
-    alcoves[alcove * 7 + 1] = -0.55 + pick(260 + alcove) * 0.75
-    alcoves[alcove * 7 + 2] = Math.sin(theta) * distance * radiusZ
-    alcoves[alcove * 7 + 3] = radius
-    alcoves[alcove * 7 + 4] = radius * (0.7 + pick(280 + alcove) * 0.6)
-    alcoves[alcove * 7 + 5] = radius * (0.7 + pick(300 + alcove) * 0.6)
-    alcoves[alcove * 7 + 6] = 0.012 + pick(320 + alcove) * 0.02
+    if (formation === 'wall') {
+      // Broad water-scoured bowls on the two corridor faces. Their centres sit
+      // outside the mass so they undercut without hollowing the wall into a shell.
+      const face = alcove % 2 === 0 ? 1 : -1
+      const rx = 0.28 + pick(220 + alcove) * 0.22
+      const ry = 0.22 + pick(240 + alcove) * 0.3
+      const rz = 0.24 + pick(260 + alcove) * 0.18
+      alcoves[alcove * 7] = -0.58 + pick(200 + alcove) * 1.16
+      alcoves[alcove * 7 + 1] = -0.62 + pick(280 + alcove) * 1.2
+      alcoves[alcove * 7 + 2] = face * (radiusZ + rz * (0.62 + pick(300 + alcove) * 0.16))
+      alcoves[alcove * 7 + 3] = rx
+      alcoves[alcove * 7 + 4] = ry
+      alcoves[alcove * 7 + 5] = rz
+      alcoves[alcove * 7 + 6] = 0.025 + pick(320 + alcove) * 0.025
+    } else {
+      const theta = pick(200 + alcove) * Math.PI * 2
+      const radius = 0.22 + pick(220 + alcove) * 0.2
+      const distance = 0.94 + radius * (0.68 + pick(240 + alcove) * 0.3)
+      alcoves[alcove * 7] = Math.cos(theta) * distance * radiusX
+      alcoves[alcove * 7 + 1] = -0.55 + pick(260 + alcove) * 0.75
+      alcoves[alcove * 7 + 2] = Math.sin(theta) * distance * radiusZ
+      alcoves[alcove * 7 + 3] = radius
+      alcoves[alcove * 7 + 4] = radius * (0.7 + pick(280 + alcove) * 0.6)
+      alcoves[alcove * 7 + 5] = radius * (0.7 + pick(300 + alcove) * 0.6)
+      alcoves[alcove * 7 + 6] = 0.012 + pick(320 + alcove) * 0.02
+    }
+  }
+
+  // Water leaves projecting ribs between adjacent scour bowls. Welded ellipsoids
+  // establish those buttresses at macro scale, before displacement and texture.
+  const lobeCount = formation === 'wall' ? 5 : 0
+  const lobes = new Float64Array(lobeCount * 7)
+  for (let lobe = 0; lobe < lobeCount; lobe += 1) {
+    const face = lobe % 2 === 0 ? 1 : -1
+    lobes[lobe * 7] = -0.56 + pick(360 + lobe) * 1.12
+    lobes[lobe * 7 + 1] = -0.48 + pick(380 + lobe) * 0.96
+    lobes[lobe * 7 + 2] = face * radiusZ * (0.68 + pick(400 + lobe) * 0.1)
+    lobes[lobe * 7 + 3] = 0.2 + pick(420 + lobe) * 0.15
+    lobes[lobe * 7 + 4] = 0.48 + pick(440 + lobe) * 0.28
+    lobes[lobe * 7 + 5] = 0.22 + pick(460 + lobe) * 0.14
+    lobes[lobe * 7 + 6] = 0.045 + pick(480 + lobe) * 0.025
   }
 
   return {
@@ -237,6 +273,8 @@ function buildMassParameters(seed: number): MassParameters {
     jointCount: joints.length / 5,
     alcoves,
     alcoveCount,
+    lobes,
+    lobeCount,
     lipBlend: section.lip,
     meander: section.meander,
   }
@@ -298,6 +336,19 @@ function section(x: number, z: number, radiusX: number, radiusZ: number): number
   return (normalized - 1) * (radiusX < radiusZ ? radiusX : radiusZ)
 }
 
+function roundedSection(x: number, z: number, radiusX: number, radiusZ: number): number {
+  const nx = x / radiusX
+  const nz = z / radiusZ
+  return (Math.sqrt(nx * nx + nz * nz) - 1) * Math.min(radiusX, radiusZ)
+}
+
+function ellipsoid(x: number, y: number, z: number, rx: number, ry: number, rz: number): number {
+  const nx = x / rx
+  const ny = y / ry
+  const nz = z / rz
+  return (Math.sqrt(nx * nx + ny * ny + nz * nz) - 1) * Math.min(rx, ry, rz)
+}
+
 /**
  * Low-frequency authored mass: the bedded stack, jointed and undercut.
  *
@@ -317,8 +368,11 @@ export function massSdf(x: number, y: number, z: number, seed: number): number {
   // wander swamps the hardness-driven recess and the stack stops reading as
   // strata at all - a plan-section overlay of a hard bed against a soft one
   // showed the two offset sideways rather than concentrically inset.
-  const meander = fbm(x * 1.25 + 5.3, y * 0.2, z * 1.25, seed + 17, 3) * parameters.meander
-  const lateral = section(x, z, parameters.radiusX, parameters.radiusZ) + meander
+  let lateral = 0
+  if (parameters.formation !== 'wall') {
+    const meander = fbm(x * 1.25 + 5.3, y * 0.2, z * 1.25, seed + 17, 3) * parameters.meander
+    lateral = section(x, z, parameters.radiusX, parameters.radiusZ) + meander
+  }
 
   // Union of laterally inset slabs. This is the bedding, and it is boolean: a
   // ledge lip is a genuine step, and a soft bed under a hard one genuinely
@@ -333,15 +387,45 @@ export function massSdf(x: number, y: number, z: number, seed: number): number {
   // into 70 disconnected plates - 8.9% of the dense mesh. Measured directly: at a
   // boundary the mass read -0.0017 where the beds either side read -0.011.
   const beds = parameters.beds
-  let distance = Infinity
-  for (let index = 0; index < parameters.bedCount; index += 1) {
-    const offset = index * 4
-    const below = beds[offset]! - y
-    const above = y - beds[offset + 1]!
-    const slab = (below > above ? below : above) - BED_OVERLAP
-    const inset = lateral + beds[offset + 2]!
-    const bed = slab > inset ? slab : inset
-    distance = smin(distance, bed, parameters.lipBlend)
+  let distance: number
+  if (parameters.formation === 'wall') {
+    // Continuous water-smoothed envelope.  Two vertical swell wavelengths make
+    // the face alternately pinch and overhang, while low-frequency drift prevents
+    // the corridor side from being an extrusion. Bedding remains in the bake and
+    // in a few centimetres of surface relief rather than stacking the whole mass.
+    const phase = hash01(seed, 510, 131, 0x9e3779b1) * Math.PI * 2
+    const swell = Math.sin(y * 4.4 + phase) * 0.08
+      + Math.sin(y * 8.7 - phase * 0.7) * 0.035
+    const driftX = fbm(x * 0.62 + 3.1, y * 0.34, z * 0.62, seed + 29, 2) * 0.18
+    const driftZ = fbm(x * 0.68, y * 0.28, z * 0.68 - 4.7, seed + 71, 2) * 0.13
+    const wall = roundedSection(
+      x + driftX,
+      z + driftZ,
+      parameters.radiusX,
+      parameters.radiusZ + swell,
+    )
+    const vertical = Math.max(-0.94 - y, y - 0.92)
+    distance = smax(wall, vertical, 0.035)
+
+    const lobes = parameters.lobes
+    for (let index = 0; index < parameters.lobeCount; index += 1) {
+      const offset = index * 7
+      distance = smin(distance, ellipsoid(
+        x - lobes[offset]!, y - lobes[offset + 1]!, z - lobes[offset + 2]!,
+        lobes[offset + 3]!, lobes[offset + 4]!, lobes[offset + 5]!,
+      ), lobes[offset + 6]!)
+    }
+  } else {
+    distance = Infinity
+    for (let index = 0; index < parameters.bedCount; index += 1) {
+      const offset = index * 4
+      const below = beds[offset]! - y
+      const above = y - beds[offset + 1]!
+      const slab = (below > above ? below : above) - BED_OVERLAP
+      const inset = lateral + beds[offset + 2]!
+      const bed = slab > inset ? slab : inset
+      distance = smin(distance, bed, parameters.lipBlend)
+    }
   }
 
   // Vertical joints, cutting the stack into a fin with hard corners.
@@ -357,10 +441,27 @@ export function massSdf(x: number, y: number, z: number, seed: number): number {
   const alcoves = parameters.alcoves
   for (let index = 0; index < parameters.alcoveCount; index += 1) {
     const offset = index * 7
-    distance = smax(distance, -boxoid(
-      x - alcoves[offset]!, y - alcoves[offset + 1]!, z - alcoves[offset + 2]!,
-      alcoves[offset + 3]!, alcoves[offset + 4]!, alcoves[offset + 5]!,
-    ), alcoves[offset + 6]!)
+    const cut = parameters.formation === 'wall'
+      ? ellipsoid(
+        x - alcoves[offset]!, y - alcoves[offset + 1]!, z - alcoves[offset + 2]!,
+        alcoves[offset + 3]!, alcoves[offset + 4]!, alcoves[offset + 5]!,
+      )
+      : boxoid(
+        x - alcoves[offset]!, y - alcoves[offset + 1]!, z - alcoves[offset + 2]!,
+        alcoves[offset + 3]!, alcoves[offset + 4]!, alcoves[offset + 5]!,
+      )
+    distance = smax(distance, -cut, alcoves[offset + 6]!)
+  }
+
+  if (parameters.formation === 'arch') {
+    // A stratified natural window.  The lower shaft reaches below the contact
+    // plane and the rounded crown passes completely through the thin fin, so the
+    // opening is traversable negative space and every exposed intrados retains
+    // the same real bed stack as the exterior.
+    const offsetX = (hash01(seed, 901, 131, 0x9e3779b1) - 0.5) * 0.1
+    const shaft = boxoid(x - offsetX, y + 0.62, z, 0.34, 0.44, 0.68)
+    const crown = ellipsoid(x - offsetX, y + 0.15, z, 0.41, 0.43, 0.68)
+    distance = smax(distance, -smin(shaft, crown, 0.025), 0.008)
   }
 
   return distance

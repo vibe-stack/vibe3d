@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ACESFilmicToneMapping,
+  AgXToneMapping,
   AmbientLight,
+  Box3,
   Color,
   DirectionalLight,
   Group,
@@ -11,6 +13,7 @@ import {
   MeshStandardNodeMaterial,
   RenderPipeline,
   SRGBColorSpace,
+  Vector3,
   WebGPURenderer,
 } from 'three/webgpu'
 import { emissive, mrt, output, pass } from 'three/tsl'
@@ -38,6 +41,12 @@ const actionPriority = [
 const BLOOM_STRENGTH = 2
 const BLOOM_RADIUS = 0.35
 const BLOOM_THRESHOLD = 0.1
+const TERRAIN_EXPOSURE = 1.15
+
+interface StudioLighting {
+  target?: Vector3
+  update(): void
+}
 
 const solidMaterial = new MeshStandardNodeMaterial({
   color: 0xb9bdb9,
@@ -72,7 +81,22 @@ function triggerAnimation(preview: ModelPreview): void {
   if (typeof action === 'function') action.call(preview, true)
 }
 
-function addStudioLighting(preview: ModelPreview, terrain = false): void {
+function liftTerrainBackdrop(preview: ModelPreview): void {
+  const backdrop = preview.scene.background instanceof Color
+    ? preview.scene.background.clone()
+    : new Color(0x657987)
+  const luminance = backdrop.r * 0.2126 + backdrop.g * 0.7152 + backdrop.b * 0.0722
+
+  // Keep each terrain's authored atmosphere (notably the canyon's warm haze),
+  // but lift near-black skies enough to separate the silhouette and ground plane.
+  if (luminance < 0.1) {
+    backdrop.lerp(new Color(0x657987), Math.min(0.5, (0.1 - luminance) * 5))
+  }
+  preview.scene.background = backdrop
+  preview.scene.fog?.color.copy(backdrop)
+}
+
+function addStudioLighting(preview: ModelPreview, terrain = false): StudioLighting {
   const existingStudioLights: Array<AmbientLight | HemisphereLight | DirectionalLight> = []
   preview.scene.traverse((object) => {
     if (object instanceof AmbientLight || object instanceof HemisphereLight || object instanceof DirectionalLight) {
@@ -81,21 +105,105 @@ function addStudioLighting(preview: ModelPreview, terrain = false): void {
   })
   for (const light of existingStudioLights) light.parent?.remove(light)
 
-  preview.scene.background = new Color(0x202326)
   const studio = new Group()
   studio.name = 'recorder-studio-lighting'
-  studio.add(new AmbientLight(0xe9edf0, terrain ? 0.18 : 0.72))
-  studio.add(new HemisphereLight(0xe3edf3, 0x191512, terrain ? 0.58 : 1.55))
 
-  const key = new DirectionalLight(0xfff1df, terrain ? 4.2 : 3.4)
-  key.position.set(-8, terrain ? 5 : 12, 10)
-  key.castShadow = terrain
-  const fill = new DirectionalLight(0xa9c9e7, terrain ? 0.45 : 1.6)
+  if (terrain) {
+    liftTerrainBackdrop(preview)
+    preview.scene.updateMatrixWorld(true)
+    const bounds = new Box3().setFromObject(preview.root)
+    const target = bounds.isEmpty()
+      ? preview.camera.position.clone().addScaledVector(
+        preview.camera.getWorldDirection(new Vector3()),
+        10,
+      )
+      : bounds.getCenter(new Vector3())
+    const radius = bounds.isEmpty()
+      ? 5
+      : Math.max(bounds.getSize(new Vector3()).length() * 0.5, 1)
+
+    const fog = preview.scene.fog
+    if (fog) {
+      if ('near' in fog) {
+        const cameraDistance = preview.camera.position.distanceTo(target)
+        fog.near = Math.max(fog.near, cameraDistance + radius * 1.25)
+        fog.far = Math.max(fog.far, fog.near + radius * 7)
+      } else {
+        fog.density *= 0.35
+      }
+    }
+
+    // A raking, camera-relative outdoor rig keeps relief readable from every
+    // authored terrain camera and while the user orbits around the formation.
+    studio.add(new AmbientLight(0xdce5ea, 0.015))
+    studio.add(new HemisphereLight(0xd9e9f5, 0x211815, 0.18))
+    const key = new DirectionalLight(0xffe1bf, 2.55)
+    const fill = new DirectionalLight(0x8eb9df, 0.1)
+    const sandstone = /canyon|sandstone/i.test(preview.scene.name)
+    const rim = new DirectionalLight(
+      sandstone ? 0xffcfad : 0xe2f4ff,
+      sandstone ? 2.3 : 3.8,
+    )
+    rim.name = 'terrain-rim-light'
+    key.castShadow = true
+    key.shadow.mapSize.set(2048, 2048)
+    key.shadow.bias = -0.0003
+    key.shadow.normalBias = Math.max(radius * 0.002, 0.012)
+    key.shadow.camera.left = -radius * 1.25
+    key.shadow.camera.right = radius * 1.25
+    key.shadow.camera.top = radius * 1.25
+    key.shadow.camera.bottom = -radius * 1.25
+    key.shadow.camera.near = 0.1
+    key.shadow.camera.far = radius * 8
+    key.shadow.camera.updateProjectionMatrix()
+
+    key.target.position.copy(target)
+    fill.target.position.copy(target)
+    rim.target.position.copy(target)
+    studio.add(key.target, fill.target, rim.target, key, fill, rim)
+    preview.scene.add(studio)
+
+    const view = new Vector3()
+    const up = new Vector3(0, 1, 0)
+    const right = new Vector3()
+    const update = () => {
+      preview.camera.getWorldDirection(view).normalize()
+      right.crossVectors(view, up)
+      if (right.lengthSq() < 0.001) right.set(1, 0, 0)
+      else right.normalize()
+
+      key.position.copy(target)
+        .addScaledVector(view, -radius * 2.6)
+        .addScaledVector(right, -radius * 1.15)
+        .addScaledVector(up, radius * 1.9)
+      fill.position.copy(target)
+        .addScaledVector(view, -radius * 1.5)
+        .addScaledVector(right, radius * 1.7)
+        .addScaledVector(up, radius * 0.45)
+      // Strong high back-right rim. Its direction is deliberately behind the
+      // visible faces, so it catches silhouettes and grazing normal-map relief
+      // without adding another wash of diffuse light to the rock fronts.
+      rim.position.copy(target)
+        .addScaledVector(view, radius * 2.25)
+        .addScaledVector(right, radius * 1.35)
+        .addScaledVector(up, radius * 1.1)
+    }
+    update()
+    return { target, update }
+  }
+
+  preview.scene.background = new Color(0x202326)
+  studio.add(new AmbientLight(0xe9edf0, 0.72))
+  studio.add(new HemisphereLight(0xe3edf3, 0x191512, 1.55))
+  const key = new DirectionalLight(0xfff1df, 3.4)
+  key.position.set(-8, 12, 10)
+  const fill = new DirectionalLight(0xa9c9e7, 1.6)
   fill.position.set(9, 5, 8)
-  const rim = new DirectionalLight(0xc4e5ef, terrain ? 2.8 : 2.2)
+  const rim = new DirectionalLight(0xc4e5ef, 2.2)
   rim.position.set(7, 10, -11)
   studio.add(key, fill, rim)
   preview.scene.add(studio)
+  return { update: () => undefined }
 }
 
 export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError }: StageProps) {
@@ -132,6 +240,7 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
     let pipeline: RenderPipeline | undefined
     let preview: ModelPreview | undefined
     let controls: OrbitControls | undefined
+    let studioLighting: StudioLighting | undefined
     let previousTime = 0
 
     onLoadingChange(true)
@@ -165,7 +274,10 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
       preview = await module.createPreview({ aspect: host.clientWidth / Math.max(host.clientHeight, 1) })
       previewRef.current = preview
       authoredOverrideMaterialRef.current = preview.scene.overrideMaterial
-      addStudioLighting(preview, item.category === 'Terrain')
+      const terrain = item.category === 'Terrain'
+      renderer.toneMapping = terrain ? AgXToneMapping : ACESFilmicToneMapping
+      renderer.toneMappingExposure = terrain ? TERRAIN_EXPOSURE : 1
+      studioLighting = addStudioLighting(preview, terrain)
       applyRenderMode(preview, renderModeRef.current, authoredOverrideMaterialRef.current)
       if (item.animated && animatingRef.current) triggerAnimation(preview)
 
@@ -173,9 +285,11 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
       controls.enableDamping = true
       controls.dampingFactor = 0.07
       controls.screenSpacePanning = true
-      controls.minDistance = 0.4
-      controls.maxDistance = 180
+      if (studioLighting.target) controls.target.copy(studioLighting.target)
+      controls.minDistance = terrain ? 1 : 0.4
+      controls.maxDistance = terrain ? 300 : 180
       controls.update()
+      studioLighting.update()
 
       const scenePass = pass(preview.scene, preview.camera)
       scenePass.setMRT(mrt({ output, emissive }))
@@ -198,6 +312,7 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
         previousTime = time
         if (animatingRef.current) preview.update(delta)
         controls?.update()
+        studioLighting?.update()
         pipeline.render()
       })
     })().catch((error: unknown) => {

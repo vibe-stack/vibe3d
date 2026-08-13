@@ -58,7 +58,7 @@ import {
 } from '../shared/compile-support.ts'
 
 export const ASSET_ID = 'red-sandstone-canyon'
-export const RECIPE_HASH = 'bedded-sandstone-canyon-analytic-sdf-recipe-v1'
+export const RECIPE_HASH = 'water-sculpted-slot-canyon-analytic-sdf-recipe-v3'
 export const COMPILER_HASH = 'qef-dual-contour-reextract-unwrap-sdf-bake-v2'
 export const PROFILE = 'game'
 export const SOURCE_GRID_CELLS = 192
@@ -86,13 +86,13 @@ export const ATLAS_SIZE = 1024
  * so spending atlas on it here would buy nothing.
  */
 export const ATLAS_POLICY: AtlasDensityPolicy = {
-  targetMillimetresPerTexel: 22,
+  targetMillimetresPerTexel: 14,
   // 512 floor, not 256. Measured: at a 512 atlas a wall still packs 97 charts below
   // their usable texel threshold because the per-chart density boost hits its cap;
   // at 1024 that falls to 13. An atlas too small for its chart count produces
   // smeared stripes rather than merely softer detail.
   minimumAtlas: 512,
-  maximumAtlas: 1024,
+  maximumAtlas: 2048,
 }
 
 export function atlasSizeFor(worldAreaSquareMetres: number, coverage = 0.34): number {
@@ -118,9 +118,10 @@ const WORLD_SCALES: Record<Formation, readonly [number, number, number]> = {
   // A wall is 12m of frontage. It has to be wide enough that a handful of segments
   // placed with overlap read as one continuous cliff face rather than as a row of
   // standing monoliths - which is exactly how the first assembly read at 6m.
-  wall: [6, 9.5, 3.2],
+  wall: [5.4, 9.2, 5.6],
   butte: [2.6, 4.4, 2.5],
   block: [1.4, 1, 1.3],
+  arch: [3.5, 4.8, 2.2],
 }
 
 export function worldScaleFor(seed: number): readonly [number, number, number] {

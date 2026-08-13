@@ -54,70 +54,74 @@ interface Placement {
 }
 
 /**
- * A gorge cut into a plateau: two continuous walls facing each other across a
- * sandy floor, with talus at their feet and buttes standing behind the rim.
- *
- * Three rules make this read as a canyon rather than as a row of rocks, and the
- * first assembly broke all three.
- *
- * Segments overlap. A wall is 12m of frontage placed every 8.4m, so consecutive
- * segments interpenetrate by about a third and the joins are inside solid rock. The
- * previous layout spaced instances several metres apart, which is why it read as
- * "disconnected meshes placed spaced from each other" - the gaps *were* the
- * silhouette.
- *
- * The rim is level. Beds are cut at fixed domain heights and the top bed is hard,
- * so every wall segment at the same Y scale carries its plateau surface at the same
- * world height. That shared skyline is what makes the two runs read as one
- * formation with a gorge cut through it.
- *
- * The walls face each other. A wall's broad carved faces are its +/-Z faces, so a
- * segment is yawed a quarter turn to present that face across the gorge, and the
- * two runs are yawed oppositely.
+ * A human-scale slot canyon: the scene is the narrow negative space between two
+ * thick, overlapping sandstone masses. The camera lives inside that space. It
+ * should never be possible to read the walls as freestanding facade panels.
  */
 const RIM = 0
-const WALL_STEP = 8.4
-const GORGE_HALF_WIDTH = 7.2
-const QUARTER = Math.PI / 2
+const GORGE_HALF_WIDTH = 5.65
+
+/**
+ * Centreline of a real bend rather than a straight gallery.  Adjacent wall
+ * segments are oriented to the path tangent and overlap by at least 3.5m of
+ * frontage, keeping joins buried inside rock even on the outside of the bend.
+ */
+const PATH: ReadonlyArray<readonly [number, number]> = [
+  [-0.2, 22],
+  [-0.9, 15.5],
+  [-1.8, 9],
+  [-1.35, 2.5],
+  [-0.1, -4],
+  [1.25, -10.5],
+  [0.55, -17],
+  [-1.1, -23.5],
+]
 
 function wallRun(side: -1 | 1, seeds: number[]): Placement[] {
-  return seeds.map((seed, index) => {
-    const jitter = ((index * 37) % 11) / 11 - 0.5
+  return PATH.map(([centerX, z], index) => {
+    const previous = PATH[Math.max(0, index - 1)]!
+    const next = PATH[Math.min(PATH.length - 1, index + 1)]!
+    const txRaw = next[0] - previous[0]
+    const tzRaw = next[1] - previous[1]
+    const length = Math.sqrt(txRaw * txRaw + tzRaw * tzRaw) || 1
+    const tx = txRaw / length
+    const tz = tzRaw / length
+    const nx = -tz
+    const nz = tx
+    // Independent wall retreat changes the passage from 2.4m pinches to 4.6m
+    // chambers. That variation is the composition: a slot is not a constant-width
+    // hallway, and the opposed bulges must almost interlock in projection.
+    const erosion = (((index * 43 + (side > 0 ? 5 : 0)) % 13) / 13 - 0.5) * 0.82
+    const seed = seeds[index % seeds.length]!
     return {
       seed,
-      // Depth jitter only. Pulling a segment along its own run would open a gap,
-      // so the variation is in how far it stands out into the gorge.
-      position: [side * (GORGE_HALF_WIDTH + jitter * 1.1), RIM, -18 + index * WALL_STEP],
-      scale: [1, 1, 1 + jitter * 0.12],
-      yaw: side * QUARTER + jitter * 0.06,
-      hero: index < 3,
-      lod: index > 3 ? 1 : 0,
-      varnish: 0.5 + jitter * 0.16,
+      position: [
+        centerX + nx * (side * GORGE_HALF_WIDTH + erosion),
+        RIM,
+        z + nz * (side * GORGE_HALF_WIDTH + erosion),
+      ],
+      // Scale the frontage (local X), not the thickness.  The former version
+      // varied local Z after a quarter-turn and therefore changed wall depth
+      // while leaving the join overlap unchanged.
+      scale: [1.02 + (index % 3) * 0.035, 0.96 + (index % 2) * 0.055, 0.96 + Math.abs(erosion) * 0.035],
+      yaw: Math.atan2(-tz, tx),
+      hero: index < 6,
+      lod: index > 5 ? 1 : 0,
+      varnish: 0.22 + ((index * 7) % 5) * 0.025,
+      dust: 0.12 + (index % 3) * 0.025,
     } satisfies Placement
   })
 }
 
 const PLACEMENTS: Placement[] = [
-  ...wallRun(-1, [1, 2, 3, 4, 1]),
-  ...wallRun(1, [3, 4, 1, 2, 4]),
+  ...wallRun(-1, [1, 2, 3, 4]),
+  ...wallRun(1, [3, 4, 1, 2]),
 
-  // Buttes set back behind the rim, so the skyline is not a flat line and the
-  // formation continues past the gorge.
-  { seed: 5, position: [-15.5, RIM, -9], scale: [1.1, 1.05, 1.1], yaw: 0.8, lod: 1, varnish: 0.4, dust: 0.26 },
-  { seed: 6, position: [16.5, RIM, -2], scale: [0.95, 1.2, 0.95], yaw: 2.4, lod: 1, varnish: 0.36, dust: 0.28 },
-  { seed: 7, position: [-17, RIM, 6], scale: [1.2, 0.9, 1.2], yaw: 4.6, lod: 2, varnish: 0.3, dust: 0.32 },
-  { seed: 5, position: [14, RIM, 12], scale: [1, 0.85, 1], yaw: 1.5, lod: 2, varnish: 0.34, dust: 0.3 },
-
-  // Talus at the foot of each wall: blocks that fell from the face above, so they
-  // sit against the wall rather than out in the middle of the floor. Rolled, which
-  // tilts their bedding - the cue that separates a fallen block from a small
-  // standing outcrop.
-  { seed: 8, position: [-5.6, RIM, -12], scale: [1.3, 1.2, 1.25], yaw: 1.1, roll: 0.24, lod: 1, varnish: 0.18, dust: 0.36 },
-  { seed: 9, position: [5.2, RIM, -6.5], scale: [1.1, 1, 1.05], yaw: 4.2, roll: -0.31, lod: 1, varnish: 0.16, dust: 0.4 },
-  { seed: 10, position: [-4.9, RIM, -1], scale: [0.85, 0.8, 0.85], yaw: 2.7, roll: 0.18, lod: 1, varnish: 0.2, dust: 0.34 },
-  { seed: 8, position: [4.6, RIM, 4], scale: [0.7, 0.62, 0.68], yaw: 5.4, roll: -0.42, lod: 2, varnish: 0.14, dust: 0.44 },
-  { seed: 9, position: [-3.2, RIM, 8], scale: [0.55, 0.5, 0.55], yaw: 0.4, roll: 0.36, lod: 2, varnish: 0.12, dust: 0.48 },
-  { seed: 10, position: [1.4, RIM, -3.5], scale: [0.42, 0.38, 0.42], yaw: 3.3, roll: -0.2, lod: 2, varnish: 0.12, dust: 0.5 },
+  // Sparse flood debris stays against the feet. The walking channel remains
+  // legible and narrow; freestanding buttes belong outside this camera volume.
+  { seed: 8, position: [-2.5, RIM, 6.5], scale: [0.72, 0.62, 0.7], yaw: 1.1, roll: 0.2, lod: 1, varnish: 0.12, dust: 0.28 },
+  { seed: 9, position: [2.2, RIM, -2.5], scale: [0.58, 0.5, 0.56], yaw: 4.2, roll: -0.24, lod: 1, varnish: 0.1, dust: 0.3 },
+  { seed: 10, position: [-2, RIM, -12], scale: [0.46, 0.4, 0.45], yaw: 2.7, roll: 0.16, lod: 2, varnish: 0.1, dust: 0.34 },
 ]
 
 /**
@@ -126,8 +130,8 @@ const PLACEMENTS: Placement[] = [
  * marching per seed and the tab appears hung.
  */
 const QUALITY = {
-  preview: { heroCells: 96, backgroundCells: 96, maximumAtlas: 512 },
-  hero: { heroCells: 192, backgroundCells: 128, maximumAtlas: 1024 },
+  preview: { heroCells: 96, backgroundCells: 96, maximumAtlas: 1024 },
+  hero: { heroCells: 192, backgroundCells: 128, maximumAtlas: 2048 },
 } as const
 
 export type CanyonQuality = keyof typeof QUALITY
@@ -136,7 +140,7 @@ export type CanyonQuality = keyof typeof QUALITY
  * Nominal LOD0 world area per formation, in square metres, measured from a
  * compile. Needed to choose an atlas *before* the mesh exists.
  */
-const NOMINAL_AREA = { wall: 144, butte: 58, block: 12 } as const
+const NOMINAL_AREA = { wall: 330, butte: 58, block: 12, arch: 72 } as const
 
 function estimatedArea(seed: number, scale: readonly [number, number, number]): number {
   const [x, y, z] = scale
@@ -254,8 +258,8 @@ export async function createCanyonScene(
   // Warm haze rather than blue: light bouncing between two sunlit red walls is
   // what fills a canyon, so the aerial perspective is warm and the far end of the
   // corridor should glow rather than go grey.
-  scene.background = new Color(0x9a7a68)
-  scene.fog = new Fog(0x9a7a68, 22, 78)
+  scene.background = new Color(0xd3a17e)
+  scene.fog = new Fog(0xd3a17e, 20, 62)
 
   const root = new Group()
   root.name = 'canyon assembly'
@@ -301,10 +305,10 @@ export async function createCanyonScene(
   }
   scene.add(root)
 
-  const groundGeometry = new PlaneGeometry(220, 220)
+  const groundGeometry = new PlaneGeometry(90, 90)
   const groundMaterial = new MeshPhysicalMaterial({
     name: 'canyon / sand floor',
-    color: 0x8a6248,
+    color: 0xa96643,
     roughness: 0.99,
     metalness: 0,
   })
@@ -318,25 +322,23 @@ export async function createCanyonScene(
   // Same budget discipline as the single-asset preview: the total stays near unit
   // irradiance so iron-oxide reds are not clipped into orange by the ACES curve.
   // High sun, because a canyon is lit by a narrow strip of sky.
-  const ambient = new AmbientLight(0xa8bed4, 0.16)
-  const hemisphere = new HemisphereLight(0xdce8f4, 0x5a3a28, 0.36)
-  const sun = new DirectionalLight(0xffe0b0, 1.9)
-  sun.position.set(-11, 20, 9)
+  const ambient = new AmbientLight(0xc99579, 0.1)
+  const hemisphere = new HemisphereLight(0xffd6ad, 0x4a2019, 0.24)
+  const sun = new DirectionalLight(0xffd2a0, 2.2)
+  sun.position.set(-7, 24, 5)
   sun.castShadow = true
   // Warm bounce off the sunlit wall, from low down. This is what stops the shaded
   // wall from reading as black and is the most characteristic canyon light effect.
-  const bounce = new DirectionalLight(0xc87a4a, 0.5)
-  bounce.position.set(12, -3, 6)
+  const bounce = new DirectionalLight(0xd66f43, 0.42)
+  bounce.position.set(8, 1, 5)
   scene.add(ambient, hemisphere, sun, bounce)
 
-  // Looking into the gorge from near the rim, which is the view the formation is
-  // built for: the plateau surface reads as a surface, both walls are visible at
-  // once, and the floor recedes between them.
-  const camera = new PerspectiveCamera(44, options.aspect ?? 1.6, 0.05, 400)
+  // Human eye level inside the slot. The upward look exposes the narrow sky cut,
+  // opposed overhangs, and receding pinches that establish scale in the reference.
+  const camera = new PerspectiveCamera(50, options.aspect ?? 1.6, 0.05, 240)
   const yaw = ((options.yaw ?? 0) * Math.PI) / 180
-  const radius = 26
-  camera.position.set(Math.sin(yaw) * radius * 0.4 - 1.5, 11.5, Math.cos(yaw) * radius + 4)
-  camera.lookAt(0, 3.4, -9)
+  camera.position.set(Math.sin(yaw) * 1.1 - 0.25, 1.72, Math.cos(yaw) * 2.2 + 18.8)
+  camera.lookAt(-0.7, 4.25, -10.5)
   scene.add(camera)
 
   if (builtCount > 0) {

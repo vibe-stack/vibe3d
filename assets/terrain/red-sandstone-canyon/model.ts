@@ -100,8 +100,8 @@ export interface CanyonPreview extends CanyonInstance {
 }
 
 const DEFAULT_CONFIG: CanyonConfig = {
-  varnish: 0.55,
-  dust: 0.18,
+  varnish: 0.28,
+  dust: 0.12,
   wetness: 0.05,
   lod: 0,
   diagnostic: 'beauty',
@@ -242,33 +242,52 @@ function createSandstoneMaterial(
   // because its pigment differs. So the entire palette sits inside one warm band and
   // every darkening term below is a fraction of what it was, leaving contrast to the
   // lighting where it belongs.
-  const deepIron = color(0x77503a)
-  const rustIron = color(0x9a6746)
-  const paleSand = color(0xb3835c)
-  const bleached = color(0xc49b75)
+  const deepIron = color(0x6d2d20)
+  const rustIron = color(0xa84f31)
+  const paleSand = color(0xc87349)
+  const bleached = color(0xe0a06b)
   // Grey-brown, not black. Desert varnish is a thin mineral glaze; it darkens and
   // desaturates a face, it does not blacken it.
-  const varnishTone = color(0x5f4a3c)
-  const dustTone = color(0xc0a684)
+  const varnishTone = color(0x4e2924)
+  const dustTone = color(0xd39a6b)
 
-  // Fine mineral variation within a bed, so a bed is not a flat colour band.
-  const mottle = mx_noise_float(p.mul(2.6).add(seed * 0.31)).mul(0.5).add(0.5)
-  const grit = mx_noise_float(p.mul(11).add(seed * 0.67)).mul(0.5).add(0.5)
+  // Broad colour drift follows the wall instead of producing isotropic cloudy
+  // patches. Cross-bedding is strongly anisotropic and sheared: fine laminae cut
+  // diagonally through the larger horizontal bed packages, as in aeolian dunes.
+  const mottle = mx_noise_float(vec3(
+    p.x.mul(0.72),
+    p.y.mul(0.16),
+    p.z.mul(0.72),
+  ).add(seed * 0.31)).mul(0.5).add(0.5)
+  const lamina = mx_noise_float(vec3(
+    p.x.mul(1.1),
+    p.y.mul(13).add(p.x.mul(2.8)).add(p.z.mul(0.65)),
+    p.z.mul(1.1),
+  ).add(seed * 0.67)).mul(0.5).add(0.5)
+  const laminaFine = mx_noise_float(vec3(
+    p.x.mul(1.8),
+    p.y.mul(31).sub(p.x.mul(5.2)).add(p.z.mul(1.4)),
+    p.z.mul(1.8),
+  ).add(seed * 0.43)).mul(0.5).add(0.5)
+  const laminaLine = smoothstep(0.52, 0.68, lamina)
+    .mul(oneMinus(smoothstep(0.68, 0.82, lamina)))
+  const fineLine = smoothstep(0.58, 0.72, laminaFine)
+    .mul(oneMinus(smoothstep(0.72, 0.86, laminaFine)))
 
-  let stone = mix(deepIron, rustIron, smoothstep(0.3, 0.75, mottle))
+  let stone = mix(deepIron, rustIron, smoothstep(0.24, 0.78, mottle))
   if (hardness) {
     // The stratigraphy itself, at a fraction of its original strength. Hard beds
     // are the paler resistant ledge formers, soft beds the slightly deeper
     // recessive ones - a suggestion, not a stripe.
-    stone = mix(stone, paleSand, smoothstep(0.35, 0.85, hardness).mul(0.6))
-    stone = mix(stone, bleached, smoothstep(0.8, 1, hardness).mul(0.28))
+    stone = mix(stone, paleSand, smoothstep(0.35, 0.85, hardness).mul(0.28))
+    stone = mix(stone, bleached, smoothstep(0.8, 1, hardness).mul(0.12))
     // A thin paler rind at each bed contact reads as the calcite seam that often
     // marks one. It lands correctly only because the mask came from the bake rather
     // than from world Y.
     const contact = smoothstep(0.42, 0.5, hardness).mul(oneMinus(smoothstep(0.5, 0.58, hardness)))
-    stone = mix(stone, bleached, contact.mul(0.22))
+    stone = mix(stone, bleached, contact.mul(0.1))
   }
-  stone = mix(stone, paleSand, smoothstep(0.65, 0.95, grit).mul(0.1))
+  stone = mix(stone, paleSand, laminaLine.mul(0.24).add(fineLine.mul(0.12)))
 
   if (bakedCurvature) {
     // Exposed arrises abrade paler; recesses hold a little more oxide. Both are
@@ -279,7 +298,7 @@ function createSandstoneMaterial(
   // Occlusion belongs in `aoNode`, where the renderer applies it to incoming light.
   // Baking it into albedo as well - at 0.6 toward the darkest tone, as this did -
   // double-counts it and is most of what made the recesses read as black holes.
-  if (bakedAo) stone = mix(stone, deepIron, oneMinus(bakedAo).mul(0.18))
+  if (bakedAo) stone = mix(stone, deepIron, oneMinus(bakedAo).mul(0.08))
 
   // Desert varnish: manganese and iron oxides deposited by water running down the
   // face, leaving near-black vertical streaks that begin under ledge lips and fade
@@ -298,7 +317,7 @@ function createSandstoneMaterial(
     .mul(bakedAo ? mix(0.55, 1, bakedAo) : 1)
   // A glaze, at 0.3 rather than 0.8. Varnish should be legible as streaking on a
   // face that is still plainly sandstone, not as dark paint over it.
-  stone = mix(stone, varnishTone, varnishMask.mul(0.3))
+  stone = mix(stone, varnishTone, varnishMask.mul(0.22))
 
   // Wind-blown sand collects on upward faces - ledge tops - and mutes them.
   const upward = smoothstep(0.45, 0.9, normalWorldGeometry.y)

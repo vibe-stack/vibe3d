@@ -40,7 +40,7 @@ import {
 } from '../shared/diagnose.ts'
 
 export const ASSET_ID = 'glacial-granite-boulder'
-export const RECIPE_HASH = 'fractured-granite-outcrop-analytic-sdf-recipe-v1'
+export const RECIPE_HASH = 'fractured-granite-formation-family-analytic-sdf-recipe-v2'
 export const COMPILER_HASH = 'qef-dual-contour-reduce-unwrap-sdf-bake-v1'
 export const PROFILE = 'game'
 export const SOURCE_GRID_CELLS = 192
@@ -59,7 +59,7 @@ export const REDUCTION_GRID_CELLS = 44
 export const LOD1_GRID_CELLS = 30
 export const LOD2_GRID_CELLS = 20
 export const COLLISION_GRID_CELLS = 13
-export const ATLAS_SIZE = 512
+export const ATLAS_SIZE = 1024
 
 /**
  * Target bake resolution in millimetres per texel, in world space.
@@ -70,10 +70,10 @@ export const ATLAS_SIZE = 512
  * lose the detail small ones keep. Bake cost is ~290us/texel, which is why the
  * atlas is clamped rather than solved exactly.
  */
-export const TARGET_MM_PER_TEXEL = 14
+export const TARGET_MM_PER_TEXEL = 10
 // 512 floor: below it the chart density boost saturates and slivers starve.
 export const MINIMUM_ATLAS = 512
-export const MAXIMUM_ATLAS = 1024
+export const MAXIMUM_ATLAS = 2048
 
 /**
  * Atlas size for an instance of a given world surface area. Rounded to a power

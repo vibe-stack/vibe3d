@@ -30,6 +30,7 @@ import {
 } from '../../../packages/terrain/src/index.ts'
 import { artifactSource, canCompileInline } from '../shared/artifacts.ts'
 import { atlasSizeFor, compileAssetFor } from './topology.ts'
+import { formationOf } from './field.ts'
 import { createInstanceFromCompiled, type OutcropConfig } from './model.ts'
 
 interface Placement {
@@ -46,21 +47,21 @@ interface Placement {
 }
 
 /**
- * A stepped cliff: a tall rear wall of large blocks, a mid terrace, and scree at
- * the foot. Seeds are reused at different scales and rotations on purpose, so
- * repetition is visible if it is a problem.
+ * An alpine outcrop assembled around genuinely different field massings.  The
+ * arch, tor, prow, bench, monolith, and erratic remain individually legible; no
+ * rear row is allowed to collapse them back into one rectangular facade.
  */
 const PLACEMENTS: Placement[] = [
-  // Rear wall.
-  { seed: 3, position: [-3.6, 0, -4.2], scale: [1.9, 2.6, 1.7], yaw: 0.3, lichen: 0.1 },
-  { seed: 5, position: [0.4, 0, -4.8], scale: [2.2, 3.1, 1.9], yaw: 1.9, lichen: 0.08 },
-  { seed: 2, position: [4.3, 0, -4.1], scale: [1.8, 2.4, 1.8], yaw: 4.1, lichen: 0.12 },
-  { seed: 7, position: [-7.4, 0, -3.6], scale: [1.6, 2.1, 1.5], yaw: 2.7, lod: 1, lichen: 0.1 },
-
-  // Mid terrace.
-  { seed: 1, position: [-2.1, 0, -1.1], scale: [1.25, 1.15, 1.2], yaw: 5.1, hero: true, lichen: 0.2 },
-  { seed: 4, position: [2.6, 0, -1.6], scale: [1.4, 1.05, 1.3], yaw: 0.9, hero: true, lichen: 0.18 },
-  { seed: 6, position: [6.3, 0, -1.9], scale: [1.1, 1.4, 1.2], yaw: 3.4, lichen: 0.14 },
+  // Hero window with daylight through it, backed only by distant offset masses.
+  { seed: 3, position: [0.1, 0, -2.3], scale: [2.25, 2.15, 1.55], yaw: 0.08, hero: true, lichen: 0.14 },
+  // Castellated residual tor and low glacial bench.
+  { seed: 4, position: [-4.4, 0, -3.9], scale: [1.7, 1.65, 1.55], yaw: 0.62, hero: true, lichen: 0.18 },
+  { seed: 5, position: [4.5, 0, -3.5], scale: [1.7, 1.35, 1.55], yaw: 5.55, hero: true, lichen: 0.2 },
+  // A narrow monolith and asymmetric prow establish a second silhouette tier.
+  { seed: 6, position: [6.8, 0, -5.6], scale: [1.25, 2.1, 1.25], yaw: 0.42, lichen: 0.1 },
+  { seed: 2, position: [-7.1, 0, -5.5], scale: [1.55, 1.7, 1.45], yaw: 5.72, lichen: 0.12 },
+  // One transported erratic overlaps the tor's foot without forming a wall.
+  { seed: 1, position: [-3.0, 0, -0.8], scale: [1.05, 0.9, 1.0], yaw: 2.4, hero: true, lichen: 0.24 },
 
   // Foot scree: same recipe, small and tumbled.
   { seed: 2, position: [-0.6, 0, 1.7], scale: [0.5, 0.42, 0.46], yaw: 2.2, roll: 0.5, lod: 1, wetness: 0.3 },
@@ -77,8 +78,8 @@ const PLACEMENTS: Placement[] = [
  * seed and the tab appears hung.
  */
 const QUALITY = {
-  preview: { heroCells: 96, backgroundCells: 80, maximumAtlas: 512 },
-  hero: { heroCells: 192, backgroundCells: 128, maximumAtlas: 1024 },
+  preview: { heroCells: 96, backgroundCells: 80, maximumAtlas: 1024 },
+  hero: { heroCells: 192, backgroundCells: 128, maximumAtlas: 2048 },
 } as const
 
 export type CliffQuality = keyof typeof QUALITY
@@ -243,6 +244,7 @@ export async function createCliffScene(
     instance.root.position.set(...placement.position)
     instance.root.scale.set(...placement.scale)
     instance.root.rotation.set(placement.roll ?? 0, placement.yaw, 0)
+    instance.root.userData.formation = formationOf(placement.seed)
     // Bed each block slightly into the ground so nothing floats on its contact.
     instance.root.position.y -= 0.08 * placement.scale[1]
     root.add(instance.root)
@@ -277,9 +279,9 @@ export async function createCliffScene(
 
   const camera = new PerspectiveCamera(38, options.aspect ?? 1.6, 0.05, 200)
   const yaw = ((options.yaw ?? 0) * Math.PI) / 180
-  const radius = 15.5
-  camera.position.set(Math.sin(yaw) * radius, 5.4, Math.cos(yaw) * radius + 2)
-  camera.lookAt(0, 2.1, -2)
+  const radius = 17.5
+  camera.position.set(Math.sin(yaw) * radius, 5.1, Math.cos(yaw) * radius + 1.5)
+  camera.lookAt(0, 2.25, -2.8)
   scene.add(camera)
 
   if (builtCount > 0) {

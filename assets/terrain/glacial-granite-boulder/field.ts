@@ -52,9 +52,31 @@ export type { Vec3 }
 /** Domain half-extent maps to this many metres along X after materialization. */
 export const DOMAIN_TO_METRES_X = 1.82
 
+/**
+ * Glacial plucking does not produce one universal rounded block.  The family is
+ * deliberately structural: each seed starts from a different low-frequency
+ * mass before the shared joint sets and frost weathering are applied.
+ */
+export type Formation = 'erratic' | 'prow' | 'arch' | 'tor' | 'bench' | 'monolith'
+
+const FORMATIONS: readonly Formation[] = [
+  'erratic',
+  'prow',
+  'arch',
+  'tor',
+  'bench',
+  'monolith',
+]
+
+export function formationOf(seed: number): Formation {
+  const normalized = Math.max(1, Math.floor(seed))
+  return FORMATIONS[(normalized - 1) % FORMATIONS.length]!
+}
+
 // --- authored mass ------------------------------------------------------------
 
 interface MassParameters {
+  formation: Formation
   radii: Vec3
   /** Flat [nx, ny, nz, limit, blend] per joint plane. */
   facets: Float64Array
@@ -81,11 +103,21 @@ const massParameterCache = new Map<number, MassParameters>()
  * silhouette convex.
  */
 function buildMassParameters(seed: number): MassParameters {
+  const formation = formationOf(seed)
   const pick = (index: number) => hash01(seed, index, 77, 0x2545f491)
+  const envelopes: Record<Formation, Vec3> = {
+    erratic: [0.88, 0.74, 0.79],
+    prow: [0.72, 0.88, 0.6],
+    arch: [0.92, 0.78, 0.48],
+    tor: [0.86, 0.7, 0.76],
+    bench: [0.98, 0.52, 0.76],
+    monolith: [0.56, 0.96, 0.54],
+  }
+  const envelope = envelopes[formation]
   const radii: Vec3 = [
-    0.88 + (pick(1) - 0.5) * 0.1,
-    0.74 + (pick(2) - 0.5) * 0.09,
-    0.79 + (pick(3) - 0.5) * 0.1,
+    envelope[0] + (pick(1) - 0.5) * 0.08,
+    envelope[1] + (pick(2) - 0.5) * 0.07,
+    envelope[2] + (pick(3) - 0.5) * 0.08,
   ]
 
   const facets: number[] = []
@@ -129,8 +161,9 @@ function buildMassParameters(seed: number): MassParameters {
   // read as fracture faces instead of a bevelled top. Planes are the only
   // sharpening tool with no fold limit, so the angular read is carried here
   // rather than by displacement amplitude.
-  for (let index = 0; index < 30; index += 1) {
-    const theta = (index / 30) * Math.PI * 2 + pick(100 + index) * 0.9
+  const breakCount = formation === 'arch' ? 14 : formation === 'tor' ? 20 : 30
+  for (let index = 0; index < breakCount; index += 1) {
+    const theta = (index / breakCount) * Math.PI * 2 + pick(100 + index) * 0.9
     // Biased upward: steep faces and overhangs are wanted, but planes that dive
     // under the mass would eat the base and leave the outcrop on a point.
     const rise = -0.3 + pick(120 + index) * 1.25
@@ -153,7 +186,7 @@ function buildMassParameters(seed: number): MassParameters {
   // centre sits inside the mass hollows the rock into a shell instead, which
   // reads as a cave from behind and leaves thin plates where trim planes clip
   // the remaining walls. Centres therefore sit at or beyond the surface.
-  const scarCount = 10
+  const scarCount = formation === 'arch' ? 5 : formation === 'monolith' ? 7 : 10
   const scars = new Float64Array(scarCount * 9)
   for (let index = 0; index < scarCount; index += 1) {
     const theta = 0.7 + index * 1.29 + pick(200 + index) * 0.7
@@ -179,7 +212,7 @@ function buildMassParameters(seed: number): MassParameters {
   // Four lobes, kept well embedded. A lobe centred near or past the surface is
   // only tenuously attached, and the oblique trim planes then clip it into a thin
   // protruding slab.
-  const lobeCount = 4
+  const lobeCount = formation === 'arch' ? 2 : formation === 'tor' ? 6 : 4
   const lobes = new Float64Array(lobeCount * 8)
   for (let index = 0; index < lobeCount; index += 1) {
     const theta = 1.9 + index * 1.65 + pick(340 + index) * 0.9
@@ -196,6 +229,7 @@ function buildMassParameters(seed: number): MassParameters {
   }
 
   return {
+    formation,
     radii,
     facets: new Float64Array(facets),
     facetCount: facets.length / 5,
@@ -204,6 +238,14 @@ function buildMassParameters(seed: number): MassParameters {
     lobes,
     lobeCount,
   }
+}
+
+/** Conservative ellipsoid distance used only for authored macro booleans. */
+function ellipsoid(x: number, y: number, z: number, rx: number, ry: number, rz: number): number {
+  const nx = x / rx
+  const ny = y / ry
+  const nz = z / rz
+  return (Math.sqrt(nx * nx + ny * ny + nz * nz) - 1) * Math.min(rx, ry, rz)
 }
 
 function massParameters(seed: number): MassParameters {
@@ -232,7 +274,41 @@ export function massSdf(x: number, y: number, z: number, seed: number): number {
   const leanX = x + y * 0.07
   const leanZ = z - y * 0.09
   const taper = 1 - Math.max(-0.1, Math.min(0.24, y * 0.26))
-  let distance = boxoid(leanX, y, leanZ, radii[0] * taper, radii[1], radii[2] * taper)
+  let distance: number
+  switch (parameters.formation) {
+    case 'arch': {
+      // A plucked granite window: two stout piers and a joint-controlled roof.
+      // The tunnel passes fully through Z and reaches below the contact plane, so
+      // this is genuine negative space rather than a dark alcove painted on a box.
+      distance = boxoid(leanX, y, leanZ, radii[0] * taper, radii[1], radii[2])
+      break
+    }
+    case 'tor': {
+      // A castellated tor assembled from interlocked residual blocks.  The
+      // narrow waist and offset crown are present before any surface noise.
+      const base = boxoid(leanX + 0.12, y + 0.24, leanZ, radii[0] * 0.9, radii[1] * 0.7, radii[2])
+      const crown = boxoid(leanX - 0.18, y - 0.34, leanZ + 0.08, radii[0] * 0.68, radii[1] * 0.48, radii[2] * 0.82)
+      const shoulder = boxoid(leanX + 0.38, y - 0.05, leanZ - 0.12, radii[0] * 0.42, radii[1] * 0.5, radii[2] * 0.64)
+      distance = smin(smin(base, crown, 0.045), shoulder, 0.035)
+      break
+    }
+    case 'bench': {
+      const body = boxoid(leanX - 0.12, y + 0.18, leanZ, radii[0] * 0.82, radii[1] * 0.78, radii[2])
+      const shelf = boxoid(leanX + 0.16, y - 0.27, leanZ - 0.05, radii[0], radii[1] * 0.34, radii[2] * 0.82)
+      distance = smin(body, shelf, 0.035)
+      break
+    }
+    case 'prow': {
+      const body = boxoid(leanX, y, leanZ, radii[0] * taper, radii[1], radii[2] * taper)
+      // An offset shoulder leaves one glacially plucked face projecting like a
+      // prow instead of preserving a centred cuboid silhouette.
+      const shoulder = boxoid(leanX - 0.28, y - 0.18, leanZ + 0.08, radii[0] * 0.55, radii[1] * 0.48, radii[2] * 0.78)
+      distance = smin(body, shoulder, 0.04)
+      break
+    }
+    default:
+      distance = boxoid(leanX, y, leanZ, radii[0] * taper, radii[1], radii[2] * taper)
+  }
 
   const facets = parameters.facets
   for (let index = 0; index < parameters.facetCount; index += 1) {
@@ -265,6 +341,14 @@ export function massSdf(x: number, y: number, z: number, seed: number): number {
       sx * cos - sz * sin, y - scars[offset + 1]!, sx * sin + sz * cos,
       scars[offset + 3]!, scars[offset + 4]!, scars[offset + 5]!,
     ), scars[offset + 6]!)
+  }
+
+  if (parameters.formation === 'arch') {
+    // Cut last so welded silhouette lobes cannot accidentally plug the window.
+    const openingX = (hash01(seed, 901, 77, 0x2545f491) - 0.5) * 0.12
+    const shaft = boxoid(x - openingX, y + 0.62, z, 0.36, 0.43, 0.72)
+    const crown = ellipsoid(x - openingX, y + 0.14, z, 0.43, 0.43, 0.72)
+    distance = smax(distance, -smin(shaft, crown, 0.025), 0.008)
   }
 
   return distance
