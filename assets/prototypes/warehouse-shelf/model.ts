@@ -41,6 +41,8 @@ const LEVELS = [0.12, 0.6, 1.0, 1.4, 1.76]
 /** Front beam depth, and the outer face a level's labels are seated on. */
 const RAIL = 0.12
 const RAIL_Z = DEPTH * 0.5 - POST * 0.5 + 0.0175
+/** Foot plate thickness, and therefore the level a post is welded at. */
+const PLATE = 0.018
 /** Rear brace lean, and the diagonal that lean has to be cut to. */
 const BRACE_LEAN = 0.62
 const BRACE = (WIDTH - POST) / Math.cos(BRACE_LEAN)
@@ -100,9 +102,13 @@ function build(): { root: Group; sockets: ShelfSockets; bundle: CargoMaterialBun
     for (const sz of [-1, 1]) {
       const x = sx * (WIDTH * 0.5 - POST * 0.5)
       const z = sz * (DEPTH * 0.5 - POST * 0.5)
-      tubeSection(root, m.shell, [POST, POST], 0.01, HEIGHT, [x, HEIGHT * 0.5, z], [Math.PI / 2, 0, 0])
-      box(root, m.graphite, [0.1, 0.018, 0.1], [x, 0.009, z], { chamfer: 0.025, fillet: 0.008, bevel: 0.005 })
-      bolt(root, m.steel, [x, 0.018, z], 0.012, 'top')
+      // The post is welded onto its foot plate, which is the part that takes the
+      // floor and the anchor. Run through to the deck its sole and the plate's
+      // were one plane, and boltless shelving is only ever seen from below in a
+      // depot anyway.
+      tubeSection(root, m.shell, [POST, POST], 0.01, HEIGHT - PLATE, [x, (HEIGHT + PLATE) * 0.5, z], [Math.PI / 2, 0, 0])
+      box(root, m.graphite, [0.1, PLATE, 0.1], [x, PLATE * 0.5, z], { chamfer: 0.025, fillet: 0.008, bevel: 0.005 })
+      bolt(root, m.steel, [x, PLATE, z], 0.012, 'top')
     }
     // Rear cross brace, which is what stops boltless shelving racking sideways.
     // A brace is cut to the diagonal, not to the span it covers: at the bare
