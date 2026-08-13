@@ -4,6 +4,7 @@ import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
   AXIS_Y,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   bolt,
@@ -40,6 +41,10 @@ const SIDE = 0.09
 const DROP = 0.5
 /** Outer face of a side rail, which is what a graphic on the run is seated on. */
 const RAIL_FACE = WIDTH * 0.5 + 0.014
+/** The rolled stiffening lip's section, and the flank it leaves clear beneath it. */
+const LIP = 0.02
+const LIP_TOP = SIDE * 0.5 - FACE_CLEARANCE
+const MARK_Y = (LIP_TOP - LIP - SIDE * 0.5) * 0.5
 /** The two planes a hanger rod is threaded between: the strut and the ceiling plate. */
 const STRUT_Y = SIDE * 0.5 + 0.005
 const CEILING_Y = SIDE * 0.5 + DROP + 0.05
@@ -76,7 +81,15 @@ function traySection(
     box(group, m.shell, [length, SIDE, 0.028], [0, 0, sz * WIDTH * 0.5], {
       chamfer: 0.014, fillet: 0.006, bevel: 0.006, capChamfer: 0.01,
     })
-    box(group, m.shellShade, [length, 0.02, 0.016], [0, SIDE * 0.4, sz * (WIDTH * 0.5 + 0.008)], {
+    // The stiffener is a rolled lip on the rail, so it has to stand clear of the
+    // two rail planes it runs beside rather than a millimetre or two off them:
+    // its own top sits a face clearance under the rail's top and its outer face
+    // the same clearance proud of the rail's, both measured off its 20 × 16 mm
+    // section. Drawn 1 mm over the top and 2 mm outboard it fought the rail down
+    // the whole 3.2 m of the run.
+    box(group, m.shellShade, [length, LIP, 0.016], [
+      0, LIP_TOP - LIP * 0.5, sz * (RAIL_FACE + FACE_CLEARANCE - 0.008),
+    ], {
       chamfer: 0.006, fillet: 0.003, bevel: 0.003,
     })
   }
@@ -109,10 +122,18 @@ function bundle(
   for (const [z, y, radius] of cables) {
     group.add(cylinder(m.rubber, radius, length - 0.04, [0, y - SIDE * 0.24, z], AXIS_X, 6))
   }
+  // The last two cables ride above the rest and the strap is laid under both, so
+  // its top face takes a face clearance off the lower of their two crowns - a
+  // 6-facet cable's crown being radius·cos(π/6), not its radius. Drawn at a flat
+  // 0.065 it stopped 2.7 mm under one of them, and every tie in the run fought
+  // that cable over its whole width.
+  const strap = 0.11
+  const strapTop = Math.min(...cables.slice(4)
+    .map(([, y, radius]) => y - SIDE * 0.24 + radius * Math.cos(Math.PI / 6))) - FACE_CLEARANCE
   const ties = Math.max(2, Math.round(length / 0.62))
   for (let index = 0; index < ties; index += 1) {
     const x = (index / Math.max(1, ties - 1) - 0.5) * (length - 0.5)
-    box(group, m.graphiteEdge, [0.02, 0.11, WIDTH - 0.1], [x, 0.01, 0], {
+    box(group, m.graphiteEdge, [0.02, strap, WIDTH - 0.1], [x, strapTop - strap * 0.5, 0], {
       chamfer: 0.006, fillet: 0.003, bevel: 0.003,
     })
   }
@@ -176,9 +197,12 @@ function build(): { root: Group; sockets: TraySockets; bundle: CargoMaterialBund
   plaque(root, m, label, [0.22, 0.04], [-RUN * 0.32, 0, RAIL_FACE], 'front', m.shellLight)
   // Both rails carry the run mark. A ladder tray is seen straight through, so a
   // graphic on one flank leaves the whole prop unmarked from the other side.
+  // The mark goes on the flank the lip leaves clear: centred on the rail its top
+  // 7 mm ran behind the lip, and a paint stroke stands 4 mm off the face it is
+  // applied to, which is exactly where the lip's own outer face is.
   for (const sz of [-1, 1]) {
     paintMark(root, m.amberPaint, slashProfile(0.045, 0.055, 0.45), [
-      RUN * 0.06, 0, sz * RAIL_FACE,
+      RUN * 0.06, MARK_Y, sz * RAIL_FACE,
     ], sz > 0 ? 'front' : 'back', 0.008)
   }
 
