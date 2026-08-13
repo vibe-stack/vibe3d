@@ -36,6 +36,15 @@ const WIDTH = 0.74
 const DEPTH = 0.48
 const HEIGHT = 0.38
 const LID = 0.14
+/**
+ * Hinge line, behind both leaves.
+ *
+ * The lid used to swing about a point 30 mm inboard of the body's own back face,
+ * which drove the leaf's back-bottom corner 34 mm through the hull on the way
+ * open. A barrel hinge pivots on its pin and the pin is outside the box, so the
+ * axis is the lid's back face plus the pin radius.
+ */
+const LID_PIVOT = DEPTH * 0.5 + 0.019
 
 interface MilitaryCaseSockets {
   lid_hinge: Object3D
@@ -58,7 +67,9 @@ export interface MilitaryCaseController {
 /** Moulded corner bumper, proud on all three faces it touches. */
 function bumper(parent: Group, m: CargoMaterials, x: number, y: number, z: number): void {
   box(parent, m.rubber, [0.11, 0.09, 0.11], [x, y, z], { chamfer: 0.035, fillet: 0.012, bevel: 0.01 })
-  box(parent, m.graphiteEdge, [0.075, 0.05, 0.075], [x, y, z], { chamfer: 0.024, fillet: 0.008, bevel: 0.007 })
+  // The wear band belts the block, so it has to be wider than it. Drawn inside
+  // the rubber at the same centre it was a part that appeared in no frame.
+  box(parent, m.graphiteEdge, [0.125, 0.03, 0.125], [x, y, z], { chamfer: 0.024, fillet: 0.008, bevel: 0.007 })
 }
 
 function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
@@ -70,10 +81,12 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   })
   // Rib field. Shallow and close-pitched, which is what makes a small case read
   // as moulded rather than as a shrunken freight crate.
+  const ribZ = DEPTH * 0.5 + 0.006
+  const ribThickness = 0.018
   for (let index = 0; index < 7; index += 1) {
     const x = (index / 6 - 0.5) * (WIDTH - 0.26)
     for (const sz of [-1, 1]) {
-      box(hull, m.graphiteEdge, [0.045, bodyHeight - 0.11, 0.018], [x, bodyY, sz * (DEPTH * 0.5 + 0.006)], {
+      box(hull, m.graphiteEdge, [0.045, bodyHeight - 0.11, ribThickness], [x, bodyY, sz * ribZ], {
         chamfer: 0.012, fillet: 0.005, bevel: 0.005,
         rotation: [0, sz > 0 ? 0 : Math.PI, 0],
       })
@@ -85,12 +98,18 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
     }
   }
 
-  const frontZ = DEPTH * 0.5 + 0.014
+  // The plaque, lens and bolts are all applied to the ribs, so they measure from
+  // the rib face and not from the skin 15 mm behind it.
+  const frontZ = ribZ + ribThickness * 0.5
   const label = addLabelDecal(bundle, { variant: 33, ground: 0x4a5963, mark: 0x071019 })
   plaque(hull, m, label, [0.22, 0.09], [-0.16, bodyY + 0.02, frontZ], 'front', m.ink)
   statusLens(hull, m, [0.07, 0.028], [0.17, bodyY + 0.02, frontZ], m.cyan, 'front')
-  paintMark(hull, m.amberPaint, slashProfile(0.055, 0.09, 0.5), [0.28, bodyY - 0.045, frontZ], 'front', 0.009)
-  seam(hull, m.graphite, WIDTH - 0.2, [0, bodyY - bodyHeight * 0.5 + 0.035, frontZ], 'front', 'across', 0.02, 0.013)
+  // The rib field and the corner bumpers between them own the whole front, so
+  // the ownership slash goes on the clear end panel opposite the valve. Drawn on
+  // the front it stood 13 mm off bare skin and ran into a bumper.
+  paintMark(hull, m.amberPaint, slashProfile(0.055, 0.09, 0.5), [-WIDTH * 0.5, bodyY, 0], 'left', 0.009)
+  // The seam runs below the rib field, so its host is the shell skin.
+  seam(hull, m.graphite, WIDTH - 0.2, [0, bodyY - bodyHeight * 0.5 + 0.035, DEPTH * 0.5], 'front', 'across', 0.02, 0.013)
   boltRun(hull, m.steel, [-0.24, bodyY, -frontZ], [0.24, bodyY, -frontZ], 4, 0.013, 'back')
 
   // Pressure valve on the short end: a knurled cap in a sunk boss.
@@ -101,28 +120,33 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
 }
 
 function lidBody(lid: Group, m: CargoMaterials): void {
-  box(lid, m.graphite, [WIDTH + 0.008, LID, DEPTH + 0.008], [0, LID * 0.5, DEPTH * 0.5 - 0.03], {
+  const lidBack = LID_PIVOT - (DEPTH + 0.008) * 0.5
+
+  box(lid, m.graphite, [WIDTH + 0.008, LID, DEPTH + 0.008], [0, LID * 0.5, LID_PIVOT], {
     chamfer: 0.05, fillet: 0.016, bevel: 0.013, capChamfer: 0.032,
   })
-  box(lid, m.ink, [WIDTH - 0.2, 0.024, DEPTH - 0.14], [0, LID - 0.006, DEPTH * 0.5 - 0.03], {
+  box(lid, m.ink, [WIDTH - 0.2, 0.024, DEPTH - 0.14], [0, LID - 0.006, LID_PIVOT], {
     chamfer: 0.04, fillet: 0.013, bevel: 0.009,
   })
-  box(lid, m.graphiteEdge, [WIDTH - 0.28, 0.02, DEPTH - 0.2], [0, LID + 0.002, DEPTH * 0.5 - 0.03], {
+  box(lid, m.graphiteEdge, [WIDTH - 0.28, 0.02, DEPTH - 0.2], [0, LID + 0.002, LID_PIVOT], {
     chamfer: 0.035, fillet: 0.012, bevel: 0.008,
   })
   // Sprung top grip: two posts and a rubber-wrapped bar.
   for (const sx of [-1, 1]) {
-    lid.add(prism(m.graphiteEdge, [0.05, 0.055, 0.05], [sx * 0.11, LID + 0.02, DEPTH * 0.5 - 0.03], {
+    lid.add(prism(m.graphiteEdge, [0.05, 0.055, 0.05], [sx * 0.11, LID + 0.02, LID_PIVOT], {
       chamfer: 0.016, fillet: 0.006, bevel: 0.005,
     }))
-    lid.add(cylinder(m.steel, 0.012, 0.055, [sx * 0.11, LID + 0.045, DEPTH * 0.5 - 0.03], AXIS_Y, 8))
+    lid.add(cylinder(m.steel, 0.012, 0.055, [sx * 0.11, LID + 0.045, LID_PIVOT], AXIS_Y, 8))
   }
-  lid.add(cylinder(m.rubber, 0.019, 0.24, [0, LID + 0.066, DEPTH * 0.5 - 0.03], [0, 0, Math.PI / 2], 10))
+  lid.add(cylinder(m.rubber, 0.019, 0.24, [0, LID + 0.066, LID_PIVOT], [0, 0, Math.PI / 2], 10))
+  // Knuckle lugs proud of the lid's own back face and the pin on the swing axis
+  // behind them. Drawn 48 mm inside the leaf the whole hinge rendered as
+  // nothing and the case back read as an unbroken shell.
   for (const sx of [-1, 1]) {
-    lid.add(prism(m.graphiteEdge, [0.1, 0.06, 0.055], [sx * 0.24, LID * 0.55, 0.014], {
+    lid.add(prism(m.graphiteEdge, [0.1, 0.06, 0.055], [sx * 0.24, 0.035, lidBack + 0.0175], {
       chamfer: 0.018, fillet: 0.006, bevel: 0.005,
     }))
-    lid.add(cylinder(m.steel, 0.015, 0.12, [sx * 0.24, LID * 0.55, 0], AXIS_X, 8))
+    lid.add(cylinder(m.steel, 0.015, 0.12, [sx * 0.24, 0, 0], AXIS_X, 8))
   }
 }
 
@@ -139,14 +163,14 @@ function build(): { root: Group; hull: Group; lid: Group; sockets: MilitaryCaseS
   root.add(hull, lid)
 
   hullBody(hull, m, bundle)
-  lid.position.set(0, HEIGHT - LID, -(DEPTH * 0.5 - 0.03))
+  lid.position.set(0, HEIGHT - LID, -LID_PIVOT)
   lidBody(lid, m)
   for (const x of [-0.21, 0.21]) {
-    toggleLatch(hull, m, [x, HEIGHT - LID - 0.008, DEPTH * 0.5 + 0.008], 0.72, 'front')
+    toggleLatch(hull, m, [x, HEIGHT - LID - 0.008, DEPTH * 0.5], 0.72, 'front')
   }
 
   const sockets: MilitaryCaseSockets = {
-    lid_hinge: socket('lid_hinge', [0, HEIGHT - LID, -(DEPTH * 0.5 - 0.03)]),
+    lid_hinge: socket('lid_hinge', [0, HEIGHT - LID, -LID_PIVOT]),
     grip: socket('grip', [0, HEIGHT + 0.09, 0]),
     valve: socket('valve', [WIDTH * 0.5 + 0.06, (HEIGHT - LID) * 0.5, -0.1]),
   }
