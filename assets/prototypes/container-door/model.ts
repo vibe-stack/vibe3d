@@ -74,9 +74,11 @@ function portal(frame: Group, m: CargoMaterials, bundle: CargoMaterialBundle): v
     box(frame, m.shellShade, [SPEC.length - 0.14, SPEC.height - 0.9, jamb * 0.5], [0, SPEC.height * 0.5, z + sz * jamb * 0.28], {
       chamfer: 0.03, fillet: 0.012, bevel: 0.01,
     })
-    for (const sx of [-1, 1]) {
-      cornerCasting(frame, m, [casting, casting, casting], [sx * (SPEC.length * 0.5 - casting * 0.5), casting * 0.5, z], 0.058, 'x')
-      cornerCasting(frame, m, [casting, casting, casting], [sx * (SPEC.length * 0.5 - casting * 0.5), SPEC.height - casting * 0.5, z], 0.058, 'x')
+    // One casting bored through the module's full depth. The module is 0.44
+    // deep and a casting is 0.3, so a mirrored pair set a half-casting in from
+    // each face crossed its own mirror plane and duplicated itself for 160 mm.
+    for (const y of [casting * 0.5, SPEC.height - casting * 0.5]) {
+      cornerCasting(frame, m, [SPEC.length, casting, casting], [0, y, z], 0.058, 'x')
     }
     boltRun(frame, m.steel, [SPEC.length * 0.5, 0.6, z], [SPEC.length * 0.5, SPEC.height - 0.6, z], 5, 0.022, 'right')
   }
@@ -87,21 +89,36 @@ function portal(frame: Group, m: CargoMaterials, bundle: CargoMaterialBundle): v
     chamfer: 0.055, fillet: 0.018, bevel: 0.015,
   })
 
-  // Threshold plate and a shallow sill ramp on the outboard side.
+  // Threshold plate and a sill ramp on the outboard side.
+  //
+  // The ramp's length is solved from the drop it has to bridge - the threshold
+  // plate tops out at `casting + 0.015` and the deck is at 0 - instead of being
+  // chosen. Cut to 0.34 at the same rake it started 104 mm below the threshold
+  // and finished 69 mm above the ground, so it met neither.
   box(frame, m.graphiteEdge, [SPEC.length + 0.05, 0.05, SPEC.width - jamb * 2 - 0.06], [0, casting - 0.01, 0], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.007,
   })
-  box(frame, m.ironOxide, [0.34, 0.05, SPEC.width - jamb * 2 - 0.1], [SPEC.length * 0.5 + 0.18, casting * 0.5 - 0.01, 0], {
-    chamfer: 0.02, fillet: 0.008, bevel: 0.007, rotation: [0, 0, -0.28],
+  const rake = 0.45
+  const rise = casting + 0.015
+  const ramp = (rise - 0.05 * Math.cos(rake)) / Math.sin(rake)
+  box(frame, m.ironOxide, [ramp, 0.05, SPEC.width - jamb * 2 - 0.1], [
+    SPEC.length * 0.5 - 0.005 + ramp * 0.5 * Math.cos(rake) - 0.025 * Math.sin(rake),
+    rise * 0.5,
+    0,
+  ], {
+    chamfer: 0.02, fillet: 0.008, bevel: 0.007, rotation: [0, 0, -rake],
   })
   for (const sz of [-1, 1]) {
-    frame.add(cylinder(m.steel, 0.022, 0.09, [SPEC.length * 0.5 + 0.06, casting + 0.02, sz * 0.6], AXIS_Y, 8))
+    frame.add(cylinder(m.steel, 0.022, 0.09, [SPEC.length * 0.5 + 0.06, casting - 0.02, sz * 0.6], AXIS_Y, 8))
   }
 
+  // The head is the only thing behind these: at `height - 0.34` the plaque and
+  // both lamps sat 125 mm down over the open doorway with nothing under them.
+  const head = SPEC.height - casting * 0.5
   const label = addLabelDecal(bundle, { variant: 140 })
-  plaque(frame, m, label, [0.3, 0.13], [SPEC.length * 0.5 + 0.006, SPEC.height - 0.34, 0], 'right', m.shellLight)
-  statusLens(frame, m, [0.07, 0.07], [SPEC.length * 0.5 + 0.006, SPEC.height - 0.34, -0.62], m.cyan, 'right')
-  statusLens(frame, m, [0.07, 0.07], [SPEC.length * 0.5 + 0.006, SPEC.height - 0.34, 0.62], m.amber, 'right')
+  plaque(frame, m, label, [0.3, 0.13], [SPEC.length * 0.5, head, 0], 'right', m.shellLight)
+  statusLens(frame, m, [0.07, 0.07], [SPEC.length * 0.5, head, -0.62], m.cyan, 'right')
+  statusLens(frame, m, [0.07, 0.07], [SPEC.length * 0.5, head, 0.62], m.amber, 'right')
 }
 
 function build(): {
@@ -129,15 +146,29 @@ function build(): {
   containerDoorFrame(frame, m, SPEC)
 
   const hinge = SPEC.width * 0.5 - 0.32
-  doorLeft.position.set(SPEC.length * 0.5 - 0.22, 0, -hinge)
-  doorRight.position.set(SPEC.length * 0.5 - 0.22, 0, hinge)
+  // The leaves hang behind the door frame's head and sill bars, whose inboard
+  // face is at `length*0.5 - 0.24`. Set 130 mm further forward the 0.1-thick
+  // skins ran straight through both bars for the full width of the opening.
+  const leafX = SPEC.length * 0.5 - 0.285
+  doorLeft.position.set(leafX, 0, -hinge)
+  doorRight.position.set(leafX, 0, hinge)
   containerDoorLeaf(doorLeft, m, bundle, { ...SPEC, side: 1 })
   containerDoorLeaf(doorRight, m, bundle, { ...SPEC, side: -1 })
+  // Each leaf is half the clear opening, so the pair shuts on a mathematical
+  // point and the 0.1 taken out for clearance is a 60 mm slit straight through
+  // the module. The leaf that shuts second carries a closing strip behind the
+  // joint, lapping both skins by 40 mm. Hinging the pair 30 mm further in would
+  // bring the leaves edge to edge instead, but the lock bars are set out from
+  // each leaf's own centre and would then cross the shut line.
+  const leaf = (SPEC.width - 0.6 - 0.1) * 0.5
+  box(doorLeft, m.shell, [0.06, SPEC.height - 0.62, (hinge - leaf) * 2 + 0.08], [-0.06, (SPEC.height - 0.5) * 0.5 + 0.24, hinge], {
+    chamfer: 0.02, fillet: 0.008, bevel: 0.007,
+  })
 
   const sockets: DoorAssemblySockets = {
     threshold: socket('threshold', [SPEC.length * 0.5, 0.3, 0]),
-    hinge_left: socket('hinge_left', [SPEC.length * 0.5 - 0.22, SPEC.height * 0.5, -hinge]),
-    hinge_right: socket('hinge_right', [SPEC.length * 0.5 - 0.22, SPEC.height * 0.5, hinge]),
+    hinge_left: socket('hinge_left', [leafX, SPEC.height * 0.5, -hinge]),
+    hinge_right: socket('hinge_right', [leafX, SPEC.height * 0.5, hinge]),
     frame_head: socket('frame_head', [0, SPEC.height, 0]),
   }
   return { root, frame, doorLeft, doorRight, sockets, bundle }
