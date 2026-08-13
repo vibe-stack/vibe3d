@@ -93,12 +93,27 @@ function tier(
   containerDoorFrame(tierGroup, m, spec)
 
   const hinge = spec.width * 0.5 - k.casting - 0.02
+  const width = (spec.width - k.casting * 2 - 0.1) * 0.5
   for (const side of [1, -1] as const) {
     const leaf = new Group()
     leaf.name = `AXR_CARGO_CONTAINER-STACK_PART_${label}-DOOR-${side > 0 ? 'LEFT' : 'RIGHT'}_CLOSED`
-    leaf.position.set(spec.length * 0.5 - 0.22, 0, -side * hinge)
+    // The leaves hang behind the door frame's head and sill bars, whose inboard
+    // face is at `length*0.5 - 0.24`; set 130 mm further forward the 0.1-thick
+    // skins ran straight through both of them.
+    leaf.position.set(spec.length * 0.5 - 0.285, 0, -side * hinge)
     tierGroup.add(leaf)
     containerDoorLeaf(leaf, m, bundle, { ...spec, side })
+    // Each leaf is half the clear opening, so the pair shuts on a mathematical
+    // point and the 0.1 taken out for clearance is a 60 mm slit you see the
+    // cross members through - three times over on a stack. The leaf that shuts
+    // second carries a closing strip behind the joint, lapping both skins by
+    // 40 mm; hinging the pair in instead would bring the lock bars, which are
+    // set out from each leaf's own centre, across the shut line.
+    if (side === 1) {
+      box(leaf, m.shell, [0.06, spec.height - 0.62, (hinge - width) * 2 + 0.08], [-0.06, (spec.height - 0.5) * 0.5 + 0.24, hinge], {
+        chamfer: 0.02, fillet: 0.008, bevel: 0.007,
+      })
+    }
   }
   return tierGroup
 }
@@ -116,16 +131,31 @@ function build(): { root: Group; sockets: StackSockets; bundle: CargoMaterialBun
   // The short unit is stowed against the door end, which is how a part-load is
   // actually placed: hard up against the face the yard works from.
   const topOffset = BASE.length * 0.5 - TOP.length * 0.5
+  const k = containerMetrics(BASE)
+  // Only the fore pair of the short unit's cones lands on tier B's casting
+  // line; the aft pair stands over open roof deck, 45 mm below it. A bearing
+  // pad brings the deck up to the casting plane so both pairs carry load.
+  const seat = BASE.height * 2 + 0.11
+  for (const sz of [-1, 1]) {
+    box(root, m.graphite, [0.34, 0.09, 0.3], [
+      topOffset - (TOP.length * 0.5 - k.casting * 0.5),
+      seat - 0.025,
+      sz * (BASE.width * 0.5 - k.casting * 0.5),
+    ], { chamfer: 0.03, fillet: 0.012, bevel: 0.01 })
+  }
   twistlocks(root, m, TOP, BASE.height * 2 + 0.165, topOffset)
   tier(root, m, bundle, TOP, BASE.height * 2 + 0.22, topOffset, 'TIER-C')
 
   // Lashing rod down the exposed aft corner, with its turnbuckle at deck level.
+  // It runs against the corner castings, which reach `width*0.5` - the only
+  // thing on the aft corner line for it to bear on. Held out at +0.06 it stood
+  // 9 to 28 mm clear of everything for its whole 5.4 m.
   const rodX = -BASE.length * 0.5 + 0.2
-  const rodZ = BASE.width * 0.5 + 0.06
+  const rodZ = BASE.width * 0.5 + 0.01
   root.add(cylinder(m.steel, 0.026, BASE.height * 2 + 0.2, [rodX, BASE.height + 0.1, rodZ], [0, 0, 0.035], 8))
   box(root, m.amberPaint, [0.09, 0.22, 0.08], [rodX + 0.03, 0.42, rodZ], { chamfer: 0.022, fillet: 0.008, bevel: 0.007 })
-  root.add(cylinder(m.steel, 0.014, 0.12, [rodX + 0.03, 0.42, rodZ + 0.06], AXIS_X, 8))
-  box(root, m.graphiteEdge, [0.16, 0.1, 0.14], [rodX + 0.02, 0.06, rodZ], { chamfer: 0.03, fillet: 0.011, bevel: 0.009 })
+  root.add(cylinder(m.steel, 0.014, 0.12, [rodX + 0.03, 0.42, rodZ + 0.04], AXIS_X, 8))
+  box(root, m.graphiteEdge, [0.16, 0.1, 0.14], [rodX + 0.02, 0.05, rodZ], { chamfer: 0.03, fillet: 0.011, bevel: 0.009 })
 
   const top = BASE.height * 2 + 0.22 + TOP.height
   const sockets: StackSockets = {
