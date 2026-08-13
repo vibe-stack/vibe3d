@@ -10,3 +10,4 @@ coverage/
 *.tgz
 .release-pack/
 models.lock.json
+*.tsbuildinfo
