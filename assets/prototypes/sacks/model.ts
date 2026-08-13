@@ -7,6 +7,7 @@ import {
   box,
   createCargoPreview,
   finishModel,
+  paintMark,
   plaque,
   slashProfile,
   socket,
@@ -145,16 +146,13 @@ function build(): { root: Group; sockets: SackSockets; bundle: CargoMaterialBund
   // showed as a barcode card and two orange fins hanging clear of the stack.
   const label = addLabelDecal(bundle, { variant: 37, ground: 0xc9b99e })
   plaque(root, m, label, [0.15, 0.055], [-0.03, 0.195, frontFace(-0.03)], 'front', m.fabric, 0, [0, FRONT_YAW, 0])
-  // The sprayed marks are extruded straight rather than through `paintMark`,
-  // which can only lay a mark in one of the six world faces. Square to +Z each
-  // of these crosses 13 mm of the cap's fall over its own width: anchored at one
-  // end it stands 7 mm off the fabric, anchored at the other it disappears into
-  // it, and there is no single height in between that works. Turned with the
-  // sack the embed is the same 4 mm from end to end.
+  // The sprayed marks take the cap's own plane rather than one of the six world
+  // faces. Square to +Z each of these crosses 13 mm of the cap's fall over its
+  // own width: anchored at one end it stands 7 mm off the fabric, anchored at
+  // the other it disappears into it, and there is no single height in between
+  // that works. Turned with the sack the embed is the same from end to end.
   for (const [markX, width] of [[-0.35, 0.04], [-0.285, 0.02]] as const) {
-    root.add(extrudeProfile(m.orangePaint, slashProfile(width, 0.1, 0.4), 0.008, [markX, 0.19, leftFace(markX)], {
-      fillet: 0.004, bevel: 0.0024, rotation: [0, LEFT_YAW, 0],
-    }))
+    paintMark(root, m.orangePaint, slashProfile(width, 0.1, 0.4), [markX, 0.19, leftFace(markX)], 'front', 0.008, 0, [0, LEFT_YAW, 0])
   }
 
   const sockets: SackSockets = {
