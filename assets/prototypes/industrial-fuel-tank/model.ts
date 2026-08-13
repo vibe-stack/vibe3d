@@ -11,8 +11,9 @@ import {
   bolt,
   box,
   createCargoPreview,
+  facetRadius,
   finishModel,
-  paintMark,
+  radialMark,
   radialPlaque,
   slashProfile,
   socket,
@@ -37,6 +38,11 @@ const RADIUS = 1.15
 const BODY = 2.9
 const BUND = 0.95
 const BUND_R = 1.75
+/** Bund floor slab thickness, and therefore the level the shell stands on. */
+const FLOOR = 0.12
+/** Facet count of the shell, which everything seated on it measures from. */
+const SIDES = 26
+const FACET = (Math.PI * 2) / SIDES
 
 interface FuelTankSockets {
   fill_point: Object3D
@@ -60,17 +66,22 @@ export interface FuelTankController {
 function ladder(root: Group, m: CargoMaterials): void {
   const z = -(RADIUS + 0.06)
   const top = BUND + BODY - 0.1
+  // The stiles land in the bund floor slab. Started at 0.4 they hung 80 mm over
+  // it, and the rung run stopped 550 mm below their own heads.
+  const foot = FLOOR - 0.02
   for (const sx of [-1, 1]) {
-    root.add(cylinder(m.steel, 0.026, top - 0.2, [sx * 0.22, (top + 0.2) * 0.5, z], AXIS_Y, 8))
+    root.add(cylinder(m.steel, 0.026, top - foot, [sx * 0.22, (top + foot) * 0.5, z], AXIS_Y, 8))
   }
-  const rungs = Math.floor((top - 0.4) / 0.28)
+  const rungs = Math.floor((top - 0.52) / 0.28) + 1
   for (let index = 0; index < rungs; index += 1) {
     root.add(cylinder(m.steel, 0.016, 0.44, [0, 0.4 + index * 0.28, z], AXIS_X, 6))
   }
   // Back guard: hoops with two longitudinal straps, starting above head height.
-  for (let index = 0; index < 5; index += 1) {
-    const y = 1.5 + index * 0.44
-    if (y > top - 0.2) break
+  const hoopBase = 1.5
+  const hoopStep = 0.44
+  const hoops = Math.floor((top - 0.2 - hoopBase) / hoopStep) + 1
+  for (let index = 0; index < hoops; index += 1) {
+    const y = hoopBase + index * hoopStep
     for (const sx of [-1, 1]) {
       box(root, m.shellShade, [0.035, 0.035, 0.38], [sx * 0.34, y, z - 0.2], {
         chamfer: 0.01, fillet: 0.004, bevel: 0.004,
@@ -80,10 +91,13 @@ function ladder(root: Group, m: CargoMaterials): void {
       chamfer: 0.01, fillet: 0.004, bevel: 0.004,
     })
   }
+  // The straps tie the hoops together and stop with them. Drawn 3 m long from a
+  // fixed centre they ran 1.24 m past the top hoop and out over the roof.
+  const strapTop = hoopBase + (hoops - 1) * hoopStep
   for (const sx of [-1, 1]) {
-    box(root, m.shellShade, [0.035, 3.0, 0.035], [sx * 0.34, 3.0, z - 0.4], {
-      chamfer: 0.01, fillet: 0.004, bevel: 0.004,
-    })
+    box(root, m.shellShade, [0.035, strapTop - hoopBase + 0.07, 0.035], [
+      sx * 0.34, (hoopBase + strapTop) * 0.5, z - 0.4,
+    ], { chamfer: 0.01, fillet: 0.004, bevel: 0.004 })
   }
 }
 
@@ -95,7 +109,7 @@ function build(): { root: Group; sockets: FuelTankSockets; bundle: CargoMaterial
   root.name = 'AXR_INDUSTRIAL_FUEL-TANK_ROOT_LIVE'
 
   // Bund: a ring wall with a coping and a drain sump.
-  root.add(cylinder(m.graphite, BUND_R, 0.12, [0, 0.06, 0], AXIS_Y, 24))
+  root.add(cylinder(m.graphite, BUND_R, FLOOR, [0, FLOOR * 0.5, 0], AXIS_Y, 24))
   for (let index = 0; index < 24; index += 1) {
     const angle = (Math.PI * 2 * index) / 24
     box(root, m.shellShade, [0.48, BUND, 0.12], [
@@ -106,29 +120,37 @@ function build(): { root: Group; sockets: FuelTankSockets; bundle: CargoMaterial
   root.add(cylinder(m.ink, BUND_R - 0.12, 0.04, [0, 0.13, 0], AXIS_Y, 22))
   box(root, m.ink, [0.3, 0.06, 0.3], [BUND_R * 0.6, 0.14, BUND_R * 0.5], { chamfer: 0.07, fillet: 0.02, bevel: 0.008 })
 
-  // Shell: a plated cylinder with three girth welds and a roof knuckle.
-  root.add(cylinder(m.shell, RADIUS, BODY, [0, BUND + BODY * 0.5, 0], AXIS_Y, 26))
+  // Shell: a plated cylinder with three girth welds and a roof knuckle. It
+  // stands on the bund floor, not on the bund wall's coping - begun at BUND it
+  // left 830 mm of air under itself that only a look down into the bund found.
+  const base = FLOOR - 0.02
+  root.add(cylinder(m.shell, RADIUS, BUND + BODY - base, [0, (BUND + BODY + base) * 0.5, 0], AXIS_Y, SIDES))
   for (const fraction of [0.24, 0.52, 0.8]) {
-    root.add(cylinder(m.shellShade, RADIUS + 0.014, 0.055, [0, BUND + BODY * fraction, 0], AXIS_Y, 26))
+    root.add(cylinder(m.shellShade, RADIUS + 0.014, 0.055, [0, BUND + BODY * fraction, 0], AXIS_Y, SIDES))
   }
+  // Strakes sit on the chord the shell actually renders. On the circle their
+  // backs ranged from 1 mm buried to 4 mm clear as each ray crossed a facet.
+  const strakeR = facetRadius(RADIUS, SIDES) + 0.008
   for (let index = 0; index < 6; index += 1) {
     const angle = (Math.PI * 2 * index) / 6 + 0.3
     box(root, m.shellShade, [0.05, BODY - 0.3, 0.024], [
-      Math.sin(angle) * (RADIUS + 0.008), BUND + BODY * 0.5, Math.cos(angle) * (RADIUS + 0.008),
+      Math.sin(angle) * strakeR, BUND + BODY * 0.5, Math.cos(angle) * strakeR,
     ], { chamfer: 0.012, fillet: 0.005, bevel: 0.005, rotation: [0, angle, 0] })
   }
-  root.add(cylinder(m.shellLight, RADIUS - 0.06, 0.14, [0, BUND + BODY + 0.05, 0], AXIS_Y, 26))
-  root.add(cylinder(m.graphiteEdge, RADIUS + 0.03, 0.08, [0, BUND + BODY - 0.02, 0], AXIS_Y, 26))
+  root.add(cylinder(m.shellLight, RADIUS - 0.06, 0.14, [0, BUND + BODY + 0.05, 0], AXIS_Y, SIDES))
+  root.add(cylinder(m.graphiteEdge, RADIUS + 0.03, 0.08, [0, BUND + BODY - 0.02, 0], AXIS_Y, SIDES))
 
-  // Roof furniture: platform, rail, fill point, and a vent stack.
-  root.add(cylinder(m.graphiteEdge, 0.62, 0.05, [0, BUND + BODY + 0.14, -0.32], AXIS_Y, 14))
+  // Roof furniture: platform, rail, fill point, and a vent stack. Everything up
+  // here beds 20 mm into what carries it: the roof disc caps at BUND + BODY +
+  // 0.12, the platform at + 0.15, and each mass is seated from those.
+  root.add(cylinder(m.graphiteEdge, 0.62, 0.05, [0, BUND + BODY + 0.125, -0.32], AXIS_Y, 14))
   // Stanchions plus the two rails that connect them. Posts alone read as a
   // crown of spikes; the rails are what make the platform look walkable.
   const posts = 7
   for (let index = 0; index < posts; index += 1) {
     const angle = -1.4 + index * 0.47
     root.add(cylinder(m.steel, 0.02, 0.5, [
-      Math.sin(angle) * 0.58, BUND + BODY + 0.4, -0.32 + Math.cos(angle) * 0.58,
+      Math.sin(angle) * 0.58, BUND + BODY + 0.375, -0.32 + Math.cos(angle) * 0.58,
     ], AXIS_Y, 6))
     if (index === posts - 1) continue
     const next = angle + 0.47
@@ -136,7 +158,7 @@ function build(): { root: Group; sockets: FuelTankSockets; bundle: CargoMaterial
     const az = Math.cos(angle) * 0.58
     const bx = Math.sin(next) * 0.58
     const bz = Math.cos(next) * 0.58
-    for (const lift of [0.63, 0.42]) {
+    for (const lift of [0.6, 0.4]) {
       box(root, m.steel, [Math.hypot(bx - ax, bz - az), 0.028, 0.028], [
         (ax + bx) * 0.5, BUND + BODY + lift, -0.32 + (az + bz) * 0.5,
       ], {
@@ -145,9 +167,9 @@ function build(): { root: Group; sockets: FuelTankSockets; bundle: CargoMaterial
       })
     }
   }
-  box(root, m.graphite, [0.3, 0.16, 0.3], [0.3, BUND + BODY + 0.2, 0.24], { chamfer: 0.07, fillet: 0.024, bevel: 0.012 })
-  root.add(cylinder(m.orangePaint, 0.11, 0.09, [0.3, BUND + BODY + 0.31, 0.24], AXIS_Y, 8))
-  root.add(cylinder(m.steel, 0.05, 0.55, [-0.42, BUND + BODY + 0.4, 0.3], AXIS_Y, 10))
+  box(root, m.graphite, [0.3, 0.16, 0.3], [0.3, BUND + BODY + 0.17, 0.24], { chamfer: 0.07, fillet: 0.024, bevel: 0.012 })
+  root.add(cylinder(m.orangePaint, 0.11, 0.09, [0.3, BUND + BODY + 0.27, 0.24], AXIS_Y, 8))
+  root.add(cylinder(m.steel, 0.05, 0.55, [-0.42, BUND + BODY + 0.375, 0.3], AXIS_Y, 10))
   root.add(cylinder(m.ink, 0.07, 0.09, [-0.42, BUND + BODY + 0.68, 0.3], AXIS_Y, 10))
 
   // Dispense manifold outside the bund, on its own drip tray.
@@ -159,20 +181,35 @@ function build(): { root: Group; sockets: FuelTankSockets; bundle: CargoMaterial
     root.add(cylinder(m.steel, 0.05, 0.26, [sx * 0.2, 0.66, manifoldZ + 0.16], AXIS_Z, 10))
     root.add(cylinder(m.orangePaint, 0.07, 0.05, [sx * 0.2, 0.66, manifoldZ + 0.3], AXIS_Z, 6))
   }
-  statusLens(root, m, [0.11, 0.05], [0, 0.86, manifoldZ + 0.13], m.amber, 'front')
-  // Feed line from the shell down to the manifold.
-  root.add(cylinder(m.steel, 0.055, 1.5, [0, 0.86, RADIUS + 0.2], AXIS_Y, 10))
-  root.add(cylinder(m.steel, 0.055, manifoldZ - RADIUS, [0, 1.58, (manifoldZ + RADIUS) * 0.5 + 0.1], AXIS_Z, 10))
-  root.add(cylinder(m.graphiteEdge, 0.075, 0.09, [0, 1.58, RADIUS + 0.2], AXIS_Z, 10))
+  statusLens(root, m, [0.11, 0.05], [0, 0.86, manifoldZ + 0.12], m.amber, 'front')
+  // Feed line: a riser bedded into the shell, a cross-over, and a drop into the
+  // cabinet roof. Set out from the nominal radius the riser stood 145 mm clear
+  // of the flank, and the cross-over simply stopped 630 mm above the cabinet.
+  const riserZ = facetRadius(RADIUS, SIDES) + 0.035
+  const runY = 1.58
+  const cabinetTop = 0.95
+  root.add(cylinder(m.steel, 0.055, runY + 0.055 - FLOOR, [0, (runY + 0.055 + FLOOR) * 0.5, riserZ], AXIS_Y, 10))
+  root.add(cylinder(m.steel, 0.055, manifoldZ - riserZ, [0, runY, (manifoldZ + riserZ) * 0.5], AXIS_Z, 10))
+  root.add(cylinder(m.steel, 0.055, runY + 0.055 - cabinetTop + 0.05, [
+    0, (runY + 0.055 + cabinetTop - 0.05) * 0.5, manifoldZ,
+  ], AXIS_Y, 10))
+  root.add(cylinder(m.graphiteEdge, 0.075, 0.09, [0, runY, riserZ + 0.12], AXIS_Z, 10))
 
   ladder(root, m)
 
+  // Graphics are laid on facet centres, and the strokes are cut to the arc one
+  // facet spans: a mark wider than its own chord lifts its outer corners off
+  // the next chord along, which is the same failure at a tenth the amplitude.
   const label = addLabelDecal(bundle, { variant: 230 })
-  radialPlaque(root, m, label, [0.5, 0.24], RADIUS, BUND + BODY * 0.62, 0.55, m.ink)
+  radialPlaque(root, m, label, [0.5, 0.24], RADIUS, BUND + BODY * 0.62, 2.5 * FACET, m.ink, SIDES)
+  // The bund wall is 24 flat panels, so the radius its graphic seats on is the
+  // one whose 24-gon facet lands on the panel face, and the angle is a panel's
+  // own ray rather than the gap between two of them.
   const stripe = addStripeDecal(bundle, { count: 8, lean: 1 })
-  radialPlaque(root, m, stripe, [0.6, 0.1], BUND_R + 0.06, BUND - 0.06, 0.2, m.ink)
-  paintMark(root, m.orangePaint, slashProfile(0.16, 0.6, 0.42), [-0.24, BUND + BODY * 0.35, RADIUS + 0.004], 'front', 0.014)
-  paintMark(root, m.orangePaint, slashProfile(0.08, 0.6, 0.42), [0.02, BUND + BODY * 0.35, RADIUS + 0.004], 'front', 0.014)
+  radialPlaque(root, m, stripe, [0.6, 0.1], (BUND_R + 0.06) / Math.cos(Math.PI / 24), BUND - 0.14, Math.PI / 12, m.ink, 24)
+  for (const [width, side] of [[0.12, -1], [0.06, 1]] as const) {
+    radialMark(root, m.orangePaint, slashProfile(width, 0.44, 0.42), RADIUS, BUND + BODY * 0.35, side * 0.5 * FACET, SIDES)
+  }
   for (let index = 0; index < 4; index += 1) {
     const angle = index * 1.57 + 0.78
     bolt(root, m.steel, [Math.sin(angle) * (BUND_R - 0.1), BUND + 0.045, Math.cos(angle) * (BUND_R - 0.1)], 0.024, 'top')
