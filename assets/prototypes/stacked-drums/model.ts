@@ -12,7 +12,9 @@ import {
   drum,
   finishModel,
   member,
-  paintMark,
+  plaque,
+  radialFitting,
+  radialMark,
   radialPlaque,
   slashProfile,
   socket,
@@ -57,7 +59,10 @@ export interface DrumStackController {
 
 function pallet(root: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
   const span = SPREAD * 2 + RADIUS * 2 + 0.1
-  box(root, m.graphite, [span, 0.035, span], [0, PALLET - 0.018, 0], {
+  // The deck is thick enough to bite into what it carries at both faces: at the
+  // 35 mm it was drawn at it met the stringers under it and the drum bases on it
+  // within half a millimetre each, which is a slit rather than a joint.
+  box(root, m.graphite, [span, 0.08, span], [0, PALLET - 0.02, 0], {
     chamfer: 0.05, fillet: 0.018, bevel: 0.012,
   })
   for (const sx of [-1, 0, 1]) {
@@ -66,8 +71,10 @@ function pallet(root: Group, m: CargoMaterials, bundle: CargoMaterialBundle): vo
     })
   }
   box(root, m.ink, [span, 0.028, 0.14], [0, 0.014, 0], { chamfer: 0.03, fillet: 0.01, bevel: 0.008 })
+  // The pallet's own edge is a flat face, so it takes the flat plaque. Measured
+  // as a radius about the stack's axis the stripe landed inside a stringer.
   const stripe = addStripeDecal(bundle, { count: 6, lean: 1 })
-  radialPlaque(root, m, stripe, [0.4, 0.05], span * 0.5 - 0.02, PALLET * 0.45, 0, m.ink)
+  plaque(root, m, stripe, [0.4, 0.03], [0, PALLET - 0.02, span * 0.5], 'front', m.ink)
 }
 
 /** The banding deck the upper tier sits on, plus its four location cups. */
@@ -76,9 +83,11 @@ function spacerDeck(root: Group, m: CargoMaterials, y: number): void {
   box(root, m.shellShade, [span, DECK * 0.5, span], [0, y + DECK * 0.25, 0], {
     chamfer: 0.09, fillet: 0.03, bevel: 0.014,
   })
+  // The cups run from inside the deck to inside the drum they locate. Half a
+  // deck thickness of cup left a 3.5 mm slit under every drum of the upper tier.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      root.add(cylinder(m.graphiteEdge, RADIUS * 0.62, DECK * 0.5, [sx * SPREAD, y + DECK * 0.7, sz * SPREAD], AXIS_Y, 14))
+      root.add(cylinder(m.graphiteEdge, RADIUS * 0.62, DECK, [sx * SPREAD, y + DECK * 0.8, sz * SPREAD], AXIS_Y, 14))
     }
   }
   for (const sx of [-1, 1]) {
@@ -108,7 +117,9 @@ function build(): { root: Group; sockets: DrumStackSockets; bundle: CargoMateria
           band,
           segments: 16,
         })
-        root.add(cylinder(m.graphite, RADIUS - 0.06, 0.04, [sx * SPREAD, baseY + BODY, sz * SPREAD], AXIS_Y, 14))
+        // The crown ring is what a strap laid over the stack actually bears on,
+        // so it reaches above the body rather than straddling it.
+        root.add(cylinder(m.graphite, RADIUS - 0.06, 0.05, [sx * SPREAD, baseY + BODY + 0.005, sz * SPREAD], AXIS_Y, 14))
         root.add(cylinder(m.amberPaint, 0.055, 0.035, [sx * SPREAD, baseY + BODY + 0.02, sz * SPREAD], AXIS_Y, 8))
       }
     }
@@ -116,13 +127,22 @@ function build(): { root: Group; sockets: DrumStackSockets; bundle: CargoMateria
   }
 
   // Restraint: two vertical straps over the crown and a ratchet on the flank.
+  // The chimes are the widest thing on a drum, so that is the only radius a
+  // strap can lie against - run at the deck's half-span it threaded through the
+  // drums it is meant to hold down, and it stopped at the crowns instead of
+  // carrying on to the strap crossing them.
   const top = PALLET + BODY * 2 + DECK
   const span = SPREAD * 2 + RADIUS * 2 - 0.04
+  const drumEdge = SPREAD + RADIUS + 0.024
+  // Each run ends on the other's centre plane rather than on its skin, so the
+  // corner is a lap and not two coincident faces.
+  const strapHead = top + 0.03
+  const strapFoot = PALLET - 0.02
   for (const sx of [-1, 1]) {
-    box(root, m.webbing, [0.075, 0.014, span + 0.06], [sx * SPREAD, top + 0.03, 0], {
+    box(root, m.webbing, [0.075, 0.014, (drumEdge + 0.004) * 2], [sx * SPREAD, top + 0.03, 0], {
       chamfer: 0.006, fillet: 0.003, bevel: 0.003,
     })
-    box(root, m.webbing, [0.075, BODY * 2 + DECK, 0.014], [sx * SPREAD, PALLET + (BODY * 2 + DECK) * 0.5, span * 0.5 + 0.03], {
+    box(root, m.webbing, [0.075, strapHead - strapFoot, 0.014], [sx * SPREAD, (strapHead + strapFoot) * 0.5, drumEdge + 0.004], {
       chamfer: 0.006, fillet: 0.003, bevel: 0.003,
     })
   }
@@ -131,11 +151,24 @@ function build(): { root: Group; sockets: DrumStackSockets; bundle: CargoMateria
   })
   root.add(cylinder(m.steel, 0.017, 0.14, [SPREAD, PALLET + 0.42, span * 0.5 + 0.08], AXIS_X, 8))
 
+  // Dressing goes on one named drum at a time. The curved helpers measure from
+  // their parent's origin, and this stack has four axes: measured about the
+  // stack's own, a label is buried inside the drum beside the one it belongs to
+  // and a chevron lands 55 mm inside a flank. Everything sits in the field
+  // between the two rolling hoops, which are prouder than any of it.
+  const onDrum = (sx: number, sz: number, baseY: number): Group => {
+    const frame = new Group()
+    frame.position.set(sx * SPREAD, baseY, sz * SPREAD)
+    root.add(frame)
+    return frame
+  }
   const label = addLabelDecal(bundle, { variant: 27 })
-  radialPlaque(root, m, label, [0.22, 0.1], RADIUS, PALLET + BODY * 0.56, 0.35, m.ink)
-  paintMark(root, m.orangePaint, slashProfile(0.075, 0.24, 0.42), [-SPREAD - 0.05, PALLET + BODY * 1.55 + DECK, RADIUS + 0.002], 'front', 0.011)
-  paintMark(root, m.orangePaint, slashProfile(0.04, 0.24, 0.42), [-SPREAD + 0.04, PALLET + BODY * 1.55 + DECK, RADIUS + 0.002], 'front', 0.011)
-  statusLens(root, m, [0.05, 0.02], [SPREAD, PALLET + BODY * 1.7 + DECK, RADIUS + SPREAD + 0.006], m.cyan, 'front')
+  radialPlaque(onDrum(1, 1, PALLET), m, label, [0.046, 0.1], RADIUS, BODY * 0.48, 0.45, m.ink, 16)
+  const marked = onDrum(-1, 1, PALLET + BODY + DECK)
+  radialMark(marked, m.orangePaint, slashProfile(0.055, 0.17, 0.3), RADIUS, BODY * 0.48, -0.68, 16, 0.016)
+  radialMark(marked, m.orangePaint, slashProfile(0.03, 0.17, 0.3), RADIUS, BODY * 0.48, -0.32, 16, 0.016)
+  const lamp = radialFitting(RADIUS, BODY * 0.7, -0.5, 16)
+  statusLens(onDrum(1, 1, PALLET + BODY + DECK), m, [0.05, 0.02], lamp.position, m.cyan, 'front', 0, lamp.rotation)
 
   const sockets: DrumStackSockets = {
     fork_left: socket('fork_left', [-0.3, PALLET * 0.5, span * 0.5]),
