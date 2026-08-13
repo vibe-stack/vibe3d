@@ -8,9 +8,12 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  InstancedMesh,
   Material,
+  Mesh,
   MeshBasicNodeMaterial,
   MeshStandardNodeMaterial,
+  Object3D,
   RenderPipeline,
   SRGBColorSpace,
   Vector3,
@@ -25,11 +28,18 @@ interface StageProps {
   item: CatalogItem
   isAnimating: boolean
   renderMode: RenderMode
+  modelOptions: Record<string, number>
   onLoadingChange(loading: boolean): void
   onError(message: string | null): void
+  onStatsChange(stats: ModelStats | null): void
 }
 
 export type RenderMode = 'full' | 'solid' | 'wireframe'
+
+export interface ModelStats {
+  vertices: number
+  activeLod?: string
+}
 
 const actionPriority = [
   'triggerCalibration',
@@ -41,11 +51,10 @@ const actionPriority = [
 const BLOOM_STRENGTH = 2
 const BLOOM_RADIUS = 0.35
 const BLOOM_THRESHOLD = 0.1
-const TERRAIN_EXPOSURE = 1.15
+const TERRAIN_EXPOSURE = 1.05
 
 interface StudioLighting {
   target?: Vector3
-  update(): void
 }
 
 const solidMaterial = new MeshStandardNodeMaterial({
@@ -79,6 +88,92 @@ function triggerAnimation(preview: ModelPreview): void {
   if (!actionName) return
   const action = preview[actionName]
   if (typeof action === 'function') action.call(preview, true)
+}
+
+function effectiveVisibility(object: Object3D, root: Object3D): boolean {
+  let current: Object3D | null = object
+  while (current) {
+    if (!current.visible) return false
+    if (current === root) return true
+    current = current.parent
+  }
+  return false
+}
+
+function namedLod(object: Mesh): number | undefined {
+  const match = `${object.name} ${object.geometry.name}`.match(/\bLOD\s*(\d+)\b/i)
+  if (!match) return undefined
+  const level = Number(match[1])
+  return Number.isInteger(level) ? level : undefined
+}
+
+function dominantLod(object: Object3D): number | undefined {
+  const terrain = object.userData.terrain as { lodWeights?: unknown } | undefined
+  const weights = terrain?.lodWeights
+  if (!Array.isArray(weights) || weights.length < 2) return undefined
+
+  let active = 0
+  let greatest = Number.NEGATIVE_INFINITY
+  for (let level = 0; level < weights.length; level += 1) {
+    const weight = Number(weights[level])
+    if (Number.isFinite(weight) && weight > greatest) {
+      active = level
+      greatest = weight
+    }
+  }
+  return active
+}
+
+function activeTerrainParent(
+  object: Object3D,
+  root: Object3D,
+  lodByTerrain: Map<Object3D, number>,
+): number | undefined {
+  let current: Object3D | null = object
+  while (current) {
+    const level = lodByTerrain.get(current)
+    if (level !== undefined) return level
+    if (current === root) return undefined
+    current = current.parent
+  }
+  return undefined
+}
+
+function formatActiveLods(levels: Set<number>): string | undefined {
+  const ordered = [...levels].sort((a, b) => a - b)
+  if (ordered.length === 0) return undefined
+  if (ordered.length === 1) return `LOD ${ordered[0]}`
+  const consecutive = ordered.every((level, index) => index === 0 || level === ordered[index - 1]! + 1)
+  return consecutive
+    ? `LOD ${ordered[0]}–${ordered[ordered.length - 1]}`
+    : ordered.map((level) => `LOD ${level}`).join(' / ')
+}
+
+export function modelStatsFor(preview: ModelPreview): ModelStats {
+  const lodByTerrain = new Map<Object3D, number>()
+  preview.root.traverse((object) => {
+    const level = dominantLod(object)
+    if (level !== undefined) lodByTerrain.set(object, level)
+  })
+
+  let vertices = 0
+  const activeLods = new Set<number>()
+  preview.root.traverse((object) => {
+    if (!(object instanceof Mesh) || !effectiveVisibility(object, preview.root)) return
+    const position = object.geometry.getAttribute('position')
+    if (!position) return
+
+    const terrainLod = activeTerrainParent(object, preview.root, lodByTerrain)
+    const meshLod = namedLod(object)
+    if (terrainLod !== undefined && meshLod !== undefined && meshLod !== terrainLod) return
+    if (terrainLod !== undefined) activeLods.add(terrainLod)
+    else if (meshLod !== undefined) activeLods.add(meshLod)
+
+    const instances = object instanceof InstancedMesh ? object.count : 1
+    vertices += position.count * instances
+  })
+
+  return { vertices, activeLod: formatActiveLods(activeLods) }
 }
 
 function liftTerrainBackdrop(preview: ModelPreview): void {
@@ -133,18 +228,18 @@ function addStudioLighting(preview: ModelPreview, terrain = false): StudioLighti
       }
     }
 
-    // A raking, camera-relative outdoor rig keeps relief readable from every
-    // authored terrain camera and while the user orbits around the formation.
-    studio.add(new AmbientLight(0xdce5ea, 0.015))
-    studio.add(new HemisphereLight(0xd9e9f5, 0x211815, 0.18))
-    const key = new DirectionalLight(0xffe1bf, 2.55)
-    const fill = new DirectionalLight(0x8eb9df, 0.1)
+    // Fixed world-space lighting makes orbiting useful for reading the form:
+    // the highlight and shadow structure now stays attached to the terrain.
+    // The low ambient budget preserves contact and cavity contrast, while the
+    // raking key reveals fracture planes without pushing albedo into AgX's
+    // highlight rolloff.
+    studio.add(new AmbientLight(0xdce5ea, 0.025))
+    studio.add(new HemisphereLight(0xd9e9f5, 0x211815, 0.3))
     const sandstone = /canyon|sandstone/i.test(preview.scene.name)
-    const rim = new DirectionalLight(
-      sandstone ? 0xffcfad : 0xe2f4ff,
-      sandstone ? 2.3 : 3.8,
-    )
-    rim.name = 'terrain-rim-light'
+    const key = new DirectionalLight(sandstone ? 0xffddb8 : 0xffedda, sandstone ? 2.05 : 1.9)
+    const fill = new DirectionalLight(sandstone ? 0xc77c5b : 0xa8c7d8, 0.24)
+    const separation = new DirectionalLight(sandstone ? 0xe7ad8c : 0xc9dce5, 0.16)
+    separation.name = 'terrain-separation-light'
     key.castShadow = true
     key.shadow.mapSize.set(2048, 2048)
     key.shadow.bias = -0.0003
@@ -159,37 +254,15 @@ function addStudioLighting(preview: ModelPreview, terrain = false): StudioLighti
 
     key.target.position.copy(target)
     fill.target.position.copy(target)
-    rim.target.position.copy(target)
-    studio.add(key.target, fill.target, rim.target, key, fill, rim)
+    separation.target.position.copy(target)
+
+    key.position.copy(target).add(new Vector3(-1.35, 1.85, 1.2).multiplyScalar(radius))
+    fill.position.copy(target).add(new Vector3(1.45, 0.55, 1.05).multiplyScalar(radius))
+    separation.position.copy(target).add(new Vector3(0.65, 1.15, -1.65).multiplyScalar(radius))
+
+    studio.add(key.target, fill.target, separation.target, key, fill, separation)
     preview.scene.add(studio)
-
-    const view = new Vector3()
-    const up = new Vector3(0, 1, 0)
-    const right = new Vector3()
-    const update = () => {
-      preview.camera.getWorldDirection(view).normalize()
-      right.crossVectors(view, up)
-      if (right.lengthSq() < 0.001) right.set(1, 0, 0)
-      else right.normalize()
-
-      key.position.copy(target)
-        .addScaledVector(view, -radius * 2.6)
-        .addScaledVector(right, -radius * 1.15)
-        .addScaledVector(up, radius * 1.9)
-      fill.position.copy(target)
-        .addScaledVector(view, -radius * 1.5)
-        .addScaledVector(right, radius * 1.7)
-        .addScaledVector(up, radius * 0.45)
-      // Strong high back-right rim. Its direction is deliberately behind the
-      // visible faces, so it catches silhouettes and grazing normal-map relief
-      // without adding another wash of diffuse light to the rock fronts.
-      rim.position.copy(target)
-        .addScaledVector(view, radius * 2.25)
-        .addScaledVector(right, radius * 1.35)
-        .addScaledVector(up, radius * 1.1)
-    }
-    update()
-    return { target, update }
+    return { target }
   }
 
   preview.scene.background = new Color(0x202326)
@@ -203,16 +276,25 @@ function addStudioLighting(preview: ModelPreview, terrain = false): StudioLighti
   rim.position.set(7, 10, -11)
   studio.add(key, fill, rim)
   preview.scene.add(studio)
-  return { update: () => undefined }
+  return {}
 }
 
-export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError }: StageProps) {
+export function Stage({
+  item,
+  isAnimating,
+  renderMode,
+  modelOptions,
+  onLoadingChange,
+  onError,
+  onStatsChange,
+}: StageProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<ModelPreview | undefined>(undefined)
   const authoredOverrideMaterialRef = useRef<Material | null>(null)
   const animatingRef = useRef(isAnimating)
   const renderModeRef = useRef(renderMode)
   const previousAnimatingRef = useRef(isAnimating)
+  const modelOptionsRef = useRef(modelOptions)
   const [webGpuReady, setWebGpuReady] = useState(false)
 
   useEffect(() => {
@@ -231,6 +313,11 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
   }, [renderMode])
 
   useEffect(() => {
+    modelOptionsRef.current = modelOptions
+    previewRef.current?.configure?.(modelOptions)
+  }, [modelOptions])
+
+  useEffect(() => {
     const host = hostRef.current
     const canvas = host?.querySelector('canvas')
     if (!host || !canvas) return
@@ -242,9 +329,12 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
     let controls: OrbitControls | undefined
     let studioLighting: StudioLighting | undefined
     let previousTime = 0
+    let previousStatsKey = ''
+    let previousStatsTime = Number.NEGATIVE_INFINITY
 
     onLoadingChange(true)
     onError(null)
+    onStatsChange(null)
     setWebGpuReady(false)
 
     const resize = () => {
@@ -271,10 +361,19 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
 
       const module = await item.load()
       if (stopped) return
-      preview = await module.createPreview({ aspect: host.clientWidth / Math.max(host.clientHeight, 1) })
+      const terrain = item.category === 'Terrain'
+      preview = await module.createPreview({
+        aspect: host.clientWidth / Math.max(host.clientHeight, 1),
+        ...modelOptionsRef.current,
+        // The recorder is an interactive viewer, not a terrain compiler. A
+        // stale `seed` or `path=source` query parameter previously sent an
+        // uncached terrain through minutes of synchronous SDF extraction and
+        // baking, leaving the loading spinner up before the tab eventually
+        // became unresponsive.
+        ...(terrain ? { seed: 1, path: 'compiled' } : {}),
+      })
       previewRef.current = preview
       authoredOverrideMaterialRef.current = preview.scene.overrideMaterial
-      const terrain = item.category === 'Terrain'
       renderer.toneMapping = terrain ? AgXToneMapping : ACESFilmicToneMapping
       renderer.toneMappingExposure = terrain ? TERRAIN_EXPOSURE : 1
       studioLighting = addStudioLighting(preview, terrain)
@@ -289,31 +388,50 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
       controls.minDistance = terrain ? 1 : 0.4
       controls.maxDistance = terrain ? 300 : 180
       controls.update()
-      studioLighting.update()
 
       const scenePass = pass(preview.scene, preview.camera)
       scenePass.setMRT(mrt({ output, emissive }))
       const sceneColor = scenePass.getTextureNode('output')
       const emissiveColor = scenePass.getTextureNode('emissive')
       pipeline = new RenderPipeline(renderer)
-      pipeline.outputNode = sceneColor.add(bloom(
-        emissiveColor,
-        BLOOM_STRENGTH,
-        BLOOM_RADIUS,
-        BLOOM_THRESHOLD,
-      ))
+      // Terrain materials have no emissive output. Running a full-resolution
+      // bloom pyramid over a black buffer only adds fill-rate cost, which is
+      // most visible when a detailed rock covers the viewport at close range.
+      pipeline.outputNode = terrain
+        ? sceneColor
+        : sceneColor.add(bloom(
+            emissiveColor,
+            BLOOM_STRENGTH,
+            BLOOM_RADIUS,
+            BLOOM_THRESHOLD,
+          ))
 
       resize()
       onLoadingChange(false)
+
+      const publishStats = () => {
+        if (!preview) return
+        const stats = modelStatsFor(preview)
+        const key = `${stats.vertices}:${stats.activeLod ?? ''}`
+        if (key === previousStatsKey) return
+        previousStatsKey = key
+        onStatsChange(stats)
+      }
+      publishStats()
 
       renderer.setAnimationLoop((time) => {
         if (!preview || !pipeline) return
         const delta = previousTime === 0 ? 0 : Math.min((time - previousTime) / 1_000, 0.05)
         previousTime = time
-        if (animatingRef.current) preview.update(delta)
+        // Terrain update() owns camera-dependent LOD selection even though the
+        // catalogue correctly does not classify the asset as animated.
+        if (animatingRef.current || item.category === 'Terrain') preview.update(delta)
         controls?.update()
-        studioLighting?.update()
         pipeline.render()
+        if (time - previousStatsTime >= 100) {
+          previousStatsTime = time
+          publishStats()
+        }
       })
     })().catch((error: unknown) => {
       if (stopped) return
@@ -333,7 +451,7 @@ export function Stage({ item, isAnimating, renderMode, onLoadingChange, onError 
       authoredOverrideMaterialRef.current = null
       renderer?.dispose()
     }
-  }, [item, onError, onLoadingChange])
+  }, [item, onError, onLoadingChange, onStatsChange])
 
   return (
     <div className="stage" ref={hostRef} data-ready={webGpuReady}>

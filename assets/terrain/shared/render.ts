@@ -118,7 +118,11 @@ for (const name of values.exports.split(',').map((entry) => entry.trim()).filter
   if (typeof factory !== 'function') throw new Error(`${values.module} has no export ${name}`)
   const started = Date.now()
   const preview = await factory({ aspect: width / height })
-  ;(preview.update as ((delta: number) => void) | undefined)?.(0)
+  // Let temporal LOD fades settle before a still capture. Rendering the first
+  // frame froze alpha-hashed transition stipple into the diagnostic image and
+  // made valid coarse geometry look porous.
+  const update = preview.update as ((delta: number) => void) | undefined
+  for (let frame = 0; frame < 18; frame += 1) update?.(1 / 30)
   renderer.render(preview.scene, preview.camera)
 
   const readback = await renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height)

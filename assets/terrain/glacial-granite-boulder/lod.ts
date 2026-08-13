@@ -3,10 +3,25 @@
 export type LodLevel = 0 | 1 | 2
 export type LodWeights = readonly [number, number, number]
 
-const LOD1_FULL_DETAIL_PIXELS = 3
-const LOD1_COARSE_PIXELS = 1.5
-const LOD2_FULL_DETAIL_PIXELS = 1.2
-const LOD2_COARSE_PIXELS = 0.6
+// The recorder supplies physical canvas pixels (up to 1.75x CSS resolution),
+// so subpixel bands put LOD2 beyond its 260-300 unit camera range on high-DPI
+// screens. LOD1 now retains a mip-biased high-to-low bake, which makes an
+// earlier handoff viable without losing the measured surface definition.
+const LOD1_FULL_DETAIL_PIXELS = 14
+const LOD1_COARSE_PIXELS = 7
+const LOD2_FULL_DETAIL_PIXELS = 8
+const LOD2_COARSE_PIXELS = 4
+
+/** Remove layers too small to draw, then close their share of the dither. */
+export function drawableLodWeights(
+  weights: LodWeights,
+  cutoff = 0.002,
+): LodWeights {
+  const drawable = weights.map((weight) => weight > cutoff ? weight : 0)
+  const total = drawable[0]! + drawable[1]! + drawable[2]!
+  if (total <= 0) return [1, 0, 0]
+  return [drawable[0]! / total, drawable[1]! / total, drawable[2]! / total]
+}
 
 function smoothstep(edge0: number, edge1: number, value: number): number {
   const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)))

@@ -3,12 +3,24 @@ export interface ModelPreview {
   root: import('three/webgpu').Group
   camera: import('three/webgpu').PerspectiveCamera
   update(deltaSeconds: number): void
+  configure?(patch: Record<string, number>): void
   dispose(): void
   [action: string]: unknown
 }
 
 export interface ModelModule {
-  createPreview(options: { aspect: number; time?: number }): ModelPreview | Promise<ModelPreview>
+  createPreview(options: { aspect: number; time?: number; [key: string]: unknown }): ModelPreview | Promise<ModelPreview>
+}
+
+export interface ModelControl {
+  id: string
+  label: string
+  description: string
+  default: number
+  min: number
+  max: number
+  step: number
+  format: 'percent' | 'integer'
 }
 
 export interface CatalogItem {
@@ -16,8 +28,72 @@ export interface CatalogItem {
   name: string
   category: string
   animated: boolean
+  controls: ModelControl[]
   load: () => Promise<ModelModule>
 }
+
+const glacialGraniteControls: ModelControl[] = [
+  {
+    id: 'snow',
+    label: 'Snow cover',
+    description: 'Settles only on upward-facing, broken-up surfaces.',
+    default: 0,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'moss',
+    label: 'Moss',
+    description: 'Follows moisture, shelter, and upward-facing pockets.',
+    default: 0.06,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'lichen',
+    label: 'Pale lichen',
+    description: 'Sparse colonies on exposed granite faces.',
+    default: 0.16,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'wetness',
+    label: 'Wetness',
+    description: 'Darkens low and sheltered stone and tightens roughness.',
+    default: 0.12,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'detailStrength',
+    label: 'Relief detail',
+    description: 'Blends between reduced geometry and the baked scan relief.',
+    default: 0.72,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'surfaceSeed',
+    label: 'Surface variation',
+    description: 'Changes pigment and biome breakup without rebuilding geometry.',
+    default: 1,
+    min: 1,
+    max: 64,
+    step: 1,
+    format: 'integer',
+  },
+]
 
 const modules: Record<string, () => Promise<ModelModule>> = {
   ...import.meta.glob<ModelModule>('../../../assets/prototypes/*/model.ts'),
@@ -104,6 +180,9 @@ export const catalog: CatalogItem[] = Object.entries(modules)
       name: title(id),
       category: categoryFor(id),
       animated: animatedIds.has(id),
+      // The compound cliff scene forwards the same patch to every granite
+      // instance it holds, so it takes the same panel as the single boulder.
+      controls: /^glacial-granite-boulder(-cliff-scene)?$/.test(id) ? glacialGraniteControls : [],
       load,
     }
   })

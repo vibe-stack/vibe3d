@@ -1,7 +1,7 @@
-import { Box, ChevronRight, Grid3X3, Palette, Pause, Play, Search, Sparkles } from 'lucide-react'
+import { Box, ChevronRight, Grid3X3, Palette, Pause, Play, RotateCcw, Search, SlidersHorizontal, Triangle } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { catalog, categories, initialItem, type CatalogItem } from './catalog.ts'
-import { Stage, type RenderMode } from './stage.tsx'
+import { Stage, type ModelStats, type RenderMode } from './stage.tsx'
 
 const renderModes: RenderMode[] = ['full', 'solid', 'wireframe']
 
@@ -10,6 +10,8 @@ const renderModeLabels: Record<RenderMode, string> = {
   solid: 'Solid',
   wireframe: 'Wireframe',
 }
+
+const vertexFormatter = new Intl.NumberFormat()
 
 interface ItemCardProps {
   item: CatalogItem
@@ -36,6 +38,10 @@ function ItemCard({ item, active, index, onSelect }: ItemCardProps) {
   )
 }
 
+function defaultControlValues(item: CatalogItem): Record<string, number> {
+  return Object.fromEntries(item.controls.map((control) => [control.id, control.default]))
+}
+
 export function App() {
   const cleanPreview = new URLSearchParams(window.location.search).has('clean')
   const [selected, setSelected] = useState(initialItem)
@@ -44,6 +50,13 @@ export function App() {
   const [renderMode, setRenderMode] = useState<RenderMode>('full')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [modelStats, setModelStats] = useState<ModelStats | null>(null)
+  const [controlValues, setControlValues] = useState<Record<string, Record<string, number>>>({})
+
+  const selectedControlValues = useMemo(
+    () => controlValues[selected.id] ?? defaultControlValues(selected),
+    [controlValues, selected],
+  )
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -65,6 +78,7 @@ export function App() {
 
   const handleLoadingChange = useCallback((value: boolean) => setLoading(value), [])
   const handleError = useCallback((message: string | null) => setError(message), [])
+  const handleStatsChange = useCallback((stats: ModelStats | null) => setModelStats(stats), [])
   const cycleRenderMode = useCallback(() => {
     setRenderMode((current) => {
       const index = renderModes.indexOf(current)
@@ -73,6 +87,23 @@ export function App() {
   }, [])
 
   const nextRenderMode = renderModes[(renderModes.indexOf(renderMode) + 1) % renderModes.length]
+
+  const updateControl = useCallback((id: string, value: number) => {
+    setControlValues((current) => ({
+      ...current,
+      [selected.id]: {
+        ...(current[selected.id] ?? defaultControlValues(selected)),
+        [id]: value,
+      },
+    }))
+  }, [selected])
+
+  const resetControls = useCallback(() => {
+    setControlValues((current) => ({
+      ...current,
+      [selected.id]: defaultControlValues(selected),
+    }))
+  }, [selected])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -95,8 +126,10 @@ export function App() {
         item={selected}
         isAnimating={isAnimating}
         renderMode={renderMode}
+        modelOptions={selectedControlValues}
         onLoadingChange={handleLoadingChange}
         onError={handleError}
+        onStatsChange={handleStatsChange}
       />
       <div className="stage-shade" aria-hidden="true" />
 
@@ -167,12 +200,50 @@ export function App() {
             <span>{isAnimating ? 'Pause motion' : 'Play motion'}</span>
           </button>
         )}
+
+        {selected.controls.length > 0 && (
+          <section className="model-controls" aria-label={`${selected.name} parameters`}>
+            <header>
+              <span><SlidersHorizontal aria-hidden="true" /> Surface state</span>
+              <button type="button" onClick={resetControls} title="Reset surface controls">
+                <RotateCcw aria-hidden="true" />
+                <span>Reset</span>
+              </button>
+            </header>
+            <div className="model-control-list">
+              {selected.controls.map((control) => {
+                const value = selectedControlValues[control.id] ?? control.default
+                const output = control.format === 'percent'
+                  ? `${Math.round(value * 100)}%`
+                  : String(Math.round(value))
+                return (
+                  <label className="model-control" key={control.id} title={control.description}>
+                    <span><strong>{control.label}</strong><output>{output}</output></span>
+                    <input
+                      type="range"
+                      min={control.min}
+                      max={control.max}
+                      step={control.step}
+                      value={value}
+                      onChange={(event) => updateControl(control.id, Number(event.target.value))}
+                    />
+                    <small>{control.description}</small>
+                  </label>
+                )
+              })}
+            </div>
+          </section>
+        )}
       </div>
 
       <div className="object-caption" aria-live="polite">
         <span>{selected.category}</span>
         <h1>{selected.name}</h1>
-        <p><Sparkles aria-hidden="true" /> Drag to orbit · Scroll to zoom</p>
+        <p>
+          <Triangle aria-hidden="true" />
+          {modelStats ? `${vertexFormatter.format(modelStats.vertices)} vertices` : 'Counting vertices'}
+          {modelStats?.activeLod && ` · ${modelStats.activeLod}`}
+        </p>
       </div>
 
       <div className="mobile-deck" aria-label="Sci-Fi Kit models">

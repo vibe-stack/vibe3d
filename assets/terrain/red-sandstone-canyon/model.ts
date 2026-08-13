@@ -420,6 +420,7 @@ function materialize(
     seed,
     formation: formationOf(seed),
     representation,
+    lodWeights: config.lod === 0 ? [1, 0, 0] : config.lod === 1 ? [0, 1, 0] : [0, 0, 1],
   }
   const geometry = createGeometry(topology, config, seed)
   const sandstone = config.diagnostic === 'wireframe' || !surfaceBake

@@ -59,7 +59,11 @@ export const REDUCTION_GRID_CELLS = 44
 export const LOD1_GRID_CELLS = 30
 export const LOD2_GRID_CELLS = 20
 export const COLLISION_GRID_CELLS = 13
-export const ATLAS_SIZE = 1024
+// The UV raster covers only about one third of the square atlas. At 1024 that
+// left the SDF surface with ~590px-equivalent linear density, so the fine
+// shatter band was visibly softer than a nominal 1K bake implied. 2048 restores
+// roughly 1.18K-equivalent density without changing the authored field.
+export const ATLAS_SIZE = 2048
 
 /**
  * Target bake resolution in millimetres per texel, in world space.
