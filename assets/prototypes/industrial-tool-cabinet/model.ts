@@ -4,7 +4,6 @@ import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
   AXIS_Y,
-  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -77,9 +76,10 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
     for (const sz of [-1, 1]) {
       const legX = sx * (WIDTH * 0.5 - 0.08)
       const legZ = sz * (DEPTH * 0.5 - 0.08)
-      // The levelling foot beds into its pad rather than standing beside it: at
-      // the millimetre it was drawn at, the two soles were 2 mm apart.
-      body.add(cylinder(m.steel, 0.024, 0.05 - FACE_CLEARANCE, [legX, 0.026 + FACE_CLEARANCE * 0.5, legZ], AXIS_Y, 8))
+      // The levelling foot beds into its pad rather than standing beside it, and
+      // the pad drops a face clearance below the sole it beds on its own, so the
+      // foot keeps its drawn length and clears the rubber's sole by 5 mm.
+      body.add(cylinder(m.steel, 0.024, 0.05, [legX, 0.026, legZ], AXIS_Y, 8))
       groundPad(body, m.rubber, [0.06, 0.06], [legX, 0, legZ], 0.016)
     }
   }
