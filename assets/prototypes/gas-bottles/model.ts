@@ -5,6 +5,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addStripeDecal,
   bolt,
@@ -119,12 +120,20 @@ function build(): { root: Group; sockets: GasBottleSockets; bundle: CargoMateria
     member(root, m.steel, [-span * 0.5 + 0.03, BASE + BOTTLE_H * 0.62, sz * RAIL_Z], [span * 0.5 - 0.03, BASE + BOTTLE_H * 0.62, sz * RAIL_Z], 0.032, 0.032)
   }
   // Valve guard cage. It stops short of the posts' outer skins in both axes so
-  // the joint is an overlap rather than four coincident faces.
-  box(root, m.graphiteEdge, [span - 0.09, 0.045, BOTTLE_R * 2 + 0.12], [0, BASE + BOTTLE_H + 0.3, 0], {
+  // the joint is an overlap rather than four coincident faces, and its top face
+  // beds a face clearance under the posts' - hung from a fraction of the bottle
+  // height it cleared them by 2.5 mm, which put the cage's crown and the four
+  // post tops on the same upward plane at each corner.
+  box(root, m.graphiteEdge, [span - 0.09, 0.045, BOTTLE_R * 2 + 0.12], [0, CRADLE - 0.045 * 0.5 - FACE_CLEARANCE, 0], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.007,
   })
+  // The outer pair of droppers hangs inside the posts, so the run is set out
+  // from the post's inner skin and not from a fraction of the deck: spread over
+  // `span - 0.14` the dropper's inboard face stood 2 mm behind the post's own,
+  // both facing the same way, down the full 160 mm of the bar.
+  const dropperRun = (span * 0.5 - 0.085 + FACE_CLEARANCE + 0.013) * 2
   for (let index = 0; index < 5; index += 1) {
-    const x = (index / 4 - 0.5) * (span - 0.14)
+    const x = (index / 4 - 0.5) * dropperRun
     box(root, m.steel, [0.026, 0.16, 0.026], [x, BASE + BOTTLE_H + 0.23, BOTTLE_R + 0.02], {
       chamfer: 0.008, fillet: 0.004, bevel: 0.004,
     })
