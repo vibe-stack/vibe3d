@@ -2,7 +2,6 @@ import { Group, Object3D } from 'three/webgpu'
 
 import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
 import {
-  AXIS_X,
   AXIS_Y,
   acquireCargoMaterials,
   addLabelDecal,
@@ -10,6 +9,7 @@ import {
   boltRun,
   createCargoPreview,
   finishModel,
+  lidHinge,
   paintMark,
   plaque,
   seam,
@@ -139,15 +139,10 @@ function lidBody(lid: Group, m: CargoMaterials): void {
     lid.add(cylinder(m.steel, 0.012, 0.055, [sx * 0.11, LID + 0.045, LID_PIVOT], AXIS_Y, 8))
   }
   lid.add(cylinder(m.rubber, 0.019, 0.24, [0, LID + 0.066, LID_PIVOT], [0, 0, Math.PI / 2], 10))
-  // Knuckle lugs proud of the lid's own back face and the pin on the swing axis
-  // behind them. Drawn 48 mm inside the leaf the whole hinge rendered as
-  // nothing and the case back read as an unbroken shell.
-  for (const sx of [-1, 1]) {
-    lid.add(prism(m.graphiteEdge, [0.1, 0.06, 0.055], [sx * 0.24, 0.035, lidBack + 0.0175], {
-      chamfer: 0.018, fillet: 0.006, bevel: 0.005,
-    }))
-    lid.add(cylinder(m.steel, 0.015, 0.12, [sx * 0.24, 0, 0], AXIS_X, 8))
-  }
+  // A barrel on the swing axis, its knuckles clear of the lid's own back face
+  // and a strap off each one onto both leaves. Drawn 48 mm inside the leaf the
+  // whole hinge rendered as nothing and the case back read as an unbroken shell.
+  lidHinge(lid, m, WIDTH - 0.1, [0, 0, 0], 'x', 2, 0.018, 0.07, lidBack)
 }
 
 function build(): { root: Group; hull: Group; lid: Group; sockets: MilitaryCaseSockets; bundle: CargoMaterialBundle } {
