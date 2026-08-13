@@ -205,8 +205,11 @@ export function createModel(): SquareCrateController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0, SIZE * 0.5, 0],
-    distance: 2.85,
+    // Framed on half the cube's height the corner feet sat on the bottom edge of
+    // the frame, because a cube seen from above shows more of itself below its
+    // mid-height than above it.
+    target: [0, SIZE * 0.4, 0],
+    distance: 2.95,
     yaw: 0.76,
     pitch: 0.34,
     fov: 30,
