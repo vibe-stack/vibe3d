@@ -4,6 +4,7 @@ import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
   AXIS_Y,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -43,6 +44,29 @@ const WIDTH = 0.92
 const DEPTH = 0.46
 const HEIGHT = 1.96
 const PLINTH = 0.1
+/**
+ * The carcass, stepped inside the cap band that crowns it.
+ *
+ * The cap is built to the cabinet's nominal width, depth and height, so a side
+ * wall or a back panel built to the same three figures meets it on all three
+ * planes and meets the other one as well. Each therefore steps inside the cap,
+ * and by a different amount on each axis: a chamfer rounds a corner off both of
+ * its planes at once, so two masses moved the same distance in x and in z leave
+ * their 45-degree facets exactly where they were.
+ */
+const CASE_X = WIDTH * 0.5 - FACE_CLEARANCE
+const CASE_FRONT = DEPTH * 0.5 - FACE_CLEARANCE * 2
+const CASE_BACK = DEPTH * 0.5 - FACE_CLEARANCE * 4
+const CASE_TOP = HEIGHT - FACE_CLEARANCE * 2
+const BACK_X = WIDTH * 0.5 - FACE_CLEARANCE * 2
+const BACK_Z = DEPTH * 0.5 - FACE_CLEARANCE
+const BACK_TOP = HEIGHT - FACE_CLEARANCE * 3
+/** The back panel and the head rail are one plate, so both seat off one figure. */
+const PANEL = 0.035
+/** Front face of the head rail, which is what closes the top of the door opening. */
+const RAIL_Z = DEPTH * 0.5 - 0.055 + PANEL * 0.5
+/** Wall thickness of the interior lining. */
+const LINING = 0.02
 
 interface CabinetSockets {
   shelf_top: Object3D
@@ -86,11 +110,15 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
 
   const caseY = PLINTH + (HEIGHT - PLINTH) * 0.5
   for (const sx of [-1, 1]) {
-    box(body, m.shell, [0.035, HEIGHT - PLINTH, DEPTH], [sx * (WIDTH * 0.5 - 0.018), caseY, 0], {
+    box(body, m.shell, [0.035, CASE_TOP - PLINTH, CASE_FRONT + CASE_BACK], [
+      sx * (CASE_X - 0.0175), (CASE_TOP + PLINTH) * 0.5, (CASE_FRONT - CASE_BACK) * 0.5,
+    ], {
       chamfer: 0.03, fillet: 0.011, bevel: 0.01,
     })
   }
-  box(body, m.shell, [WIDTH, HEIGHT - PLINTH, 0.035], [0, caseY, -(DEPTH * 0.5 - 0.0175)], {
+  box(body, m.shell, [BACK_X * 2, BACK_TOP - PLINTH, PANEL], [
+    0, (BACK_TOP + PLINTH) * 0.5, -(BACK_Z - PANEL * 0.5),
+  ], {
     chamfer: 0.03, fillet: 0.011, bevel: 0.01,
   })
   box(body, m.shellLight, [WIDTH, 0.05, DEPTH], [0, HEIGHT - 0.025, 0], {
@@ -99,13 +127,21 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
   // Head rail behind the door plane. The leaves top out at 1.88 and the cap band
   // starts at 1.91, so without it the front carried a 30 mm slot into the
   // carcass across its whole width.
-  box(body, m.shell, [WIDTH, 0.08, 0.035], [0, HEIGHT - 0.09, DEPTH * 0.5 - 0.055], {
+  box(body, m.shell, [BACK_X * 2, 0.08, PANEL], [0, HEIGHT - 0.09, RAIL_Z - PANEL * 0.5], {
     chamfer: 0.02, fillet: 0.009, bevel: 0.008,
   })
   // Five thin faces rather than one block: as a solid it enclosed every shelf,
   // lip and stock box set inside it, and its front cap landed on the same plane
   // as both the shelf fronts and the shelf lips.
-  cavityLiner(body, m.ink, [WIDTH - 0.09, HEIGHT - PLINTH - 0.08, DEPTH - 0.06], [0, caseY, -0.005], 0.02, 'front')
+  // Its two ends are taken off the members it runs between rather than off the
+  // carcass depth: sized to that, its open edge stood 2.5 mm proud of the head
+  // rail, and once the back panel came in off the cap the back leaf reached
+  // straight through it.
+  const linerFront = RAIL_Z - FACE_CLEARANCE
+  const linerBack = -(BACK_Z - FACE_CLEARANCE) + LINING
+  cavityLiner(body, m.ink, [WIDTH - 0.09, HEIGHT - PLINTH - 0.08, linerFront - linerBack], [
+    0, caseY, (linerFront + linerBack) * 0.5,
+  ], LINING, 'front')
 
   // Shelves on a punched pilaster, so the interior reads adjustable.
   for (const y of SHELVES) {
@@ -132,7 +168,7 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
 
   const stripe = addStripeDecal(bundle, { count: 4, lean: 1 })
   plaque(body, m, stripe, [0.34, 0.03], [0, foot + (PLINTH - foot) * 0.5, (DEPTH - 0.04) * 0.5], 'front', m.ink)
-  boltRun(body, m.steel, [-WIDTH * 0.3, HEIGHT - 0.12, -DEPTH * 0.5], [WIDTH * 0.3, HEIGHT - 0.12, -DEPTH * 0.5], 4, 0.013, 'back')
+  boltRun(body, m.steel, [-WIDTH * 0.3, HEIGHT - 0.12, -BACK_Z], [WIDTH * 0.3, HEIGHT - 0.12, -BACK_Z], 4, 0.013, 'back')
 }
 
 /** One door leaf, hinged on its outboard edge. */
@@ -167,8 +203,13 @@ function doorBuild(
   if (lock) {
     // Espagnolette: a full-height rod with two throw points and a lever.
     door.add(cylinder(m.steel, 0.014, height - 0.14, [stile, PLINTH + height * 0.5, 0.03], AXIS_Y, 8))
+    // The lower keeper lands on the louvre's surround rather than on the skin,
+    // so it is seated off that surround's own front face - 32.5 mm proud of the
+    // position the vent was given. On the rod's plane it stood 1.5 mm over the
+    // surround and the two fought across the whole keeper.
+    const keeperZ = skin + 0.0325 + FACE_CLEARANCE - 0.02
     for (const y of [PLINTH + 0.12, HEIGHT - 0.18]) {
-      box(door, m.graphiteEdge, [0.05, 0.07, 0.04], [stile, y, 0.03], {
+      box(door, m.graphiteEdge, [0.05, 0.07, 0.04], [stile, y, keeperZ], {
         chamfer: 0.012, fillet: 0.005, bevel: 0.004,
       })
     }
