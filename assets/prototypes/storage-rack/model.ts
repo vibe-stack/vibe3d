@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder, extrudeProfile } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -48,6 +49,8 @@ const BEAM_Z = DEPTH * 0.5 + 0.0275
 /** Column guard height, and the half-depth at which it clears the uprights. */
 const GUARD = 0.42
 const GUARD_Z = FACE_Z + 0.02
+/** Base plate thickness, and therefore the level a column is welded at. */
+const PLATE = 0.03
 /** Punching pattern: first slot, pitch, and the last slot the head leaves room for. */
 const PUNCH_BASE = 0.24
 const PUNCH_PITCH = 0.14
@@ -70,7 +73,11 @@ export interface StorageRackController {
 
 /** A punched upright with its base plate and floor anchors. */
 function upright(root: Group, m: CargoMaterials, x: number, z: number): void {
-  tubeSection(root, m.shell, [UPRIGHT, UPRIGHT], 0.016, HEIGHT, [x, HEIGHT * 0.5, z], [Math.PI / 2, 0, 0])
+  // The column is welded on top of its base plate, which is the part the floor
+  // anchors go through. Run to the floor instead it put a second down-facing
+  // cap on the plate's own sole, inside the guard where neither can be seen
+  // from anywhere but underneath - which is exactly where the sheet looks.
+  tubeSection(root, m.shell, [UPRIGHT, UPRIGHT], 0.016, HEIGHT - PLATE, [x, (HEIGHT + PLATE) * 0.5, z], [Math.PI / 2, 0, 0])
   // Punching pattern: real slots cut through the outward face, at the pitch the
   // beam hooks engage. The offset carries the upright's own sign, or the rear
   // frame gets its slots on its inner face - which is why the rack read as a
@@ -83,11 +90,11 @@ function upright(root: Group, m: CargoMaterials, x: number, z: number): void {
       fillet: 0.005, bevel: 0.004,
     }))
   }
-  box(root, m.graphite, [0.26, 0.03, 0.19], [x, 0.015, z], { chamfer: 0.05, fillet: 0.016, bevel: 0.008 })
+  box(root, m.graphite, [0.26, PLATE, 0.19], [x, PLATE * 0.5, z], { chamfer: 0.05, fillet: 0.016, bevel: 0.008 })
   // Anchors sit outboard of the guard's 0.16 width. Paired across the plate's
   // depth they were both inside it, which is a fastener nobody can ever see.
   for (const sx of [-1, 1]) {
-    bolt(root, m.steel, [x + sx * 0.105, 0.03, z], 0.016, 'top')
+    bolt(root, m.steel, [x + sx * 0.105, PLATE, z], 0.016, 'top')
   }
 }
 
@@ -102,7 +109,12 @@ function upright(root: Group, m: CargoMaterials, x: number, z: number): void {
  * than caution.
  */
 function beam(root: Group, m: CargoMaterials, x: number, y: number, z: number, length: number): void {
-  box(root, m.graphite, [length, 0.11, 0.055], [x, y, z], {
+  // The web is 4 mm shallower than the 0.11 it reads as, and the whole of that
+  // comes off the top. Drawn at 0.11 its top cap and the flange's were both at
+  // `y + 0.055` facing up, on all twelve beams, and the flange is wider than the
+  // web on every side - so the web's cap is the one nobody can see and the one
+  // that moves. The soffit, which is seen from under every pallet, stays put.
+  box(root, m.graphite, [length, 0.106, 0.055], [x, y - 0.002, z], {
     chamfer: 0.022, fillet: 0.008, bevel: 0.008, capChamfer: 0.014,
   })
   box(root, m.graphiteEdge, [length, 0.03, 0.075], [x, y + 0.04, z], {
@@ -159,7 +171,11 @@ function build(): { root: Group; sockets: RackSockets; bundle: CargoMaterialBund
     // aisle face sits 5 mm behind theirs, so the two end frames showed only
     // their long flanks and the centre frame showed 25 mm of amber either side
     // of its upright and read as having no guard at all.
-    box(root, m.amberPaint, [0.16, GUARD, GUARD_Z * 2], [x, GUARD * 0.5, 0], {
+    // The rack is carried by its base plates, so the guard is the one thing in
+    // this footprint that does not take the floor: it stops FACE_CLEARANCE above
+    // it, since it wraps both plates and both columns and its sole would
+    // otherwise be a third down-facing skin on their plane.
+    box(root, m.amberPaint, [0.16, GUARD - FACE_CLEARANCE, GUARD_Z * 2], [x, (GUARD + FACE_CLEARANCE) * 0.5, 0], {
       chamfer: 0.05, fillet: 0.016, bevel: 0.012, capChamfer: 0.03,
     })
     box(root, m.ink, [0.17, 0.06, GUARD_Z * 2 + 0.01], [x, 0.32, 0], { chamfer: 0.02, fillet: 0.008, bevel: 0.006 })
