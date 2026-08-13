@@ -208,18 +208,39 @@ function sideWall(
   const field = o.length - k.casting * 2 - 0.16
   /** Rib centres. Everything painted on this wall registers with one of these. */
   const ribX = (index: number): number => ((index + 0.5) / k.ribCount - 0.5) * field
-  // The ownership block is painted onto the ribs, never floated across them.
-  const solid = new Set([k.ribCount - 5, k.ribCount - 4])
-  const dash = new Set([k.ribCount - 3, k.ribCount - 2])
+  // The marker lamps stay at the far end but never past it: their bezel is
+  // 0.112 wide, and at `±length*0.4` it stood 27 mm off the end of the small
+  // unit's panel and 29 mm off the short one's, over open air at rib depth.
+  const lampX = side * Math.min(o.length * 0.4, (o.length - k.casting * 2 + 0.05) * 0.5 - 0.106)
+  // The block stops short of the lamps rather than short of the panel: half a
+  // rib and half a bezel meet at 0.176 apart, so wherever a lamp comes within
+  // the 40 mm of air the plaque keeps off the chevron, the outermost rib is the
+  // lamps' ground and the block ends one rib inboard of it. Only the stack's
+  // top tier, whose coarse pitch leaves its outermost rib 105 mm clear of the
+  // bezel, keeps that rib - which is the one reason a four-rib wall has room
+  // for a block at all.
+  const blockEnd = Math.abs(lampX) - ribX(k.ribCount - 1) > 0.216 ? k.ribCount - 1 : k.ribCount - 2
+  // The ownership block is painted onto the ribs, never floated across them, so
+  // its width is a count of ribs and the wall has to be long enough to hold it.
+  // Cut to the four that suit a 20-foot wall it ate the short ones whole:
+  // `container-small` has five ribs and the stack's top tier four, so the block
+  // reached the rib the chevron is painted on and the two read as one amber
+  // field with a chevron ghosted into it. A third of the run is those same four
+  // ribs on the standard wall and leaves every variant a bare rib between the
+  // block and the chevron. Two is the floor: the block's field is painted
+  // between a pair of ribs, and one rib on its own is a stripe.
+  const blockRibs = Math.min(Math.max(2, Math.round(k.ribCount / 3)), blockEnd - 1)
+  const blockStart = blockEnd - blockRibs + 1
   for (let index = 0; index < k.ribCount; index += 1) {
     const x = ribX(index)
     const marked = side > 0 ? index : k.ribCount - 1 - index
-    const painted = o.ownership !== false && (solid.has(marked) || dash.has(marked))
-    const height = painted && dash.has(marked) ? ribHeight * 0.72 : ribHeight
+    const painted = o.ownership !== false && marked >= blockStart && marked <= blockEnd
+    const dashed = marked > blockStart + 1
+    const height = painted && dashed ? ribHeight * 0.72 : ribHeight
     parent.add(prism(painted ? m.amberPaint : m.shellShade, [0.24, height, 0.052], [x, k.panelCentre, z + side * 0.055], {
       chamfer: 0.03, fillet: 0.01, bevel: 0.012, rotation: [0, side > 0 ? 0 : Math.PI, 0],
     }))
-    if (painted && solid.has(marked) && solid.has(marked + 1)) {
+    if (painted && marked === blockStart && marked < blockEnd) {
       const gap = field / k.ribCount
       parent.add(prism(m.amberPaint, [gap - 0.24, height, 0.014], [x + (side > 0 ? gap * 0.5 : -gap * 0.5), k.panelCentre, z + side * 0.056], {
         chamfer: 0.012, fillet: 0.005, bevel: 0.005, rotation: [0, side > 0 ? 0 : Math.PI, 0],
@@ -249,10 +270,6 @@ function sideWall(
   // panel by 67 mm and stopped 9 mm inside the short one's.
   const label = addLabelDecal(bundle, { variant: (o.variant ?? 0) + (side > 0 ? 3 : 7) })
   plaque(parent, m, label, [0.6, 0.3], [chevronX + side * 0.52, o.height - 0.66, ribZ], face, m.shellLight)
-  // The marker lamps stay at the far end but never past it: their bezel is
-  // 0.112 wide, and at `±length*0.4` it stood 27 mm off the end of the small
-  // unit's panel and 29 mm off the short one's, over open air at rib depth.
-  const lampX = side * Math.min(o.length * 0.4, (o.length - k.casting * 2 + 0.05) * 0.5 - 0.106)
   statusLens(parent, m, [0.07, 0.24], [lampX, o.height - 0.62, ribZ], m.amber, face)
   statusLens(parent, m, [0.07, 0.16], [lampX, o.height - 1.02, ribZ], m.cyan, face)
 }
