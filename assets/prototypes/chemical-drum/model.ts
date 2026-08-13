@@ -12,7 +12,7 @@ import {
   drum,
   finishModel,
   hexagon,
-  paintMark,
+  radialMark,
   radialPlaque,
   slashProfile,
   socket,
@@ -63,22 +63,26 @@ function build(): { root: Group; sockets: ChemicalDrumSockets; bundle: CargoMate
   root.name = 'AXR_CARGO_CHEMICAL-DRUM_ROOT_SEALED'
 
   // A skid ring rather than a bund: this drum is palletised in groups, so it
-  // needs a foot that clears a strap, not a tray of its own.
+  // needs a foot that clears a strap, not a tray of its own. The pad drops a
+  // millimetre below the ring's sole because the pad is the part in contact -
+  // sharing the floor plane with the steel puts two down-facing skins on it.
   root.add(cylinder(m.graphite, RADIUS + 0.02, BASE, [0, BASE * 0.5, 0], AXIS_Y, 20))
-  root.add(cylinder(m.rubber, RADIUS - 0.02, 0.02, [0, 0.01, 0], AXIS_Y, 18))
+  root.add(cylinder(m.rubber, RADIUS - 0.02, 0.022, [0, 0.01, 0], AXIS_Y, 18))
 
-  drum(root, m, RADIUS, BODY, [0, BASE, 0], {
+  const shell = drum(root, m, RADIUS, BODY, [0, BASE, 0], {
     hoops: [0.3, 0.58, 0.84],
     chime: 0.024,
     band: m.ironOxide,
   })
 
   // Hazard band around the waist. Four seated plaques rather than one wrap, so
-  // the graphic never has to stretch around a curve it was not drawn for.
+  // the graphic never has to stretch around a curve it was not drawn for - and
+  // each one is only as wide as a flat plate can be on a 340 mm barrel before
+  // its corners leave the shell, which is two bars rather than four.
   for (let index = 0; index < 4; index += 1) {
     const angle = (Math.PI / 2) * index + Math.PI / 4
-    const stripe = addStripeDecal(bundle, { count: 4, lean: 1, bar: 0xeb514e })
-    radialPlaque(root, m, stripe, [0.28, 0.09], RADIUS, BASE + BODY * 0.46, angle)
+    const stripe = addStripeDecal(bundle, { count: 2, lean: 1, bar: 0xeb514e })
+    radialPlaque(root, m, stripe, [0.05, 0.09], RADIUS, BASE + BODY * 0.46, angle)
   }
 
   // Crown: bolted lid ring, one large pump port, one small sample port.
@@ -97,14 +101,20 @@ function build(): { root: Group; sockets: ChemicalDrumSockets; bundle: CargoMate
   root.add(cylinder(m.amberPaint, 0.02, 0.045, [0, crown + 0.065, -0.16], AXIS_Y, 6))
 
   // Contents monitor: a small sealed bezel that has to be checked, not operated.
-  box(root, m.graphite, [0.15, 0.13, 0.045], [0, BASE + BODY * 0.74, RADIUS + 0.012], {
+  // Everything on the flank is measured from the chord the shell renders, not
+  // from the nominal radius: a 150 mm-wide box seated on the nominal one has its
+  // far corners 2 mm clear of the curve and the gauge reads as a stuck-on tile.
+  const monitorZ = shell.radius + 0.006
+  box(root, m.graphite, [0.15, 0.13, 0.045], [0, BASE + BODY * 0.74, monitorZ], {
     chamfer: 0.035, fillet: 0.012, bevel: 0.01,
   })
-  statusLens(root, m, [0.07, 0.05], [0, BASE + BODY * 0.74, RADIUS + 0.034], m.amber, 'front')
-  root.add(cylinder(m.steel, 0.012, 0.05, [0, BASE + BODY * 0.66, RADIUS + 0.03], AXIS_Z, 8))
+  statusLens(root, m, [0.07, 0.05], [0, BASE + BODY * 0.74, monitorZ + 0.0225], m.amber, 'front')
+  root.add(cylinder(m.steel, 0.012, 0.05, [0, BASE + BODY * 0.66, shell.radius + 0.014], AXIS_Z, 8))
 
-  paintMark(root, m.redPaint, slashProfile(0.09, 0.3, 0.42), [-0.07, BASE + BODY * 0.2, RADIUS + 0.002], 'front', 0.011)
-  paintMark(root, m.redPaint, slashProfile(0.045, 0.3, 0.42), [0.05, BASE + BODY * 0.2, RADIUS + 0.002], 'front', 0.011)
+  // The identity mark lives below the lowest hoop: a hoop stands 19 mm prouder
+  // than paint does, so a stroke drawn across one is swallowed by it.
+  radialMark(root, m.redPaint, slashProfile(0.07, 0.13, 0.25), RADIUS, BASE + BODY * 0.18, -0.16, 20, 0.016)
+  radialMark(root, m.redPaint, slashProfile(0.042, 0.13, 0.25), RADIUS, BASE + BODY * 0.18, 0.16, 20, 0.016)
 
   const sockets: ChemicalDrumSockets = {
     crown_port: socket('crown_port', [0, crown + 0.13, 0.05]),
