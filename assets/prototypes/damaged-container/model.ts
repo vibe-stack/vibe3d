@@ -324,8 +324,12 @@ export function createModel(): DamagedContainerController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0, SPEC.height * 0.48, 0],
-    distance: 12.6,
+    // A 6 m box seen across its diagonal is 6.5 m wide in frame, and at 12.6 m
+    // the sprung door end ran off the right-hand edge - the one corner of this
+    // variant that has to be legible. The target comes down as the distance
+    // goes out, because the damage is all in the lower two thirds.
+    target: [0, SPEC.height * 0.36, 0],
+    distance: 14.4,
     yaw: 0.78,
     pitch: 0.3,
     fov: 30,
