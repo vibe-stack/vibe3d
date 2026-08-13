@@ -75,10 +75,20 @@ function drawerFront(drawer: Group, m: CargoMaterials, height: number, index: nu
     chamfer: 0.02, fillet: 0.008, bevel: 0.006,
   })
   // Full-width pull, recessed into the front so a closed chest stays flush.
-  box(drawer, m.ink, [WIDTH - 0.3, height * 0.34, 0.03], [0, height * 0.18, DEPTH * 0.5 + 0.016], {
+  //
+  // Its top edge and the sub-panel's are both fractions of the drawer height,
+  // and the two cross at 0.167, so on the 0.18 drawer the pull's ledge came to
+  // rest 2 mm under the sub-panel's and the pair mottled along the 20 mm they
+  // share. Clamped a face clearance off that edge, the pull keeps the side of it
+  // that it already sits on at all four of the other heights.
+  const panelTop = (height - 0.05) * 0.5
+  const reach = height * 0.35
+  const pullTop = reach > panelTop ? Math.max(reach, panelTop + 0.004) : Math.min(reach, panelTop - 0.004)
+  const pullY = pullTop - height * 0.17
+  box(drawer, m.ink, [WIDTH - 0.3, height * 0.34, 0.03], [0, pullY, DEPTH * 0.5 + 0.016], {
     chamfer: 0.016, fillet: 0.006, bevel: 0.005,
   })
-  box(drawer, m.graphiteEdge, [WIDTH - 0.34, height * 0.16, 0.026], [0, height * 0.18, DEPTH * 0.5 + 0.03], {
+  box(drawer, m.graphiteEdge, [WIDTH - 0.34, height * 0.16, 0.026], [0, pullY, DEPTH * 0.5 + 0.03], {
     chamfer: 0.01, fillet: 0.004, bevel: 0.004,
   })
   // The box behind the front, so an open drawer is not a floating panel. Built
@@ -116,17 +126,28 @@ function body(bodyGroup: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
   }
 
   // Carcass: open at the front, so the drawers sit in a real cavity.
+  //
+  // The sides are 4 mm thinner than the 0.05 they read as, taken off the inside,
+  // because that inner face was on the ink liner's - and the liner is what an
+  // open drawer shows. The back panel then runs between those inner faces rather
+  // than out to the same rear corner as the sides: carried to the full width its
+  // ends sat on their outer faces and its rear face on their rear caps, both
+  // pairs in plain view from behind. Every outer face is where it was.
+  const wall = 0.046
   for (const sx of [-1, 1]) {
-    box(bodyGroup, m.shell, [0.05, caseHeight, DEPTH], [sx * (WIDTH * 0.5 - 0.025), caseY, 0], {
+    box(bodyGroup, m.shell, [wall, caseHeight, DEPTH], [sx * (WIDTH - wall) * 0.5, caseY, 0], {
       chamfer: 0.045, fillet: 0.016, bevel: 0.014,
     })
   }
-  box(bodyGroup, m.shell, [WIDTH, caseHeight, 0.05], [0, caseY, -(DEPTH * 0.5 - 0.025)], {
+  box(bodyGroup, m.shell, [WIDTH - wall * 2, caseHeight, 0.05], [0, caseY, -(DEPTH * 0.5 - 0.025)], {
     chamfer: 0.045, fillet: 0.016, bevel: 0.014,
   })
   // Five thin faces rather than one block: as a solid it enclosed every drawer
-  // tray put into it, which is the whole point of the cavity.
-  cavityLiner(bodyGroup, m.ink, [WIDTH - 0.1, caseHeight - 0.04, DEPTH - 0.1], [0, caseY, -0.02], 0.02, 'front')
+  // tray put into it, which is the whole point of the cavity. It is seated 10 mm
+  // forward of the cavity's own centre so its back corner clears the back
+  // panel's, which the panel's new ends brought to within 2 mm of it; it still
+  // laps both the panel and the sides.
+  cavityLiner(bodyGroup, m.ink, [WIDTH - 0.1, caseHeight - 0.04, DEPTH - 0.1], [0, caseY, -0.01], 0.02, 'front')
 
   // Top well with its own lid band.
   box(bodyGroup, m.shellLight, [WIDTH, TOP, DEPTH], [0, HEIGHT - TOP * 0.5, 0], {
