@@ -278,16 +278,10 @@ function build(): {
   // skins ran straight through both bars for the full width of the opening.
   doorLeft.position.set(SPEC.length * 0.5 - 0.285, 0, -hinge)
   doorRight.position.set(SPEC.length * 0.5 - 0.285, 0, hinge)
-  containerDoorLeaf(doorLeft, m, bundle, { ...SPEC, side: 1 })
+  // The closing strip goes with the torn leaf, so it swings out of the joint
+  // with it and shows on the leaf's back edge.
+  containerDoorLeaf(doorLeft, m, bundle, { ...SPEC, side: 1, closingStrip: hinge })
   containerDoorLeaf(doorRight, m, bundle, { ...SPEC, side: -1 })
-  // Each leaf is half the clear opening, so a shut pair meets on a mathematical
-  // point and the 0.1 taken out for clearance is a 60 mm slit. The leaf that
-  // shuts second carries a closing strip behind the joint, lapping both skins
-  // by 40 mm - here it goes with the torn leaf and shows on its back edge.
-  const leaf = (SPEC.width - k.casting * 2 - 0.1) * 0.5
-  box(doorLeft, m.shell, [0.06, SPEC.height - 0.62, (hinge - leaf) * 2 + 0.08], [-0.06, (SPEC.height - 0.5) * 0.5 + 0.24, hinge], {
-    chamfer: 0.02, fillet: 0.008, bevel: 0.007,
-  })
   // Torn top hinge: the leaf swings open and leans out of plumb on the survivor.
   doorLeft.rotation.set(0, -1.34, 0)
   doorLeft.rotateZ(-0.075)
