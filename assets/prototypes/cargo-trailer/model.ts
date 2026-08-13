@@ -5,6 +5,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -44,6 +45,8 @@ const DECK = 0.58
 const WHEEL = 0.28
 const CASTING_X = 1.9
 const CASTING_Z = 0.72
+/** Wall of the two main longitudinals, which the tail bar has to reach up into. */
+const RAIL_WALL = 0.018
 // The jack clamps to the nose cross member. Its foot is authored 205 mm below
 // the group origin, so JACK_DOWN is what stands that foot on the floor, and the
 // lift is short enough that the retracted leg stays inside its own tube.
@@ -94,7 +97,13 @@ function bogie(chassis: Group, m: CargoMaterials, x: number): void {
       // Mudguard over each wheel: a shallow arc of three plates, wide enough to
       // reach back under the deck's amber edge rail and be carried by it.
       for (const angle of [-0.5, 0, 0.5]) {
-        box(chassis, m.shellShade, [0.3, 0.02, 0.3], [
+        // The plates are 300 mm long on a 170 mm pitch round the arc, so each
+        // raked one runs 130 mm into the crown plate. Held to the crown's full
+        // width they laid 3.6 cm² of outboard face on its plane at every lap; a
+        // clearance either side puts them behind it and leaves the crown, which
+        // is the plate the guard is read from, exactly where it was.
+        const width = angle === 0 ? 0.3 : 0.3 - FACE_CLEARANCE * 2
+        box(chassis, m.shellShade, [0.3, 0.02, width], [
           x + dx + Math.sin(angle) * (WHEEL + 0.06),
           WHEEL + Math.cos(angle) * (WHEEL + 0.06),
           track,
@@ -113,7 +122,7 @@ function chassisBody(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBun
   // Two main longitudinals plus cross members: a skeletal, so the deck reads
   // through and the trailer never becomes a slab.
   for (const sz of [-1, 1]) {
-    tubeSection(chassis, m.graphite, [0.16, 0.2], 0.018, LENGTH, [0, DECK - 0.1, sz * (WIDTH * 0.5 - 0.14)], [0, Math.PI / 2, 0])
+    tubeSection(chassis, m.graphite, [0.16, 0.2], RAIL_WALL, LENGTH, [0, DECK - 0.1, sz * (WIDTH * 0.5 - 0.14)], [0, Math.PI / 2, 0])
   }
   const crossCount = 9
   for (let index = 0; index < crossCount; index += 1) {
@@ -162,10 +171,14 @@ function chassisBody(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBun
     chamfer: 0.018, fillet: 0.007, bevel: 0.006,
   })
 
-  // Tail lamps and a rear underrun bar, lapped 20 mm into the longitudinals it
-  // is bolted to instead of hanging 20 mm below them.
-  const tailY = DECK - 0.26
-  box(chassis, m.graphite, [0.1, 0.16, WIDTH - 0.2], [LENGTH * 0.5 - 0.02, tailY, 0], {
+  // Tail lamps and a rear underrun bar, lapped up into the longitudinals it is
+  // bolted to instead of hanging below them. The rails are hollow, so the lap
+  // stops a clearance short of their inner floor: taken to a round 20 mm the bar
+  // came 2 mm past it and laid its top on the cavity floor, both facing up.
+  const tailTop = DECK - 0.2 + RAIL_WALL - FACE_CLEARANCE
+  const tailBottom = DECK - 0.34
+  const tailY = (tailTop + tailBottom) * 0.5
+  box(chassis, m.graphite, [0.1, tailTop - tailBottom, WIDTH - 0.2], [LENGTH * 0.5 - 0.02, tailY, 0], {
     chamfer: 0.028, fillet: 0.01, bevel: 0.009,
   })
   // The bar's aft face is 2.33; everything applied to it is placed from there.
@@ -179,8 +192,13 @@ function chassisBody(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBun
   // The longitudinal's outer face is 0.87. The flank graphics were placed from
   // the rail's centre and sat entirely inside it.
   const railFace = WIDTH * 0.5 - 0.06
+  // The rivet line below runs the whole flank at the graphics' own height, so
+  // the label is centred in a bay between two of its bolts. At -LENGTH*0.28 it
+  // sat over the one at -1.227, whose head stands 4 mm through the plate and
+  // reaches to within a millimetre of the decal plane in front of it.
+  const boltPitch = (LENGTH * 0.8) / 6
   const label = addLabelDecal(bundle, { variant: 210 })
-  plaque(chassis, m, label, [0.3, 0.11], [-LENGTH * 0.28, DECK - 0.1, railFace], 'front', m.shellLight)
+  plaque(chassis, m, label, [0.3, 0.11], [-boltPitch * 2.5, DECK - 0.1, railFace], 'front', m.shellLight)
   paintMark(chassis, m.amberPaint, slashProfile(0.07, 0.14, 0.45), [LENGTH * 0.2, DECK - 0.1, railFace], 'front', 0.01)
   boltRun(chassis, m.steel, [-LENGTH * 0.4, DECK - 0.1, railFace], [LENGTH * 0.4, DECK - 0.1, railFace], 7, 0.016, 'front')
   for (const sx of [-1, 1]) bolt(chassis, m.steel, [sx * CASTING_X, DECK + 0.02, 0], 0.016, 'top')
