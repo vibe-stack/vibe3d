@@ -5,6 +5,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addStripeDecal,
   bolt,
@@ -86,7 +87,9 @@ function build(): { root: Group; sockets: GasBottleSockets; bundle: CargoMateria
   // Wide enough that a post at each corner stands outside the outer bottles.
   // At the width it was drawn to, the two end posts ran 40 mm through them.
   const span = PITCH * 3 + BOTTLE_R * 2 + 0.19
-  box(root, m.graphite, [span, BASE, BOTTLE_R * 2 + 0.16], [0, BASE * 0.5, 0], {
+  // The rubber mat under the pallet is what meets the deck, so the pallet's own
+  // sole starts a face clearance above it rather than a millimetre off it.
+  box(root, m.graphite, [span, BASE - FACE_CLEARANCE, BOTTLE_R * 2 + 0.16], [0, (BASE + FACE_CLEARANCE) * 0.5, 0], {
     chamfer: 0.045, fillet: 0.016, bevel: 0.013, capChamfer: 0.03,
   })
   groundPad(root, m.rubber, [span - 0.06, BOTTLE_R * 2 + 0.1], [0, 0, 0])
