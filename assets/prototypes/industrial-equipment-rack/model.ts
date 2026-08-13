@@ -4,6 +4,7 @@ import { cylinder, extrudeProfile } from '../../../src/asset-forge/generator/ind
 import {
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   bolt,
@@ -49,9 +50,14 @@ const PLATE_Z = RAIL_Z + 0.025 + 0.006
 const ROOF = 0.035
 const ROOF_Y = HEIGHT - 0.018
 const ROOF_TOP = ROOF_Y + ROOF * 0.5
-/** Levelling foot depth, and the underside of the plinth that stands on it. */
+/**
+ * Levelling foot depth, and the underside of the plinth that stands on it. The
+ * pad drops a face clearance below the deck, so its top is at `FOOT` less that
+ * again; the plinth beds one more clearance into it rather than meeting it on a
+ * plane, which is a joint that reads as a slit the moment the deck is not flat.
+ */
 const FOOT = 0.018
-const PLINTH_BOTTOM = FOOT - 0.004
+const PLINTH_BOTTOM = FOOT - FACE_CLEARANCE * 2
 
 interface RackSockets {
   slot_low: Object3D
