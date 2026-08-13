@@ -4,6 +4,7 @@ import { cylinder, extrudeProfile, type Vec2 } from '../../../src/asset-forge/ge
 import {
   AXIS_X,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   box,
   createCargoPreview,
@@ -267,8 +268,10 @@ function build(): { root: Group; sockets: CargoNetSockets; bundle: CargoMaterial
   })
   root.add(cylinder(m.steel, 0.014, 0.12, [tensionerX, tensionerY, tensionerZ + 0.02], AXIS_X, 8))
   // Spindle seated in the top of the clamp body, which is 55 mm above its
-  // centre. At 0.28 it stood 13 mm clear of the body with nothing between.
-  root.add(cylinder(m.steel, 0.012, 0.05, [tensionerX, tensionerY + 0.055, tensionerZ], AXIS_Z, 8))
+  // centre. At 0.28 it stood 13 mm clear of the body with nothing between, and
+  // cut to the body's own 50 mm depth its two ends came out on the body's two
+  // faces exactly; it now stands a face clearance through at each end.
+  root.add(cylinder(m.steel, 0.012, 0.05 + FACE_CLEARANCE * 2, [tensionerX, tensionerY + 0.055, tensionerZ], AXIS_Z, 8))
 
   paintMark(root, m.orangePaint, slashProfile(0.06, 0.16, 0.42), [-0.3, LOAD * 0.5, loadZ], 'front', 0.01)
   statusLens(root, m, [0.05, 0.02], [0.34, LOAD * 0.62, loadZ], m.cyan, 'front')
