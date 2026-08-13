@@ -11,6 +11,7 @@ import {
   cornerCasting,
   createCargoPreview,
   finishModel,
+  groundPad,
   paintMark,
   plaque,
   seam,
@@ -40,6 +41,12 @@ import {
 const SIZE = 0.96
 const SKIRT = 0.11
 const HATCH = 0.34
+/** How far the body reaches down past the skirt, so the two do not share a plane. */
+const LAP = 0.02
+const BODY_HEIGHT = SIZE - SKIRT + LAP
+const BODY_Y = SKIRT - LAP + BODY_HEIGHT * 0.5
+/** The recessed field is 26 mm about the shell, so its own face is 13 mm out. */
+const FIELD = 0.013
 
 interface SquareCrateSockets {
   hatch_centre: Object3D
@@ -70,11 +77,10 @@ function sidePanel(
   axis: [number, number, number],
   index: number,
 ): void {
-  const bodyY = SKIRT + (SIZE - SKIRT) * 0.5
-  const outer = SIZE * 0.5 + 0.004
+  const outer = SIZE * 0.5
   const at = (u: number, v: number, out: number): [number, number, number] => [
     axis[0] * (outer + out) + (axis[0] === 0 ? u : 0),
-    bodyY + v,
+    BODY_Y + v,
     axis[2] * (outer + out) + (axis[2] === 0 ? u : 0),
   ]
 
@@ -84,27 +90,34 @@ function sidePanel(
     chamfer: 0.07, fillet: 0.02, bevel: 0.012,
     rotation: face === 'right' || face === 'left' ? [0, Math.PI / 2, 0] : [0, 0, 0],
   })
-  paintMark(root, m.graphiteEdge, slashProfile(0.075, 0.44, 0.95), at(0, -0.02, 0.016), face, 0.014)
-  paintMark(root, m.graphiteEdge, slashProfile(0.075, 0.44, -0.95), at(0, -0.02, 0.022), face, 0.014)
+  // Both strokes seat on the field. The second one is the thicker of the two
+  // rather than the further out: lifted clear it floated 7 mm off the panel
+  // everywhere except where it crossed the first, and matched at the same depth
+  // the two would share a front face over the whole crossing.
+  paintMark(root, m.graphiteEdge, slashProfile(0.075, 0.34, 0.95), at(0, -0.08, FIELD), face, 0.014)
+  paintMark(root, m.graphiteEdge, slashProfile(0.075, 0.34, -0.95), at(0, -0.08, FIELD), face, 0.02)
 
-  seam(root, m.shell, SIZE - 0.28, at(0, 0.3, 0.004), face, 'across', 0.028, 0.018)
-  seam(root, m.shell, SIZE - 0.28, at(0, -0.32, 0.004), face, 'across', 0.028, 0.018)
+  seam(root, m.shell, SIZE - 0.28, at(0, 0.3, 0), face, 'across', 0.028, 0.018)
+  seam(root, m.shell, SIZE - 0.28, at(0, -0.32, 0), face, 'across', 0.028, 0.018)
 
+  // The header sits inside the field, above the braces. Straddling the field's
+  // top edge - which is what a plate 170 mm tall at 0.24 does - leaves most of it
+  // bridging the 13 mm step between the panel and the shell.
   if (index === 0) {
     const label = addLabelDecal(bundle, { variant: 9 })
-    plaque(root, m, label, [0.3, 0.13], at(0, 0.24, 0.006), face, m.shellLight)
-    statusLens(root, m, [0.09, 0.035], at(0.24, 0.24, 0.006), m.amber, face)
+    plaque(root, m, label, [0.3, 0.07], at(0, 0.165, FIELD), face, m.shellLight)
+    statusLens(root, m, [0.09, 0.035], at(0.24, 0.165, FIELD), m.amber, face)
   } else if (index === 2) {
     const stripe = addStripeDecal(bundle, { count: 4, lean: 1 })
-    plaque(root, m, stripe, [0.34, 0.09], at(0, 0.25, 0.006), face, m.ink)
+    plaque(root, m, stripe, [0.34, 0.07], at(0, 0.165, FIELD), face, m.ink)
   } else {
-    box(root, m.graphite, [0.16, 0.1, 0.024], at(-0.2, 0.25, 0.006), {
+    box(root, m.graphite, [0.16, 0.1, 0.024], at(-0.2, 0.165, FIELD), {
       chamfer: 0.03, fillet: 0.01, bevel: 0.008,
       rotation: face === 'right' || face === 'left' ? [0, Math.PI / 2, 0] : [0, 0, 0],
     })
   }
-  bolt(root, m.steel, at(-0.34, -0.34, 0.004), 0.018, face)
-  bolt(root, m.steel, at(0.34, -0.34, 0.004), 0.018, face)
+  bolt(root, m.steel, at(-0.34, -0.34, 0), 0.018, face)
+  bolt(root, m.steel, at(0.34, -0.34, 0), 0.018, face)
 }
 
 function build(): { root: Group; sockets: SquareCrateSockets; bundle: CargoMaterialBundle } {
@@ -114,28 +127,28 @@ function build(): { root: Group; sockets: SquareCrateSockets; bundle: CargoMater
   const root = new Group()
   root.name = 'AXR_CARGO_SQUARE-CARGO-CRATE_ROOT_DEFAULT'
 
-  const bodyHeight = SIZE - SKIRT
-  const bodyY = SKIRT + bodyHeight * 0.5
   box(root, m.graphite, [SIZE - 0.04, SKIRT, SIZE - 0.04], [0, SKIRT * 0.5, 0], {
     chamfer: 0.05, fillet: 0.016, bevel: 0.014, capChamfer: 0.035,
   })
-  box(root, m.shell, [SIZE, bodyHeight, SIZE], [0, bodyY, 0], {
+  box(root, m.shell, [SIZE, BODY_HEIGHT, SIZE], [0, BODY_Y, 0], {
     chamfer: 0.1, fillet: 0.032, bevel: 0.022, capChamfer: 0.075,
   })
 
   // Castings on all eight corners, bored on the vertical axis, because a cube
-  // module is lifted and locked from above wherever it sits in a stack.
+  // module is lifted and locked from above wherever it sits in a stack. The
+  // crown stands 6 mm above the roof rather than flush with it: a casting takes
+  // the stack's weight, and flush means two up-facing caps on the same plane.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const x = sx * (SIZE * 0.5 - 0.115)
       const z = sz * (SIZE * 0.5 - 0.115)
-      box(root, m.graphiteEdge, [0.18, bodyHeight - 0.03, 0.18], [x, bodyY, z], {
+      box(root, m.graphiteEdge, [0.18, BODY_HEIGHT - 0.03, 0.18], [x, BODY_Y, z], {
         chamfer: 0.065, fillet: 0.018, bevel: 0.013,
       })
-      cornerCasting(root, m, [0.2, 0.15, 0.2], [x, SIZE - 0.075, z], 0.04, 'y', m.shellLight)
-      box(root, m.amberPaint, [0.19, 0.055, 0.19], [x, 0.028, z], {
-        chamfer: 0.045, fillet: 0.014, bevel: 0.01,
-      })
+      cornerCasting(root, m, [0.2, 0.15, 0.2], [x, SIZE - 0.069, z], 0.04, 'y', m.shellLight)
+      // The painted feet are the crate's contact patch and stand 10 mm proud of
+      // the skirt; drawn flush with it their flanks were four coplanar pairs.
+      groundPad(root, m.amberPaint, [0.21, 0.21], [x, 0, z], 0.055)
     }
   }
 
@@ -163,8 +176,10 @@ function build(): { root: Group; sockets: SquareCrateSockets; bundle: CargoMater
   const sockets: SquareCrateSockets = {
     hatch_centre: socket('hatch_centre', [0, SIZE + 0.08, 0]),
     stack_top: socket('stack_top', [0, SIZE, 0]),
-    lift_north: socket('lift_north', [0, SIZE - 0.075, -(SIZE * 0.5 - 0.115)]),
-    lift_south: socket('lift_south', [0, SIZE - 0.075, SIZE * 0.5 - 0.115]),
+    // On castings, which is the only place a sling can actually take hold. Both
+    // used to sit on the midpoint of a roof edge, over plain shell.
+    lift_north: socket('lift_north', [-(SIZE * 0.5 - 0.115), SIZE - 0.069, -(SIZE * 0.5 - 0.115)]),
+    lift_south: socket('lift_south', [SIZE * 0.5 - 0.115, SIZE - 0.069, SIZE * 0.5 - 0.115]),
   }
   return { root, sockets, bundle }
 }
