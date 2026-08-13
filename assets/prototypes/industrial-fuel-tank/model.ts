@@ -5,6 +5,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -93,10 +94,15 @@ function ladder(root: Group, m: CargoMaterials): void {
   }
   // The straps tie the hoops together and stop with them. Drawn 3 m long from a
   // fixed centre they ran 1.24 m past the top hoop and out over the roof.
+  //
+  // They are welded on the back of the hoop bar, one section further out, rather
+  // than run through its centre plane. Sharing it, two 35 mm bars of the same
+  // section crossed with their backs, their ends and their bevels all on each
+  // other's, at every one of the ten crossings.
   const strapTop = hoopBase + (hoops - 1) * hoopStep
   for (const sx of [-1, 1]) {
     box(root, m.shellShade, [0.035, strapTop - hoopBase + 0.07, 0.035], [
-      sx * 0.34, (hoopBase + strapTop) * 0.5, z - 0.4,
+      sx * 0.34, (hoopBase + strapTop) * 0.5, z - 0.435,
     ], { chamfer: 0.01, fillet: 0.004, bevel: 0.004 })
   }
 }
@@ -108,8 +114,12 @@ function build(): { root: Group; sockets: FuelTankSockets; bundle: CargoMaterial
   const root = new Group()
   root.name = 'AXR_INDUSTRIAL_FUEL-TANK_ROOT_LIVE'
 
-  // Bund: a ring wall with a coping and a drain sump.
-  root.add(cylinder(m.graphite, BUND_R, FLOOR, [0, FLOOR * 0.5, 0], AXIS_Y, 24))
+  // Bund: a ring wall with a coping and a drain sump. The wall is cast around
+  // the slab's rim and stands on the deck itself, so the slab keeps its top
+  // face - which the shell and the sump are measured from - and gives up
+  // FACE_CLEARANCE at the bottom rather than putting a second down-facing skin
+  // on the deck plane under all 24 wall segments.
+  root.add(cylinder(m.graphite, BUND_R, FLOOR - FACE_CLEARANCE, [0, (FLOOR + FACE_CLEARANCE) * 0.5, 0], AXIS_Y, 24))
   for (let index = 0; index < 24; index += 1) {
     const angle = (Math.PI * 2 * index) / 24
     box(root, m.shellShade, [0.48, BUND, 0.12], [
@@ -185,11 +195,15 @@ function build(): { root: Group; sockets: FuelTankSockets; bundle: CargoMaterial
   // Feed line: a riser bedded into the shell, a cross-over, and a drop into the
   // cabinet roof. Set out from the nominal radius the riser stood 145 mm clear
   // of the flank, and the cross-over simply stopped 630 mm above the cabinet.
+  //
+  // The cross-over runs a smaller bore than the two verticals it joins. Drawn at
+  // the same 0.055 and the same ten facets about the same centreline, its flanks
+  // were the risers' flanks, and both elbows showed the pair.
   const riserZ = facetRadius(RADIUS, SIDES) + 0.035
   const runY = 1.58
   const cabinetTop = 0.95
   root.add(cylinder(m.steel, 0.055, runY + 0.055 - FLOOR, [0, (runY + 0.055 + FLOOR) * 0.5, riserZ], AXIS_Y, 10))
-  root.add(cylinder(m.steel, 0.055, manifoldZ - riserZ, [0, runY, (manifoldZ + riserZ) * 0.5], AXIS_Z, 10))
+  root.add(cylinder(m.steel, 0.051, manifoldZ - riserZ, [0, runY, (manifoldZ + riserZ) * 0.5], AXIS_Z, 10))
   root.add(cylinder(m.steel, 0.055, runY + 0.055 - cabinetTop + 0.05, [
     0, (runY + 0.055 + cabinetTop - 0.05) * 0.5, manifoldZ,
   ], AXIS_Y, 10))
