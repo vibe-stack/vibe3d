@@ -107,6 +107,12 @@ interface CompiledAsset {
   stats: CompileStats
 }
 
+export interface PreparedGraniteAsset {
+  topology: CompiledTopology
+  unwrapped: UnwrapResult
+  stats: CompileStats
+}
+
 export interface CompileStats {
   diagnosticsCollected: boolean
   cells: number
@@ -139,6 +145,7 @@ export interface CompileStats {
   seconds: number
 }
 
+let cachedPrepared: { key: string; asset: PreparedGraniteAsset } | undefined
 let cached: { key: string; asset: CompiledAsset } | undefined
 
 function triangleArea(positions: Float32Array | Float64Array, a: number, b: number, c: number): number {
@@ -332,14 +339,15 @@ function repairSurface(input: ReducedSurface): RepairReport {
   }
 }
 
-function compileAsset(
+export function prepareAssetFor(
   seed: number,
   cells: number,
   atlasSize = ATLAS_SIZE,
-  diagnostics = true,
-): CompiledAsset {
+  options: { diagnostics?: boolean } = {},
+): PreparedGraniteAsset {
+  const diagnostics = options.diagnostics ?? true
   const key = `${seed}:${cells}:${atlasSize}:${diagnostics ? 'diagnostics' : 'artifact'}`
-  if (cached?.key === key) return cached.asset
+  if (cachedPrepared?.key === key) return cachedPrepared.asset
   const started = Date.now()
   const normalizedSeed = Math.max(1, Math.floor(seed))
 
@@ -443,24 +451,9 @@ function compileAsset(
   }
   assertCompiledTopology(topology)
 
-  const surfaceBake = compileSurfaceBake(
-    graniteDetailField,
-    unwrapped,
-    {
-      assetId: ASSET_ID,
-      topologyKey: topology.topologyKey,
-      recipeHash: RECIPE_HASH,
-      compilerHash: COMPILER_HASH,
-      profile: PROFILE,
-    },
-    normalizedSeed,
-    { width: atlasSize, height: atlasSize },
-  )
-
-  const asset: CompiledAsset = {
+  const asset: PreparedGraniteAsset = {
     topology,
     unwrapped,
-    surfaceBake,
     stats: {
       diagnosticsCollected: diagnostics,
       cells,
@@ -475,9 +468,9 @@ function compileAsset(
       smallestChartTexels: unwrapped.smallestChartTexels,
       degenerateCharts: unwrapped.degenerateCharts,
       facets: facetCount(normalizedSeed),
-      bakeCoverage: surfaceBake.stats.coverage,
-      bakeHitRate: surfaceBake.stats.hitTexels / Math.max(1, surfaceBake.stats.coveredTexels),
-      recoveredReliefCm: surfaceBake.stats.peakHeight * DOMAIN_TO_METRES_X * 100,
+      bakeCoverage: 0,
+      bakeHitRate: 0,
+      recoveredReliefCm: 0,
       reductionErrorCm: dense ? reductionError(dense, lod0) : undefined,
       minimumDomainTriangleArea: minimumArea,
       integrity: lod0Integrity,
@@ -486,6 +479,45 @@ function compileAsset(
       lod0StrayTrianglesRemoved: lod0Repair.straysRemoved,
       holeLoopsFilled: lod0Repair.loopsFilled,
       holeLoopsSkipped: lod0Repair.loopsSkipped,
+      seconds: (Date.now() - started) / 1000,
+    },
+  }
+  cachedPrepared = { key, asset }
+  return asset
+}
+
+function compileAsset(
+  seed: number,
+  cells: number,
+  atlasSize = ATLAS_SIZE,
+  diagnostics = true,
+): CompiledAsset {
+  const key = `${seed}:${cells}:${atlasSize}:${diagnostics ? 'diagnostics' : 'artifact'}`
+  if (cached?.key === key) return cached.asset
+  const started = Date.now()
+  const normalizedSeed = Math.max(1, Math.floor(seed))
+  const prepared = prepareAssetFor(normalizedSeed, cells, atlasSize, { diagnostics })
+  const surfaceBake = compileSurfaceBake(
+    graniteDetailField,
+    prepared.unwrapped,
+    {
+      assetId: ASSET_ID,
+      topologyKey: prepared.topology.topologyKey,
+      recipeHash: RECIPE_HASH,
+      compilerHash: COMPILER_HASH,
+      profile: PROFILE,
+    },
+    normalizedSeed,
+    { width: atlasSize, height: atlasSize },
+  )
+  const asset: CompiledAsset = {
+    ...prepared,
+    surfaceBake,
+    stats: {
+      ...prepared.stats,
+      bakeCoverage: surfaceBake.stats.coverage,
+      bakeHitRate: surfaceBake.stats.hitTexels / Math.max(1, surfaceBake.stats.coveredTexels),
+      recoveredReliefCm: surfaceBake.stats.peakHeight * DOMAIN_TO_METRES_X * 100,
       seconds: (Date.now() - started) / 1000,
     },
   }

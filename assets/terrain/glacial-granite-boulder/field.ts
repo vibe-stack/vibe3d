@@ -89,6 +89,17 @@ interface MassParameters {
   lobeCount: number
 }
 
+export interface GraniteGpuParameters {
+  formation: number
+  radii: Vec3
+  facets: Float64Array
+  facetCount: number
+  scars: Float64Array
+  scarCount: number
+  lobes: Float64Array
+  lobeCount: number
+}
+
 const massParameterCache = new Map<number, MassParameters>()
 let lastMassSeed = Number.NaN
 let lastMassParameters: MassParameters | undefined
@@ -265,6 +276,21 @@ function massParameters(seed: number): MassParameters {
 /** Number of hard joint planes trimming the mass, for reporting. */
 export function facetCount(seed: number): number {
   return massParameters(seed).facetCount
+}
+
+/** Packed authored parameters uploaded by the optional WebGPU bake backend. */
+export function graniteGpuParameters(seed: number): GraniteGpuParameters {
+  const parameters = massParameters(Math.max(1, Math.floor(seed)))
+  return {
+    formation: FORMATIONS.indexOf(parameters.formation),
+    radii: parameters.radii,
+    facets: parameters.facets,
+    facetCount: parameters.facetCount,
+    scars: parameters.scars,
+    scarCount: parameters.scarCount,
+    lobes: parameters.lobes,
+    lobeCount: parameters.lobeCount,
+  }
 }
 
 /**

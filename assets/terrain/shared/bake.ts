@@ -183,7 +183,7 @@ interface Raster {
 }
 
 /** Scanline-rasterize the atlas triangles, recording surface point and normal. */
-function rasterizeCharts(
+export function rasterizeCharts(
   unwrapped: UnwrapResult,
   width: number,
   height: number,
@@ -250,7 +250,7 @@ function rasterizeCharts(
  * Grow written texels outward so bilinear filtering across a chart border reads
  * baked data instead of background. Without this every seam shows as a dark line.
  */
-function dilate(
+export function dilate(
   channels: Uint8Array[],
   componentCounts: number[],
   covered: Uint8Array,
