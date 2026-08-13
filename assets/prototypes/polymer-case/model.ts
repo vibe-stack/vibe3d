@@ -92,8 +92,9 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   }
 
   // Blade ribs on the underside corners: the moulded stand-offs a case rests on.
-  // They reach past the base band in plan and sit a millimetre below its sole,
-  // because a stand-off drawn inside the band is a foot the case never uses.
+  // They reach past the base band in plan and sit a face clearance below its
+  // sole, because a stand-off drawn inside the band is a foot the case never
+  // uses.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       groundPad(hull, m.shellShade, [0.11, 0.11], [
