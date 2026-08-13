@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder, extrudeProfile, type Vec2 } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -134,6 +135,7 @@ function build(): { root: Group; sockets: SkipSockets; bundle: CargoMaterialBund
   }
 
   // Rub rails and top coaming, the two bands that carry the silhouette.
+  const railFace = WIDTH * 0.5 + 0.031
   for (const sz of [-1, 1]) {
     const z = sz * (WIDTH * 0.5 + 0.006)
     box(root, m.graphite, [LENGTH + 0.1, 0.1, 0.05], [-0.06, HEIGHT * 0.46, z], {
@@ -142,11 +144,14 @@ function build(): { root: Group; sockets: SkipSockets; bundle: CargoMaterialBund
     box(root, m.graphiteEdge, [LENGTH + 0.36, 0.09, 0.07], [-0.14, HEIGHT - 0.03, z], {
       chamfer: 0.022, fillet: 0.008, bevel: 0.007,
     })
-    boltRun(root, m.steel, [-LENGTH * 0.4, HEIGHT * 0.46, sz * (WIDTH * 0.5 + 0.031)], [LENGTH * 0.4, HEIGHT * 0.46, sz * (WIDTH * 0.5 + 0.031)], 7, 0.017, sz > 0 ? 'front' : 'back')
-    // Vertical stiffener ribs between the two rails, biting 25 mm into the skin.
+    boltRun(root, m.steel, [-LENGTH * 0.4, HEIGHT * 0.46, sz * railFace], [LENGTH * 0.4, HEIGHT * 0.46, sz * railFace], 7, 0.017, sz > 0 ? 'front' : 'back')
+    // Vertical stiffener ribs between the two rails, biting 23 mm into the skin.
+    // Each runs behind the rub rail, so its face is a clearance inside the rail's
+    // rather than a millimetre short of it: at WIDTH * 0.5 + 0.005 the two laid
+    // 66 cm² of same-facing plate on each other at every one of the six crossings.
     for (let index = 0; index < 6; index += 1) {
       const x = (index / 5 - 0.5) * (LENGTH - 0.3) - 0.1
-      box(root, m.shellShade, [0.09, HEIGHT - 0.2, 0.05], [x, HEIGHT * 0.5, sz * (WIDTH * 0.5 + 0.005)], {
+      box(root, m.shellShade, [0.09, HEIGHT - 0.2, 0.05], [x, HEIGHT * 0.5, sz * (railFace - FACE_CLEARANCE - 0.025)], {
         chamfer: 0.02, fillet: 0.008, bevel: 0.006,
       })
     }
