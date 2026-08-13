@@ -123,6 +123,15 @@ function frame(parent: Group, m: CargoMaterials, o: ContainerShellOptions, k: Co
 }
 
 function skirtBand(parent: Group, m: CargoMaterials, bundle: CargoMaterialBundle, o: ContainerShellOptions, k: ContainerMetrics): void {
+  // The band runs `length - casting*2 + 0.06` and its fork pockets carry
+  // 0.81-wide wear plates about `±length*0.26`, so the free run between them is
+  // what the hazard stripe has to fit inside. Painted 0.78 wide at
+  // `±length*0.4` the stripe ran 376 mm past the end of `container-small`'s
+  // band over bare ground, 74 mm past the standard box's, and 392 mm of it lay
+  // across the short one's outboard pocket. It marks the centre of the
+  // under-frame now, which is the one place every length has room for it.
+  const bandHalf = (o.length - k.casting * 2 + 0.06) * 0.5
+  const bandRun = o.forkPockets !== false ? (o.length * 0.26 - 0.405) * 2 : bandHalf * 2
   for (const side of [-1, 1]) {
     const z = side * (o.width * 0.5 - 0.055)
     const face = side > 0 ? 'front' : 'back'
@@ -134,9 +143,12 @@ function skirtBand(parent: Group, m: CargoMaterials, bundle: CargoMaterialBundle
         forkPocket(parent, m, [0.68, 0.24], 0.5, [sx * o.length * 0.26, k.skirt * 0.52, z + side * 0.075], face)
       }
     }
-    boltRun(parent, m.graphiteEdge, [-o.length * 0.42, 0.1, z + side * 0.078], [o.length * 0.42, 0.1, z + side * 0.078], Math.max(4, Math.round(o.length * 1.5)), 0.024, face)
+    // The bolt line runs the band it is driven into rather than 0.42 of the
+    // overall length, which put the two end bolts 11 mm off the end of
+    // `container-small`'s band and 28 mm off the short one's.
+    boltRun(parent, m.graphiteEdge, [-(bandHalf - 0.12), 0.1, z + side * 0.078], [bandHalf - 0.12, 0.1, z + side * 0.078], Math.max(4, Math.round(o.length * 1.5)), 0.024, face)
     const stripe = addStripeDecal(bundle, { count: 6, lean: side })
-    plaque(parent, m, stripe, [0.78, 0.14], [side * -o.length * 0.4, k.skirt * 0.55, z + side * 0.078], face, m.ink)
+    plaque(parent, m, stripe, [Math.min(0.78, bandRun - 0.16), 0.14], [0, k.skirt * 0.55, z + side * 0.078], face, m.ink)
   }
   const crossMembers = Math.max(3, Math.round(o.length * 1.5))
   for (let index = 0; index < crossMembers; index += 1) {
@@ -162,11 +174,17 @@ function roofDeck(parent: Group, m: CargoMaterials, o: ContainerShellOptions, k:
     const x = (index / bays - 0.5) * (o.length - k.casting * 2 - 0.2)
     seam(parent, m.shellLight, o.width - 0.34, [x, y + 0.065, 0], 'top', 'along', 0.032, 0.02)
   }
+  // A lift pad straddles the outermost deck rib and reaches 20 mm down into the
+  // plate beneath it, so it is welded to something. Held 0.05 thick at
+  // `y + 0.13` it stood 40 mm clear of the plate's top face with nothing under
+  // it at all, on every variant, and the 0.44 inset landed its own side face
+  // exactly on the outer rib's.
+  const padRib = (o.width - 0.62) * 0.5
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const x = sx * (o.length * 0.5 - k.casting * 1.5)
-      const z = sz * (o.width * 0.5 - 0.44)
-      parent.add(prism(m.steel, [0.22, 0.05, 0.16], [x, y + 0.13, z], { chamfer: 0.03, fillet: 0.01, bevel: 0.01 }))
+      const z = sz * padRib
+      parent.add(prism(m.steel, [0.22, 0.11, 0.16], [x, y + 0.1, z], { chamfer: 0.03, fillet: 0.01, bevel: 0.01 }))
       parent.add(cylinder(m.ink, 0.035, 0.06, [x, y + 0.15, z], AXIS_Y, 8))
     }
   }
@@ -188,11 +206,13 @@ function sideWall(
 
   const ribHeight = k.panelHeight - 0.14
   const field = o.length - k.casting * 2 - 0.16
+  /** Rib centres. Everything painted on this wall registers with one of these. */
+  const ribX = (index: number): number => ((index + 0.5) / k.ribCount - 0.5) * field
   // The ownership block is painted onto the ribs, never floated across them.
   const solid = new Set([k.ribCount - 5, k.ribCount - 4])
   const dash = new Set([k.ribCount - 3, k.ribCount - 2])
   for (let index = 0; index < k.ribCount; index += 1) {
-    const x = ((index + 0.5) / k.ribCount - 0.5) * field
+    const x = ribX(index)
     const marked = side > 0 ? index : k.ribCount - 1 - index
     const painted = o.ownership !== false && (solid.has(marked) || dash.has(marked))
     const height = painted && dash.has(marked) ? ribHeight * 0.72 : ribHeight
@@ -215,11 +235,26 @@ function sideWall(
     seam(parent, m.shell, field, [0, y, ribZ], face, 'across', 0.034, 0.022)
   }
 
-  paintMark(parent, m.amberPaint, slashProfile(0.1, 0.44, 0.5), [side * -o.length * 0.4, o.height - 1.42, ribZ], face, 0.012)
+  // The chevron is painted on the outermost rib and sits three eighths of the
+  // way up the rib field, so it lands on corrugation whatever the length. Put
+  // at `±length*0.4` and a fixed drop from the roof it hung 131 mm off the end
+  // of `container-small`'s panel and dangled 190 mm below it, and 133 mm off
+  // the short one's: neither number knows that the panel stops a casting short
+  // of the box at each end and a skirt short of the ground.
+  const chevronX = side * ribX(0)
+  paintMark(parent, m.amberPaint, slashProfile(0.1, 0.44, 0.5), [chevronX, k.panelCentre - ribHeight * 0.125, ribZ], face, 0.012)
+  // The manifest plaque follows the chevron inboard by half of each of their
+  // widths and 40 mm of air, so the pair reads as one group at six metres and
+  // still fits at two. At `±length*0.3` its plate overhung the small unit's
+  // panel by 67 mm and stopped 9 mm inside the short one's.
   const label = addLabelDecal(bundle, { variant: (o.variant ?? 0) + (side > 0 ? 3 : 7) })
-  plaque(parent, m, label, [0.6, 0.3], [-o.length * 0.3 * side, o.height - 0.66, ribZ], face, m.shellLight)
-  statusLens(parent, m, [0.07, 0.24], [side * o.length * 0.4, o.height - 0.62, ribZ], m.amber, face)
-  statusLens(parent, m, [0.07, 0.16], [side * o.length * 0.4, o.height - 1.02, ribZ], m.cyan, face)
+  plaque(parent, m, label, [0.6, 0.3], [chevronX + side * 0.52, o.height - 0.66, ribZ], face, m.shellLight)
+  // The marker lamps stay at the far end but never past it: their bezel is
+  // 0.112 wide, and at `±length*0.4` it stood 27 mm off the end of the small
+  // unit's panel and 29 mm off the short one's, over open air at rib depth.
+  const lampX = side * Math.min(o.length * 0.4, (o.length - k.casting * 2 + 0.05) * 0.5 - 0.106)
+  statusLens(parent, m, [0.07, 0.24], [lampX, o.height - 0.62, ribZ], m.amber, face)
+  statusLens(parent, m, [0.07, 0.16], [lampX, o.height - 1.02, ribZ], m.cyan, face)
 }
 
 function endWall(
@@ -278,12 +313,21 @@ export function containerDoorFrame(
 ): void {
   const casting = options.casting ?? DEFAULT_CASTING
   const x = options.length * 0.5 - 0.14
+  // The rebate is derived from the leaves it stops. They are
+  // `(width - casting*2 - 0.1)*0.5` wide and hinge at about
+  // `width*0.5 - casting`, so an inner face at `width*0.5 - casting - 0.08`
+  // takes a 60 mm lap off each leaf and still leaves the head and sill bars,
+  // which reach `width*0.5 - casting - 0.05`, lapping the jamb by 30 mm. Cut to
+  // a flat 0.34 the rebate scaled with nothing: it left `container-small` a 0.72
+  // clear opening for a 1.08-wide pair and hid 430 mm of door behind the frame.
+  const jambDepth = casting - 0.03
+  const jambZ = options.width * 0.5 - casting * 0.5 - 0.095
   for (const sz of [-1, 1]) {
-    box(parent, m.ink, [0.2, options.height - casting - 0.1, 0.34], [x, options.height * 0.5 - 0.05, sz * (options.width * 0.5 - 0.28)], { chamfer: 0.05 })
+    box(parent, m.ink, [0.2, options.height - casting - 0.1, jambDepth], [x, options.height * 0.5 - 0.05, sz * jambZ], { chamfer: 0.05 })
     const lamps = Math.max(2, Math.round((options.height - 1.0) / 0.65))
     for (let index = 0; index < lamps; index += 1) {
       const y = 0.75 + (index / Math.max(1, lamps - 1)) * (options.height - 1.5)
-      statusLens(parent, m, [0.05, 0.2], [x + 0.1, y, sz * (options.width * 0.5 - 0.28)], sz > 0 ? m.amber : m.cyan, 'right')
+      statusLens(parent, m, [0.05, 0.2], [x + 0.1, y, sz * jambZ], sz > 0 ? m.amber : m.cyan, 'right')
     }
   }
   box(parent, m.ink, [0.2, 0.28, options.width - casting * 2 - 0.1], [x, options.height - 0.36, 0], { chamfer: 0.05 })
@@ -294,6 +338,12 @@ export interface DoorLeafOptions extends ContainerDimensions {
   /** +1 for the leaf hinged on -Z, -1 for the leaf hinged on +Z. */
   readonly side: -1 | 1
   readonly variant?: number
+  /**
+   * This leaf's hinge offset from the door centreline, which makes it the leaf
+   * that shuts second and carries the closing strip. The leaf that shuts first
+   * leaves it out.
+   */
+  readonly closingStrip?: number
 }
 
 /**
@@ -346,4 +396,18 @@ export function containerDoorLeaf(
   const stripe = addStripeDecal(bundle, { count: 4, lean: -side })
   plaque(leaf, m, stripe, [0.5, 0.13], [0.075, 0.62, centre], 'right', m.ink)
   boltRun(leaf, m.steel, [0.05, 0.36, centre - width * 0.36], [0.05, 0.36, centre + width * 0.36], 5, 0.02, 'right')
+
+  // Each leaf is half the clear opening, so a shut pair meets on a mathematical
+  // point and the 0.1 taken out for clearance is a 60 mm slit - 70 mm on the
+  // small unit - that you see the cross members through. The strip sits behind
+  // the joint and laps both skins by 40 mm. Hinging the pair further in would
+  // bring them edge to edge instead, but the lock bars are set out from each
+  // leaf's own centre and would then cross the shut line and duplicate each
+  // other, so the lap is the only fix that survives both.
+  if (options.closingStrip !== undefined) {
+    const hinge = options.closingStrip
+    box(leaf, m.shell, [0.06, options.height - 0.62, (hinge - width) * 2 + 0.08], [-0.06, height * 0.5 + 0.24, side * hinge], {
+      chamfer: 0.02, fillet: 0.008, bevel: 0.007,
+    })
+  }
 }
