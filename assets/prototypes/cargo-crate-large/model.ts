@@ -1,8 +1,7 @@
 import { Group, Object3D } from 'three/webgpu'
 
-import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
+import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
-  AXIS_X,
   AXIS_Z,
   acquireCargoMaterials,
   addLabelDecal,
@@ -14,6 +13,7 @@ import {
   finishModel,
   forkPocket,
   groundPad,
+  lidHinge,
   louvreVent,
   paintMark,
   plaque,
@@ -230,16 +230,14 @@ function lidBody(lid: Group, m: CargoMaterials): void {
   for (const x of [-0.31, 0.31]) {
     lid.add(cylinder(m.steel, 0.032, 0.09, [x, barY + 0.02, DEPTH * 0.5 - 0.05], AXIS_Z, 10))
   }
-  // Hinge knuckles straddling the leaf's own back face. Drawn at a local z of
-  // 0.03 the whole barrel sat inside the lid it swings on, which is why the back
-  // of this crate photographed as a smooth panel with no hinge anywhere on it.
+  // A barrel straddling the leaf's own back face, on the line the lid turns
+  // about. Drawn at a local z of 0.03 the whole hinge sat inside the lid it
+  // swings on, which is why the back of this crate photographed as a smooth
+  // panel with no hinge anywhere on it.
   const leafBack = DEPTH * 0.5 - 0.05 - (DEPTH - 0.04) * 0.5
-  for (const x of [-0.66, 0, 0.66]) {
-    lid.add(prism(m.graphiteEdge, [0.19, 0.13, 0.07], [x, crown * 0.5, leafBack - 0.014], {
-      chamfer: 0.025, fillet: 0.012, bevel: 0.01,
-    }))
-    lid.add(cylinder(m.steel, 0.026, 0.24, [x, crown * 0.5, leafBack - 0.014], AXIS_X, 10))
-  }
+  // Four knuckles rather than three, so the straps fall between the three back
+  // panel lines at x 0 and 0.62 instead of covering them over.
+  lidHinge(lid, m, WIDTH - 0.4, [0, 0, leafBack - 0.014], 'x', 4, 0.03, 0.14, 0.014)
 }
 
 function build(): { root: Group; parts: CrateParts; sockets: CrateSockets; bundle: CargoMaterialBundle } {
