@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
+  AXIS_Z,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -65,6 +66,7 @@ function chassisBody(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBun
   box(chassis, m.shell, [LENGTH, 0.05, WIDTH], [0, DECK, 0], {
     chamfer: 0.07, fillet: 0.024, bevel: 0.014, capChamfer: 0.03,
   })
+  const lipFace = WIDTH * 0.5 - 0.02 + 0.0175
   for (const sz of [-1, 1]) {
     box(chassis, m.shellShade, [LENGTH, 0.045, 0.035], [0, DECK + 0.04, sz * (WIDTH * 0.5 - 0.02)], {
       chamfer: 0.014, fillet: 0.006, bevel: 0.005,
@@ -106,26 +108,36 @@ function chassisBody(chassis: Group, m: CargoMaterials, bundle: CargoMaterialBun
   for (const sz of [-1, 1]) {
     castor(chassis, m, [-LENGTH * 0.5 + 0.14, WHEEL, sz * (WIDTH * 0.5 - 0.1)], WHEEL, sz * 0.35)
     const x = LENGTH * 0.5 - 0.14
-    box(chassis, m.graphite, [0.09, 0.14, 0.11], [x, WHEEL + 0.06, sz * (WIDTH * 0.5 - 0.1)], {
+    // The bracket runs from the axle up into the rail, whose underside is at
+    // 0.23: at the height it was drawn it stopped 10 mm below that and carried
+    // the wheel on nothing.
+    box(chassis, m.graphite, [0.09, 0.17, 0.11], [x, WHEEL + 0.075, sz * (WIDTH * 0.5 - 0.1)], {
       chamfer: 0.026, fillet: 0.009, bevel: 0.008,
     })
-    chassis.add(cylinder(m.rubber, WHEEL, 0.055, [x, WHEEL, sz * (WIDTH * 0.5 - 0.1)], AXIS_X, 14))
-    chassis.add(cylinder(m.steel, WHEEL * 0.44, 0.062, [x, WHEEL, sz * (WIDTH * 0.5 - 0.1)], AXIS_X, 10))
+    // Fixed wheels roll along the cart's length, so their axle runs across it.
+    chassis.add(cylinder(m.rubber, WHEEL, 0.055, [x, WHEEL, sz * (WIDTH * 0.5 - 0.1)], AXIS_Z, 14))
+    chassis.add(cylinder(m.steel, WHEEL * 0.44, 0.062, [x, WHEEL, sz * (WIDTH * 0.5 - 0.1)], AXIS_Z, 10))
   }
 
-  // Tow eye at the fixed end, so the cart can be trained behind a tug.
-  box(chassis, m.graphiteEdge, [0.11, 0.09, 0.07], [LENGTH * 0.5 - 0.02, DECK - 0.08, 0], {
+  // Tow eye at the fixed end, so the cart can be trained behind a tug. It hangs
+  // off the deck pan, so it laps 20 mm into it rather than stopping short.
+  box(chassis, m.graphiteEdge, [0.11, 0.09, 0.07], [LENGTH * 0.5 - 0.02, DECK - 0.05, 0], {
     chamfer: 0.024, fillet: 0.009, bevel: 0.007,
   })
-  chassis.add(cylinder(m.steel, 0.03, 0.05, [LENGTH * 0.5 + 0.04, DECK - 0.08, 0], AXIS_X, 10))
+  chassis.add(cylinder(m.steel, 0.03, 0.05, [LENGTH * 0.5 + 0.04, DECK - 0.05, 0], AXIS_X, 10))
 
+  // The non-slip field's top face is 0.358, the same face the deck seams are cut
+  // into, so everything laid on the deck is placed from there.
   const label = addLabelDecal(bundle, { variant: 200 })
-  plaque(chassis, m, label, [0.22, 0.08], [LENGTH * 0.34, DECK + 0.033, 0.2], 'top', m.shellLight)
-  statusLens(chassis, m, [0.05, 0.02], [LENGTH * 0.34, DECK + 0.033, -0.2], m.cyan, 'top')
+  plaque(chassis, m, label, [0.22, 0.08], [LENGTH * 0.34, DECK + 0.038, 0.2], 'top', m.shellLight)
+  statusLens(chassis, m, [0.05, 0.02], [LENGTH * 0.34, DECK + 0.038, -0.2], m.cyan, 'top')
+  // The hazard band spans the deck edge and the lip above it. Seated on the lip
+  // face it bites 3 mm into the lip and 5.5 mm into the pan, which stands
+  // proud of it; seated where it was, it stood 5.5 mm clear of both.
   const stripe = addStripeDecal(bundle, { count: 6, lean: 1 })
-  plaque(chassis, m, stripe, [0.5, 0.05], [0, DECK + 0.04, WIDTH * 0.5 + 0.006], 'front', m.ink)
-  paintMark(chassis, m.amberPaint, slashProfile(0.05, 0.09, 0.45), [-LENGTH * 0.34, DECK + 0.033, 0.16], 'top', 0.009)
-  for (const sx of [-1, 1]) bolt(chassis, m.steel, [sx * LENGTH * 0.42, DECK + 0.033, 0], 0.014, 'top')
+  plaque(chassis, m, stripe, [0.5, 0.04], [0, DECK + 0.02, lipFace], 'front', m.ink)
+  paintMark(chassis, m.amberPaint, slashProfile(0.05, 0.09, 0.45), [-LENGTH * 0.34, DECK + 0.038, 0.16], 'top', 0.009)
+  for (const sx of [-1, 1]) bolt(chassis, m.steel, [sx * LENGTH * 0.42, DECK + 0.038, 0], 0.014, 'top')
 }
 
 /** Folding push handle: two stiles, a grip bar, and a pivot clamp per side. */
@@ -133,11 +145,15 @@ function handleBody(handle: Group, m: CargoMaterials): void {
   for (const sz of [-1, 1]) {
     const z = sz * (WIDTH * 0.5 - 0.1)
     tubeSection(handle, m.shell, [0.045, 0.045], 0.008, 0.72, [0, 0.36, z], [Math.PI / 2, 0, 0])
-    handle.add(cylinder(m.graphiteEdge, 0.045, 0.06, [0, 0.02, z], AXIS_X, 10))
-    handle.add(cylinder(m.amberPaint, 0.026, 0.075, [0, 0.02, z], AXIS_X, 8))
+    // The handle folds about Z, so the clamp barrel and its pin lie on Z too.
+    handle.add(cylinder(m.graphiteEdge, 0.045, 0.06, [0, 0.02, z], AXIS_Z, 10))
+    handle.add(cylinder(m.amberPaint, 0.026, 0.075, [0, 0.02, z], AXIS_Z, 8))
   }
-  handle.add(cylinder(m.rubber, 0.025, WIDTH - 0.14, [0, 0.71, 0], AXIS_X, 12))
-  box(handle, m.shellShade, [0.03, 0.05, WIDTH - 0.26], [0, 0.42, 0], {
+  // Grip and brace both span the two stiles at z +/- 0.28, which is the axis
+  // they are separated along; on X they ran fore and aft between them, touching
+  // neither.
+  handle.add(cylinder(m.rubber, 0.025, WIDTH - 0.14, [0, 0.71, 0], AXIS_Z, 12))
+  box(handle, m.shellShade, [0.03, 0.05, WIDTH - 0.2], [0, 0.42, 0], {
     chamfer: 0.012, fillet: 0.005, bevel: 0.005,
   })
 }
@@ -167,7 +183,7 @@ function build(): {
   const sockets: CartSockets = {
     deck_centre: socket('deck_centre', [0, DECK + 0.04, 0]),
     handle_grip: socket('handle_grip', [-LENGTH * 0.5 + 0.1, DECK + 0.74, 0]),
-    tow_eye: socket('tow_eye', [LENGTH * 0.5 + 0.06, DECK - 0.08, 0]),
+    tow_eye: socket('tow_eye', [LENGTH * 0.5 + 0.06, DECK - 0.05, 0]),
   }
   return { root, chassis, handle, sockets, bundle }
 }
