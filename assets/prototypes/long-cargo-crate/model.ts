@@ -6,10 +6,11 @@ import {
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
+  bolt,
   box,
-  boltRun,
   createCargoPreview,
   finishModel,
+  groundPad,
   paintMark,
   plaque,
   recessedHandle,
@@ -39,6 +40,10 @@ const DEPTH = 0.56
 const HEIGHT = 0.6
 const FOOT = 0.1
 const LID = 0.15
+/** How far each mass reaches past the one it sits on, so none of them butt. */
+const LAP = 0.02
+const BODY_HEIGHT = HEIGHT - FOOT - LID + LAP
+const BODY_Y = FOOT - LAP + BODY_HEIGHT * 0.5
 
 type Side = -1 | 1
 
@@ -62,18 +67,18 @@ export interface LongCrateController {
 }
 
 function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
-  const bodyHeight = HEIGHT - FOOT - LID
-  const bodyY = FOOT + bodyHeight * 0.5
-
-  box(hull, m.shell, [LENGTH, bodyHeight, DEPTH], [0, bodyY, 0], {
+  box(hull, m.shell, [LENGTH, BODY_HEIGHT, DEPTH], [0, BODY_Y, 0], {
     chamfer: 0.075, fillet: 0.024, bevel: 0.018, capChamfer: 0.05,
   })
 
   // A continuous base rail rather than two isolated pads. On a crate this long
   // and shallow, two small feet leave the silhouette as one unbroken light bar;
-  // the rail gives it the dark lower third every reference in the family has,
-  // and still leaves the strap route clear between the saddles.
-  box(hull, m.graphite, [LENGTH - 0.06, FOOT * 0.55, DEPTH - 0.04], [0, FOOT * 0.28, 0], {
+  // the rail gives it the dark lower third every reference in the family has.
+  //
+  // It laps the shell by 20 mm and clears the deck by 4 mm: at the 55 mm it was
+  // drawn at, a 45 mm slot ran the whole length between the rail's top and the
+  // body's underside, with only the two saddles bridging it.
+  box(hull, m.graphite, [LENGTH - 0.06, FOOT - 0.004, DEPTH - 0.04], [0, (FOOT + 0.004) * 0.5, 0], {
     chamfer: 0.03, fillet: 0.011, bevel: 0.01, capChamfer: 0.02,
   })
   // Saddle feet. Two, not four, because a long shallow box wants a strap route
@@ -82,61 +87,81 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
     box(hull, m.graphite, [0.42, FOOT, DEPTH + 0.03], [x, FOOT * 0.5, 0], {
       chamfer: 0.04, fillet: 0.014, bevel: 0.012, capChamfer: 0.03,
     })
-    box(hull, m.rubber, [0.4, 0.024, DEPTH - 0.06], [x, 0.012, 0], {
-      chamfer: 0.02, fillet: 0.008, bevel: 0.006,
-    })
+    groundPad(hull, m.rubber, [0.4, DEPTH - 0.06], [x, 0, 0], 0.024)
     const stripe = addStripeDecal(bundle, { count: 3, lean: 1 })
-    plaque(hull, m, stripe, [0.28, 0.05], [x, FOOT * 0.52, DEPTH * 0.5 + 0.018], 'front', m.ink)
+    plaque(hull, m, stripe, [0.28, 0.05], [x, FOOT * 0.52, (DEPTH + 0.03) * 0.5], 'front', m.ink)
   }
 
   // Ribs at the same 0.24 cadence as the container wall, so the two read as one
-  // manufacturer even though nothing else about them matches.
-  const frontZ = DEPTH * 0.5 + 0.004
-  for (let index = 0; index < 9; index += 1) {
+  // manufacturer even though nothing else about them matches. They are 40 mm
+  // about the shell, so a fitting on a rib seats 20 mm further out than one on
+  // the skin between them.
+  const frontZ = DEPTH * 0.5
+  const ribZ = frontZ + 0.02
+  // The cadence starts one station in from the -X end. The manifest plate is
+  // three times a valley wide, and laid across the ribs it either bridges the
+  // gaps or hides behind the ribs depending which of the two faces it is
+  // measured from, so the end bay is left clear as its field.
+  for (let index = 1; index < 9; index += 1) {
     const x = (index / 8 - 0.5) * (LENGTH - 0.52)
     for (const sz of [-1, 1] as Side[]) {
-      box(hull, m.shellShade, [0.13, bodyHeight - 0.09, 0.04], [x, bodyY, sz * frontZ], {
+      box(hull, m.shellShade, [0.13, BODY_HEIGHT - 0.09, 0.04], [x, BODY_Y, sz * frontZ], {
         chamfer: 0.028, fillet: 0.009, bevel: 0.01,
         rotation: [0, sz > 0 ? 0 : Math.PI, 0],
       })
     }
+    // One fastener per rib. A run stepped independently of the cadence lands
+    // half its bolts on a rib face and half 20 mm behind it in a valley.
+    bolt(hull, m.steel, [x, BODY_Y + 0.09, -ribZ], 0.015, 'back')
   }
   for (const sz of [-1, 1] as Side[]) {
-    seam(hull, m.shell, LENGTH - 0.34, [0, bodyY - bodyHeight * 0.5 + 0.035, sz * frontZ], sz > 0 ? 'front' : 'back', 'across', 0.03, 0.018)
+    seam(hull, m.shell, LENGTH - 0.34, [0, BODY_Y - BODY_HEIGHT * 0.5 + 0.07, sz * frontZ], sz > 0 ? 'front' : 'back', 'across', 0.03, 0.018)
   }
 
   const label = addLabelDecal(bundle, { variant: 2 })
-  plaque(hull, m, label, [0.34, 0.12], [-0.98, bodyY, frontZ + 0.006], 'front', m.shellLight)
-  statusLens(hull, m, [0.1, 0.035], [1.02, bodyY, frontZ + 0.006], m.cyan, 'front')
-  paintMark(hull, m.amberPaint, slashProfile(0.1, 0.2, 0.5), [0.62, bodyY, -frontZ - 0.006], 'back', 0.011)
-  paintMark(hull, m.amberPaint, slashProfile(0.05, 0.2, 0.5), [0.75, bodyY, -frontZ - 0.006], 'back', 0.011)
-  boltRun(hull, m.steel, [-1.1, bodyY + 0.09, -frontZ - 0.006], [1.1, bodyY + 0.09, -frontZ - 0.006], 9, 0.015, 'back')
+  plaque(hull, m, label, [0.3, 0.12], [-1.0, BODY_Y, frontZ], 'front', m.shellLight)
+  statusLens(hull, m, [0.1, 0.035], [1.02, BODY_Y, ribZ], m.cyan, 'front')
+  // Both chevrons sit in a valley, on the skin. Sized to reach across the ribs
+  // they were half buried behind one and half floating 8.5 mm over the next, and
+  // the back tile showed one stroke of the pair.
+  paintMark(hull, m.amberPaint, slashProfile(0.06, 0.2, 0.2), [0.625, BODY_Y, -frontZ], 'back', 0.011)
+  paintMark(hull, m.amberPaint, slashProfile(0.03, 0.2, 0.2), [0.875, BODY_Y, -frontZ], 'back', 0.011)
 
   for (const side of [-1, 1] as Side[]) {
     const face = side > 0 ? 'right' : 'left'
-    recessedHandle(hull, m, [0.3, 0.1], [side * (LENGTH * 0.5 + 0.004), bodyY, 0], face)
+    recessedHandle(hull, m, [0.3, 0.1], [side * LENGTH * 0.5, BODY_Y, 0], face)
   }
 }
 
 function lidBody(lid: Group, m: CargoMaterials): void {
-  box(lid, m.shellLight, [LENGTH + 0.02, LID, DEPTH + 0.02], [0, LID * 0.5, DEPTH * 0.5 - 0.035], {
+  // The leaf is a lap deeper than the opening it covers, so it skirts the body's
+  // top face rather than capping it on a shared plane.
+  const crown = LID + LAP
+  const spineZ = DEPTH * 0.5 - 0.035
+  box(lid, m.shellLight, [LENGTH + 0.02, crown, DEPTH + 0.02], [0, crown * 0.5, spineZ], {
     chamfer: 0.07, fillet: 0.022, bevel: 0.016, capChamfer: 0.045,
   })
   // Full-length spine. A lid this long needs a visible reason not to bow.
-  box(lid, m.shellShade, [LENGTH - 0.24, 0.05, 0.17], [0, LID + 0.012, DEPTH * 0.5 - 0.035], {
+  box(lid, m.shellShade, [LENGTH - 0.24, 0.05, 0.17], [0, crown + 0.012, spineZ], {
     chamfer: 0.04, fillet: 0.014, bevel: 0.01,
   })
-  box(lid, m.ink, [LENGTH - 0.34, 0.03, 0.07], [0, LID + 0.03, DEPTH * 0.5 - 0.035], {
+  box(lid, m.ink, [LENGTH - 0.34, 0.03, 0.07], [0, crown + 0.03, spineZ], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.006,
   })
-  for (const x of [-0.62, 0.62]) {
-    seam(lid, m.shellLight, DEPTH - 0.1, [x, LID, DEPTH * 0.5 - 0.035], 'top', 'along', 0.026, 0.016)
+  // Panel lines that run beside the spine instead of under it. Cut across the
+  // crown at x 0.62 they passed straight through the 170 mm spine, which buried
+  // more than a third of each groove.
+  for (const sz of [-1, 1] as Side[]) {
+    seam(lid, m.shellLight, LENGTH - 0.34, [0, crown, spineZ + sz * 0.15], 'top', 'across', 0.026, 0.016)
   }
+  // Hinge lugs straddling the leaf's own back face; at a local z of 0.02 both
+  // they and the pin were inside the lid they swing on.
+  const leafBack = spineZ - (DEPTH + 0.02) * 0.5
   for (const x of [-0.86, 0, 0.86]) {
-    lid.add(prism(m.graphiteEdge, [0.14, 0.09, 0.08], [x, LID * 0.55, 0.02], {
-      chamfer: 0.026, fillet: 0.009, bevel: 0.007,
+    lid.add(prism(m.graphiteEdge, [0.14, 0.09, 0.05], [x, crown * 0.5, leafBack], {
+      chamfer: 0.018, fillet: 0.009, bevel: 0.007,
     }))
-    lid.add(cylinder(m.steel, 0.022, 0.18, [x, LID * 0.55, 0], AXIS_X, 8))
+    lid.add(cylinder(m.steel, 0.018, 0.18, [x, crown * 0.5, leafBack - 0.004], AXIS_X, 8))
   }
 }
 
@@ -153,15 +178,15 @@ function build(): { root: Group; hull: Group; lid: Group; sockets: LongCrateSock
   root.add(hull, lid)
 
   hullBody(hull, m, bundle)
-  lid.position.set(0, HEIGHT - LID, -(DEPTH * 0.5 - 0.035))
+  lid.position.set(0, HEIGHT - LID - LAP, -(DEPTH * 0.5 - 0.035))
   lidBody(lid, m)
 
   for (const x of [-0.94, -0.32, 0.32, 0.94]) {
-    toggleLatch(hull, m, [x, HEIGHT - LID - 0.012, DEPTH * 0.5 + 0.004], 0.8, 'front')
+    toggleLatch(hull, m, [x, HEIGHT - LID - LAP, DEPTH * 0.5], 0.8, 'front')
   }
 
   const sockets: LongCrateSockets = {
-    lid_hinge: socket('lid_hinge', [0, HEIGHT - LID, -(DEPTH * 0.5 - 0.035)]),
+    lid_hinge: socket('lid_hinge', [0, HEIGHT - LID - LAP, -(DEPTH * 0.5 - 0.035)]),
     strap_fore: socket('strap_fore', [0.36, FOOT * 0.5, 0]),
     strap_aft: socket('strap_aft', [-0.36, FOOT * 0.5, 0]),
     stack_top: socket('stack_top', [0, HEIGHT, 0]),
