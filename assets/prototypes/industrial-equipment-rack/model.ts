@@ -51,6 +51,16 @@ const ROOF = 0.035
 const ROOF_Y = HEIGHT - 0.018
 const ROOF_TOP = ROOF_Y + ROOF * 0.5
 /**
+ * The corner post: held a face clearance inside the roof's flanks and run up to
+ * the slab's own mid-plane, which is what it dies into. Built to the rack's
+ * width, depth and height instead, each post put both its flanks and its top cap
+ * on the roof's - three shared planes a post, twelve across the frame - and
+ * stopping level with the roof's top face only moved the fight onto the two
+ * chamfers that round off the same corner.
+ */
+const POST = 0.05
+const POST_TOP = ROOF_Y
+/**
  * Levelling foot depth, and the underside of the plinth that stands on it. The
  * pad drops a face clearance below the deck, so its top is at `FOOT` less that
  * again; the plinth beds one more clearance into it rather than meeting it on a
@@ -177,8 +187,10 @@ function build(): { root: Group; sockets: RackSockets; bundle: CargoMaterialBund
   // Frame: four corner posts and punched mounting rails front and back.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      tubeSection(root, m.shell, [0.05, 0.05], 0.008, HEIGHT - PLINTH, [
-        sx * (WIDTH * 0.5 - 0.025), PLINTH + (HEIGHT - PLINTH) * 0.5, sz * (DEPTH * 0.5 - 0.025),
+      tubeSection(root, m.shell, [POST, POST], 0.008, POST_TOP - PLINTH, [
+        sx * (WIDTH * 0.5 - FACE_CLEARANCE - POST * 0.5),
+        (POST_TOP + PLINTH) * 0.5,
+        sz * (DEPTH * 0.5 - FACE_CLEARANCE - POST * 0.5),
       ], [Math.PI / 2, 0, 0])
     }
     // Mounting rail with its U pitch punched through.
