@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder, extrudeProfile } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_Y,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addStripeDecal,
   bolt,
@@ -102,14 +103,19 @@ function locators(root: Group, m: CargoMaterials): void {
 function skidFrame(root: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
   for (const sz of [-1, 0, 1]) {
     const z = sz * (WIDTH * 0.5 - 0.075)
-    box(root, m.graphite, [LENGTH - 0.02, SKID, 0.15], [0, SKID * 0.5, z], {
+    // The pad under each skid is the part in contact, so the skid itself starts
+    // a face clearance above the deck; run to zero it laid its own sole on the
+    // pad's, a millimetre apart down the whole 1.12 m of every runner.
+    box(root, m.graphite, [LENGTH - 0.02, SKID - FACE_CLEARANCE, 0.15], [0, (SKID + FACE_CLEARANCE) * 0.5, z], {
       chamfer: 0.035, fillet: 0.013, bevel: 0.011, capChamfer: 0.025,
     })
     groundPad(root, m.rubber, [LENGTH - 0.12, 0.11], [0, 0, z], 0.018)
   }
-  // End beams close the frame, so the fork tunnels are real openings.
+  // End beams close the frame, so the fork tunnels are real openings. The
+  // pallet rides on its three runners, so a beam clears their soles in turn
+  // rather than crossing six of them on one plane.
   for (const sx of [-1, 1]) {
-    box(root, m.graphiteEdge, [0.1, SKID, WIDTH - 0.02], [sx * (LENGTH * 0.5 - 0.05), SKID * 0.5, 0], {
+    box(root, m.graphiteEdge, [0.1, SKID - FACE_CLEARANCE * 2, WIDTH - 0.02], [sx * (LENGTH * 0.5 - 0.05), (SKID + FACE_CLEARANCE * 2) * 0.5, 0], {
       chamfer: 0.03, fillet: 0.011, bevel: 0.01,
     })
     // Painted straight onto the beam end, which a seated plaque cannot be: the
