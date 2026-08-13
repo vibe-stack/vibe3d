@@ -231,8 +231,12 @@ export function createModel(): IndustrialSkipController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0, HEIGHT * 0.5, 0],
-    distance: 7.4,
+    // The skip is 3.4 m long against 1.05 m tall, so its diagonal is what fills
+    // the frame: at 7.4 m the tail ran off the right-hand edge. The target
+    // drops with the distance because the raked body reads from below its own
+    // mid-height.
+    target: [0, HEIGHT * 0.34, 0],
+    distance: 8.5,
     yaw: 0.78,
     pitch: 0.3,
     fov: 30,
