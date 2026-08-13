@@ -1,8 +1,6 @@
 import { Group, Object3D } from 'three/webgpu'
 
-import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
 import {
-  AXIS_X,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -10,6 +8,7 @@ import {
   boltRun,
   createCargoPreview,
   finishModel,
+  lidHinge,
   paintMark,
   plaque,
   recessedHandle,
@@ -141,16 +140,12 @@ function lidBody(lid: Group, m: CargoMaterials): void {
   for (const x of [-1, 1] as Side[]) {
     seam(lid, m.shellLight, DEPTH - 0.18, [x * ((WIDTH - 0.4) * 0.5 + 0.1), crown, DEPTH * 0.5 - 0.045], 'top', 'along', 0.026, 0.016)
   }
-  // Hinge lugs straddling the leaf's own back face. Drawn at a local z of 0.025
-  // the lugs and the pin were both inside the lid they swing on, and the crate's
-  // back photographed as a smooth panel with no hinge anywhere on it.
+  // A barrel straddling the leaf's own back face, on the line the lid turns
+  // about. Drawn at a local z of 0.025 the lugs and the pin were both inside the
+  // lid they swing on, and the crate's back photographed as a smooth panel with
+  // no hinge anywhere on it.
   const leafBack = DEPTH * 0.5 - 0.045 - (DEPTH + 0.02) * 0.5
-  for (const x of [-0.36, 0.36]) {
-    lid.add(prism(m.graphiteEdge, [0.15, 0.11, 0.05], [x, crown * 0.5, leafBack], {
-      chamfer: 0.02, fillet: 0.01, bevel: 0.008,
-    }))
-    lid.add(cylinder(m.steel, 0.02, 0.2, [x, crown * 0.5, leafBack - 0.005], AXIS_X, 10))
-  }
+  lidHinge(lid, m, WIDTH - 0.24, [0, 0, leafBack - 0.005], 'x', 2, 0.022, 0.1, 0.005)
 }
 
 function build(): { root: Group; hull: Group; lid: Group; sockets: CrateSockets; bundle: CargoMaterialBundle } {
