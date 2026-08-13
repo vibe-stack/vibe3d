@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_Y,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -127,7 +128,10 @@ function build(): { root: Group; sockets: SquareCrateSockets; bundle: CargoMater
   const root = new Group()
   root.name = 'AXR_CARGO_SQUARE-CARGO-CRATE_ROOT_DEFAULT'
 
-  box(root, m.graphite, [SIZE - 0.04, SKIRT, SIZE - 0.04], [0, SKIRT * 0.5, 0], {
+  // The painted feet below are the crate's contact patch, so the skirt starts a
+  // face clearance up: run to zero its sole sat a millimetre off all four of
+  // theirs, which is the one plane the `below` tile is aimed at.
+  box(root, m.graphite, [SIZE - 0.04, SKIRT - FACE_CLEARANCE, SIZE - 0.04], [0, (SKIRT + FACE_CLEARANCE) * 0.5, 0], {
     chamfer: 0.05, fillet: 0.016, bevel: 0.014, capChamfer: 0.035,
   })
   box(root, m.shell, [SIZE, BODY_HEIGHT, SIZE], [0, BODY_Y, 0], {
