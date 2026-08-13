@@ -451,7 +451,15 @@ export function louvreVent(
     holes: [slot(width * 0.5 - 0.004, height * 0.5 - 0.004, Math.min(width, height) * 0.16)],
     rotation,
   }))
-  vent.add(prism(m.ink, [width, height, 0.05], lift(position, face, 0.004), {
+  // The well's mouth is measured back from the slats rather than seated on a
+  // figure of its own. Each was sized from its own thickness and the two landed
+  // 3.000 mm apart - the pack's floor exactly rather than clear of it - which
+  // is why every louvre in the wave reported the same coincidence at the same
+  // number. Only the well moves; the slats and the rim stay where they were.
+  const bar = 0.032
+  const seat = 0.016
+  const deep = 0.05
+  vent.add(prism(m.ink, [width, height, deep], lift(position, face, seat + bar * 0.5 - FACE_CLEARANCE - deep * 0.5), {
     chamfer: 0.022,
     fillet: 0.009,
     bevel: 0.007,
@@ -463,11 +471,11 @@ export function louvreVent(
   for (let index = 0; index < slats; index += 1) {
     const offset = (index - (slats - 1) * 0.5) * pitch
     const centre: Vec3 = [
-      position[0] + across[0] * offset + normal[0] * 0.016,
-      position[1] + across[1] * offset + normal[1] * 0.016,
-      position[2] + across[2] * offset + normal[2] * 0.016,
+      position[0] + across[0] * offset + normal[0] * seat,
+      position[1] + across[1] * offset + normal[1] * seat,
+      position[2] + across[2] * offset + normal[2] * seat,
     ]
-    vent.add(prism(m.graphiteEdge, [width - 0.03, pitch * 0.5, 0.032], centre, {
+    vent.add(prism(m.graphiteEdge, [width - 0.03, pitch * 0.5, bar], centre, {
       chamfer: pitch * 0.14,
       fillet: 0.005,
       bevel: 0.005,
@@ -624,6 +632,22 @@ export function lidHinge(
  * that overhung its faceplate and collided with the lamp beside it. The two
  * depths follow the margin for the same reason: a lamp an eighth of the size
  * should not be seated eight times as deep.
+ *
+ * What does not follow the margin is the step between the lens and the rim it
+ * is set in, or how far the lens beds into that rim. Both were shares of the
+ * seat, so the step fell under the pack's floor on any lamp narrower than 22 mm
+ * in its short axis - 2.16 mm on the equipment rack's eight - and the bed did
+ * on anything under 30 mm. A clearance is a physical distance and holds the
+ * kit's datum whatever the lamp measures. It is the lens that thickens to carry
+ * both, because the rim is the part registered on the host: set back to open
+ * the step instead, it closed to 2.48 mm of the rack's own faceplate and simply
+ * moved the coincidence one layer down.
+ *
+ * `orient` seats the pair along its own normal rather than along the face's.
+ * Handed a tank flank's rotation and still lifted along +Z, the two are stepped
+ * apart by the cosine of the angle between them and slide sideways out of each
+ * other: 3.6 mm of designed step read as 2.18 mm on the sealed barrel, and the
+ * bezel's own side wall closed to 2.4 mm of the lens it surrounds.
  */
 export function statusLens(
   parent: Group,
@@ -639,13 +663,18 @@ export function statusLens(
   const rotation = orient ?? faceSpin(face, spin)
   const margin = Math.min(0.05, Math.min(width, height) * 0.6)
   const seat = margin / 0.05
-  parent.add(prism(m.ink, [width + margin, height + margin, 0.04 * seat], lift(position, face, 0.01 * seat), {
+  const proud = Math.max(0.015 * seat, FACE_CLEARANCE)
+  const bed = Math.max(0.011 * seat, FACE_CLEARANCE)
+  const rim = 0.03 * seat
+  const place = (distance: number): Vec3 =>
+    orient ? liftAlong(position, orient, distance) : lift(position, face, distance)
+  parent.add(prism(m.ink, [width + margin, height + margin, 0.04 * seat], place(rim - 0.02 * seat), {
     chamfer: Math.min(width, height) * 0.3,
     fillet: 0.008 * seat,
     bevel: 0.007 * seat,
     rotation,
   }))
-  parent.add(prism(lamp, [width, height, 0.026 * seat], lift(position, face, 0.032 * seat), {
+  parent.add(prism(lamp, [width, height, proud + bed], place(rim + (proud - bed) * 0.5), {
     chamfer: Math.min(width, height) * 0.26,
     fillet: 0.005 * seat,
     bevel: 0.004 * seat,

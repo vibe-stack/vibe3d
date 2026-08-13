@@ -9,6 +9,7 @@ import {
   AXIS_Z,
   FACE_CLEARANCE,
   box,
+  bolt,
   boltRun,
   cornerCasting,
   facetRadius,
@@ -76,6 +77,8 @@ export interface ContainerMetrics {
 const DEFAULT_CASTING = 0.3
 const DEFAULT_SKIRT = 0.42
 const DEFAULT_RIB_PITCH = 0.405
+/** The corner post's section, as a share of the casting it runs between. */
+const POST_SECTION = 0.63
 
 /** The rib is 0.052 deep, seated 0.055 out from the panel's centre plane. */
 const RIB_FACE = 0.081
@@ -105,7 +108,7 @@ export function containerMetrics(options: ContainerShellOptions): ContainerMetri
 function frame(parent: Group, m: CargoMaterials, o: ContainerShellOptions, k: ContainerMetrics): void {
   const cornerX = o.length * 0.5 - k.casting * 0.5
   const cornerZ = o.width * 0.5 - k.casting * 0.5
-  const post = k.casting * 0.63
+  const post = k.casting * POST_SECTION
   // The rails stop on the castings' inner faces, and a casting is held a face
   // clearance inside the cube it is asked for, so the run between two of them is
   // that much longer than the cubes suggest. Left at `length - casting * 2` each
@@ -153,10 +156,23 @@ function skirtBand(parent: Group, m: CargoMaterials, bundle: CargoMaterialBundle
     }
     // The bolt line runs the band it is driven into rather than 0.42 of the
     // overall length, which put the two end bolts 11 mm off the end of
-    // `container-small`'s band and 28 mm off the short one's.
-    boltRun(parent, m.graphiteEdge, [-(bandHalf - 0.12), 0.1, z + side * 0.078], [bandHalf - 0.12, 0.1, z + side * 0.078], Math.max(4, Math.round(o.length * 1.5)), 0.024, face)
+    // `container-small`'s band and 28 mm off the short one's. It also parts
+    // round the hazard stripe: the stripe's plate is 0.18 tall about
+    // `skirt*0.55`, so on a 0.42 skirt the line passes 17 mm under it and on a
+    // 0.3 one it runs straight through, each head driving 4 mm out through the
+    // plate to a millimetre behind the decal. Nothing is bolted through a
+    // graphic, so where the two share a height the run leaves the stripe alone.
+    const stripeWidth = Math.min(0.78, bandRun - 0.16)
+    const head = 0.024 + FACE_CLEARANCE
+    const clear = Math.abs(0.1 - k.skirt * 0.55) > 0.09 + head ? 0 : stripeWidth * 0.5 + 0.02 + head
+    const bolts = Math.max(4, Math.round(o.length * 1.5))
+    for (let index = 0; index < bolts; index += 1) {
+      const x = (index / (bolts - 1) - 0.5) * (bandHalf - 0.12) * 2
+      if (Math.abs(x) < clear) continue
+      bolt(parent, m.graphiteEdge, [x, 0.1, z + side * 0.078], 0.024, face)
+    }
     const stripe = addStripeDecal(bundle, { count: 6, lean: side })
-    plaque(parent, m, stripe, [Math.min(0.78, bandRun - 0.16), 0.14], [0, k.skirt * 0.55, z + side * 0.078], face, m.ink)
+    plaque(parent, m, stripe, [stripeWidth, 0.14], [0, k.skirt * 0.55, z + side * 0.078], face, m.ink)
   }
   const crossMembers = Math.max(3, Math.round(o.length * 1.5))
   for (let index = 0; index < crossMembers; index += 1) {
@@ -343,7 +359,15 @@ export function containerDoorFrame(
   options: ContainerDimensions,
 ): void {
   const casting = options.casting ?? DEFAULT_CASTING
-  const x = options.length * 0.5 - 0.14
+  // The frame's own face is derived from the corner post it butts onto, and
+  // stands at least a face clearance past it. `frame()` takes the post out to
+  // `length*0.5 - casting*(0.5 - POST_SECTION*0.5)`, which is 15.5 mm inside a
+  // flat `length*0.5 - 0.04` on the 0.3 casting the wave mostly builds at and
+  // 0.7 mm outside it on the 0.22 one - a shared plane 484 cm² tall at each
+  // side of the door, on the single variant that trims its castings.
+  const depth = 0.2
+  const postFace = options.length * 0.5 - casting * (0.5 - POST_SECTION * 0.5)
+  const x = Math.max(options.length * 0.5 - 0.04, postFace + FACE_CLEARANCE) - depth * 0.5
   // The rebate is derived from the leaves it stops. They are
   // `(width - casting*2 - 0.1)*0.5` wide and hinge at about
   // `width*0.5 - casting`, so an inner face at `width*0.5 - casting - 0.08`
@@ -354,15 +378,15 @@ export function containerDoorFrame(
   const jambDepth = casting - 0.03
   const jambZ = options.width * 0.5 - casting * 0.5 - 0.095
   for (const sz of [-1, 1]) {
-    box(parent, m.ink, [0.2, options.height - casting - 0.1, jambDepth], [x, options.height * 0.5 - 0.05, sz * jambZ], { chamfer: 0.05 })
+    box(parent, m.ink, [depth, options.height - casting - 0.1, jambDepth], [x, options.height * 0.5 - 0.05, sz * jambZ], { chamfer: 0.05 })
     const lamps = Math.max(2, Math.round((options.height - 1.0) / 0.65))
     for (let index = 0; index < lamps; index += 1) {
       const y = 0.75 + (index / Math.max(1, lamps - 1)) * (options.height - 1.5)
       statusLens(parent, m, [0.05, 0.2], [x + 0.1, y, sz * jambZ], sz > 0 ? m.amber : m.cyan, 'right')
     }
   }
-  box(parent, m.ink, [0.2, 0.28, options.width - casting * 2 - 0.1], [x, options.height - 0.36, 0], { chamfer: 0.05 })
-  box(parent, m.ink, [0.2, 0.3, options.width - casting * 2 - 0.1], [x, 0.36, 0], { chamfer: 0.05 })
+  box(parent, m.ink, [depth, 0.28, options.width - casting * 2 - 0.1], [x, options.height - 0.36, 0], { chamfer: 0.05 })
+  box(parent, m.ink, [depth, 0.3, options.width - casting * 2 - 0.1], [x, 0.36, 0], { chamfer: 0.05 })
 }
 
 export interface DoorLeafOptions extends ContainerDimensions {
@@ -409,10 +433,15 @@ export function containerDoorLeaf(
       leaf.add(cylinder(m.ink, 0.038, 0.09, [0.14, y, z], AXIS_X, 8))
     }
     leaf.add(prism(m.graphite, [0.12, 0.3, 0.11], [0.1, options.height * 0.5, z], { chamfer: 0.035, fillet: 0.012, bevel: 0.01 }))
-    // Short enough, and set in far enough, that the two inner bars stop short of
-    // the centreline instead of reaching 190 mm past it into the other leaf's
-    // bar - two identical boxes in the same place, in the same paint.
-    leaf.add(prism(m.amberPaint, [0.1, 0.09, 0.26], [0.16, options.height * 0.5, z + side * 0.09], { chamfer: 0.028, fillet: 0.01, bevel: 0.008 }))
+    // The lever swings toward the shut line, and how far it may swing is the
+    // leaf's own edge. Set a flat 90 mm out from its rod it reached
+    // `width*0.5 + 0.46` from the hinge, which is 25 mm past a standard leaf
+    // and 190 mm past a small one - far enough that the two leaves' levers
+    // crossed the shut line and duplicated 210 mm of the same amber box, in the
+    // same paint, in the same place.
+    const lever = 0.26
+    const leverZ = Math.min(width * 0.5 + offset + 0.09, width - FACE_CLEARANCE - lever * 0.5)
+    leaf.add(prism(m.amberPaint, [0.1, 0.09, lever], [0.16, options.height * 0.5, side * leverZ], { chamfer: 0.028, fillet: 0.01, bevel: 0.008 }))
     leaf.add(cylinder(m.steel, 0.02, 0.13, [0.19, options.height * 0.5, z], AXIS_X, 8))
   }
   // The rod rides a face clearance proud of the keeper that retains it, which is
@@ -440,9 +469,8 @@ export function containerDoorLeaf(
   // point and the 0.1 taken out for clearance is a 60 mm slit - 70 mm on the
   // small unit - that you see the cross members through. The strip sits behind
   // the joint and laps both skins by 40 mm. Hinging the pair further in would
-  // bring them edge to edge instead, but the lock bars are set out from each
-  // leaf's own centre and would then cross the shut line and duplicate each
-  // other, so the lap is the only fix that survives both.
+  // bring them edge to edge instead, but a butt on the shut line opens again
+  // the moment either leaf swings, so the lap is what survives an open door.
   if (options.closingStrip !== undefined) {
     const hinge = options.closingStrip
     box(leaf, m.shell, [0.06, options.height - 0.62, (hinge - width) * 2 + 0.08], [-0.06, height * 0.5 + 0.24, side * hinge], {
