@@ -10,8 +10,10 @@ import {
   bolt,
   box,
   boltRun,
+  cavityLiner,
   createCargoPreview,
   finishModel,
+  groundPad,
   louvreVent,
   paintMark,
   plaque,
@@ -64,14 +66,18 @@ export interface ToolCabinetController {
 const SHELVES = [0.5, 0.9, 1.3, 1.66]
 
 function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
-  box(body, m.graphite, [WIDTH - 0.04, PLINTH, DEPTH - 0.04], [0, PLINTH * 0.5, 0], {
-    chamfer: 0.04, fillet: 0.014, bevel: 0.011, capChamfer: 0.025,
+  // The plinth stands on the levelling feet, so it starts above them. Taken all
+  // the way down it swallowed all four and the cabinet sat on the plinth.
+  const foot = 0.025
+  box(body, m.graphite, [WIDTH - 0.04, PLINTH - foot, DEPTH - 0.04], [0, foot + (PLINTH - foot) * 0.5, 0], {
+    chamfer: 0.028, fillet: 0.014, bevel: 0.011, capChamfer: 0.025,
   })
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      body.add(cylinder(m.steel, 0.02, 0.04, [
-        sx * (WIDTH * 0.5 - 0.08), 0.02, sz * (DEPTH * 0.5 - 0.08),
-      ], AXIS_Y, 8))
+      const legX = sx * (WIDTH * 0.5 - 0.08)
+      const legZ = sz * (DEPTH * 0.5 - 0.08)
+      body.add(cylinder(m.steel, 0.024, 0.05, [legX, 0.026, legZ], AXIS_Y, 8))
+      groundPad(body, m.rubber, [0.06, 0.06], [legX, 0, legZ], 0.016)
     }
   }
 
@@ -81,15 +87,22 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
       chamfer: 0.03, fillet: 0.011, bevel: 0.01,
     })
   }
-  box(body, m.shell, [WIDTH, HEIGHT - PLINTH, 0.035], [0, caseY, -(DEPTH * 0.5 - 0.018)], {
+  box(body, m.shell, [WIDTH, HEIGHT - PLINTH, 0.035], [0, caseY, -(DEPTH * 0.5 - 0.0175)], {
     chamfer: 0.03, fillet: 0.011, bevel: 0.01,
   })
   box(body, m.shellLight, [WIDTH, 0.05, DEPTH], [0, HEIGHT - 0.025, 0], {
     chamfer: 0.035, fillet: 0.013, bevel: 0.01, capChamfer: 0.022,
   })
-  box(body, m.ink, [WIDTH - 0.09, HEIGHT - PLINTH - 0.08, DEPTH - 0.06], [0, caseY, -0.02], {
-    chamfer: 0.025, fillet: 0.01, bevel: 0.008,
+  // Head rail behind the door plane. The leaves top out at 1.88 and the cap band
+  // starts at 1.91, so without it the front carried a 30 mm slot into the
+  // carcass across its whole width.
+  box(body, m.shell, [WIDTH, 0.08, 0.035], [0, HEIGHT - 0.09, DEPTH * 0.5 - 0.055], {
+    chamfer: 0.02, fillet: 0.009, bevel: 0.008,
   })
+  // Five thin faces rather than one block: as a solid it enclosed every shelf,
+  // lip and stock box set inside it, and its front cap landed on the same plane
+  // as both the shelf fronts and the shelf lips.
+  cavityLiner(body, m.ink, [WIDTH - 0.09, HEIGHT - PLINTH - 0.08, DEPTH - 0.06], [0, caseY, -0.005], 0.02, 'front')
 
   // Shelves on a punched pilaster, so the interior reads adjustable.
   for (const y of SHELVES) {
@@ -115,8 +128,8 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
   body.add(cylinder(m.graphiteEdge, 0.055, 0.03, [0.22, SHELVES[2] + 0.2, -0.02], AXIS_Y, 12))
 
   const stripe = addStripeDecal(bundle, { count: 4, lean: 1 })
-  plaque(body, m, stripe, [0.34, 0.05], [0, PLINTH * 0.5, DEPTH * 0.5 - 0.03], 'front', m.ink)
-  boltRun(body, m.steel, [-WIDTH * 0.3, HEIGHT - 0.12, -(DEPTH * 0.5 + 0.002)], [WIDTH * 0.3, HEIGHT - 0.12, -(DEPTH * 0.5 + 0.002)], 4, 0.013, 'back')
+  plaque(body, m, stripe, [0.34, 0.03], [0, foot + (PLINTH - foot) * 0.5, (DEPTH - 0.04) * 0.5], 'front', m.ink)
+  boltRun(body, m.steel, [-WIDTH * 0.3, HEIGHT - 0.12, -DEPTH * 0.5], [WIDTH * 0.3, HEIGHT - 0.12, -DEPTH * 0.5], 4, 0.013, 'back')
 }
 
 /** One door leaf, hinged on its outboard edge. */
@@ -130,6 +143,12 @@ function doorBuild(
   const leaf = (WIDTH - 0.08) * 0.5
   const height = HEIGHT - PLINTH - 0.08
   const centre = side * leaf * 0.5
+  const skin = 0.016
+  const panel = 0.025
+  // The lock furniture belongs 60 mm from the leading edge, which is the edge
+  // away from the hinge: subtracting the offset put the whole espagnolette,
+  // lever and all, against the hinge stile at the cabinet's outer corner.
+  const stile = centre + side * (leaf * 0.5 - 0.06)
 
   box(door, m.shell, [leaf, height, 0.032], [centre, PLINTH + height * 0.5, 0], {
     chamfer: 0.03, fillet: 0.011, bevel: 0.01,
@@ -137,39 +156,42 @@ function doorBuild(
   box(door, m.shellShade, [leaf - 0.1, height - 0.34, 0.014], [centre, PLINTH + height * 0.5 + 0.06, 0.018], {
     chamfer: 0.026, fillet: 0.01, bevel: 0.007,
   })
-  seam(door, m.shellLight, leaf - 0.06, [centre, PLINTH + 0.3, 0.018], 'front', 'across', 0.018, 0.011)
-  louvreVent(door, m, [leaf - 0.2, 0.16], [centre, PLINTH + 0.16, 0.018], 4, 'front')
+  // Cut in the recessed panel it crosses, and short enough to stay on it: on the
+  // skin plane the whole groove sat 9 mm inside the panel and never read.
+  seam(door, m.shellLight, leaf - 0.14, [centre, PLINTH + 0.3, panel], 'front', 'across', 0.018, 0.011)
+  louvreVent(door, m, [leaf - 0.2, 0.16], [centre, PLINTH + 0.16, skin], 4, 'front')
 
   if (lock) {
     // Espagnolette: a full-height rod with two throw points and a lever.
-    door.add(cylinder(m.steel, 0.014, height - 0.14, [centre - side * (leaf * 0.5 - 0.06), PLINTH + height * 0.5, 0.03], AXIS_Y, 8))
+    door.add(cylinder(m.steel, 0.014, height - 0.14, [stile, PLINTH + height * 0.5, 0.03], AXIS_Y, 8))
     for (const y of [PLINTH + 0.12, HEIGHT - 0.18]) {
-      box(door, m.graphiteEdge, [0.05, 0.07, 0.04], [centre - side * (leaf * 0.5 - 0.06), y, 0.03], {
+      box(door, m.graphiteEdge, [0.05, 0.07, 0.04], [stile, y, 0.03], {
         chamfer: 0.012, fillet: 0.005, bevel: 0.004,
       })
     }
-    box(door, m.graphite, [0.09, 0.16, 0.04], [centre - side * (leaf * 0.5 - 0.06), 1.06, 0.038], {
+    box(door, m.graphite, [0.09, 0.16, 0.04], [stile, 1.06, 0.038], {
       chamfer: 0.022, fillet: 0.008, bevel: 0.007,
     })
-    box(door, m.amberPaint, [0.13, 0.035, 0.03], [centre - side * (leaf * 0.5 - 0.11), 1.06, 0.056], {
+    box(door, m.amberPaint, [0.13, 0.035, 0.03], [stile - side * 0.05, 1.06, 0.056], {
       chamfer: 0.01, fillet: 0.004, bevel: 0.004,
     })
-    statusLens(door, m, [0.04, 0.016], [centre - side * (leaf * 0.5 - 0.06), 1.2, 0.03], m.cyan, 'front')
+    statusLens(door, m, [0.04, 0.016], [stile, 1.2, panel], m.cyan, 'front')
   } else {
     const label = addLabelDecal(bundle, { variant: 290 })
-    plaque(door, m, label, [0.22, 0.09], [centre, 1.34, 0.02], 'front', m.shellLight)
-    paintMark(door, m.amberPaint, slashProfile(0.04, 0.08, 0.45), [centre + side * 0.13, 1.14, 0.02], 'front', 0.008)
+    plaque(door, m, label, [0.22, 0.09], [centre, 1.34, panel], 'front', m.shellLight)
+    paintMark(door, m.amberPaint, slashProfile(0.04, 0.08, 0.45), [centre + side * 0.11, 1.14, panel], 'front', 0.008)
   }
 
-  // Piano hinge down the outer edge: a rod plus knuckles.
-  const hingeX = side * leaf
-  door.add(cylinder(m.steel, 0.011, height - 0.06, [hingeX, PLINTH + height * 0.5, -0.012], AXIS_Y, 6))
+  // Piano hinge down the outer edge: a rod plus knuckles. The rod is the axis
+  // the leaf swings about, which is the group origin - taken as `side * leaf` it
+  // is the *leading* edge, and both leaves put their barrel on the centre seam.
+  door.add(cylinder(m.steel, 0.011, height - 0.06, [0, PLINTH + height * 0.5, -0.012], AXIS_Y, 6))
   for (let index = 0; index < 6; index += 1) {
     const y = PLINTH + 0.14 + index * (height - 0.28) / 5
-    box(door, m.graphiteEdge, [0.05, 0.06, 0.03], [hingeX - side * 0.02, y, -0.008], {
+    box(door, m.graphiteEdge, [0.05, 0.06, 0.03], [side * 0.02, y, -0.008], {
       chamfer: 0.01, fillet: 0.004, bevel: 0.004,
     })
-    bolt(door, m.steel, [hingeX - side * 0.05, y, 0.016], 0.009, 'front')
+    bolt(door, m.steel, [side * 0.03, y, skin], 0.009, 'front')
   }
 }
 
@@ -222,9 +244,12 @@ export function createModel(): ToolCabinetController {
   let state: CabinetState = 'closed'
   let blend = 0
   let elapsed = 0
+  // A leaf hinged on the left swings out through +Z on a *negative* Y rotation.
+  // With the signs the other way round each leaf opened into the carcass and
+  // came out through its own side wall.
   const applyBlend = (): void => {
-    doorLeft.rotation.y = blend * 2.0
-    doorRight.rotation.y = -blend * 2.0
+    doorLeft.rotation.y = -blend * 2.0
+    doorRight.rotation.y = blend * 2.0
     doorLeft.name = blend > 0.02
       ? 'AXR_INDUSTRIAL_TOOL-CABINET_PART_DOOR-LEFT_OPEN'
       : 'AXR_INDUSTRIAL_TOOL-CABINET_PART_DOOR-LEFT_CLOSED'
