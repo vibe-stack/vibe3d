@@ -10,6 +10,7 @@ import {
   box,
   createCargoPreview,
   finishModel,
+  member,
   paintMark,
   plaque,
   seam,
@@ -89,6 +90,17 @@ function crate(root: Group, m: CargoMaterials, unit: Unit, y: number, tag: numbe
   const rotation: [number, number, number] = [0, unit.yaw, 0]
   const skirt = h * 0.16
   const lid = h * 0.24
+  /**
+   * A point on the crate's front skin, `u` along the face and `out` clear of it.
+   *
+   * A yawed crate's skin is not at `z + d / 2`, so a graphic placed on the
+   * unrotated axis lands beside the panel and at an angle to its normal.
+   */
+  const front = (u: number, v: number, out: number): [number, number, number] => [
+    x + Math.cos(unit.yaw) * u + Math.sin(unit.yaw) * (d * 0.5 + out),
+    y + v,
+    z + Math.sin(unit.yaw) * u + Math.cos(unit.yaw) * (d * 0.5 + out),
+  ]
 
   box(root, m.graphite, [w - 0.03, skirt, d - 0.03], [x, y + skirt * 0.5, z], {
     chamfer: 0.035, fillet: 0.012, bevel: 0.01, rotation,
@@ -99,13 +111,17 @@ function crate(root: Group, m: CargoMaterials, unit: Unit, y: number, tag: numbe
   box(root, unit.light ? m.shellLight : m.shell, [w + 0.014, lid, d + 0.014], [x, y + h - lid * 0.5, z], {
     chamfer: 0.055, fillet: 0.018, bevel: 0.014, capChamfer: 0.035, rotation,
   })
-  box(root, m.ink, [w - 0.22, 0.02, d - 0.16], [x, y + h + 0.004, z], {
+  // The crown panel stands 4 mm proud, not 14. Any prouder and the crate stacked
+  // on it beds into it rather than onto the lid it is supposed to rest on.
+  box(root, m.ink, [w - 0.22, 0.02, d - 0.16], [x, y + h - 0.006, z], {
     chamfer: 0.045, fillet: 0.016, bevel: 0.008, rotation,
   })
+  // Corner posts stand 5 mm proud on both axes; sized flush their outer faces
+  // were the body's own on all four flanks.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      const cx = x + Math.cos(unit.yaw) * sx * (w * 0.5 - 0.05) - Math.sin(unit.yaw) * sz * (d * 0.5 - 0.05)
-      const cz = z + Math.sin(unit.yaw) * sx * (w * 0.5 - 0.05) + Math.cos(unit.yaw) * sz * (d * 0.5 - 0.05)
+      const cx = x + Math.cos(unit.yaw) * sx * (w * 0.5 - 0.045) - Math.sin(unit.yaw) * sz * (d * 0.5 - 0.045)
+      const cz = z + Math.sin(unit.yaw) * sx * (w * 0.5 - 0.045) + Math.cos(unit.yaw) * sz * (d * 0.5 - 0.045)
       box(root, m.graphiteEdge, [0.1, h - skirt - lid + 0.01, 0.1], [cx, y + skirt + (h - skirt - lid) * 0.5, cz], {
         chamfer: 0.035, fillet: 0.012, bevel: 0.009, rotation,
       })
@@ -113,21 +129,22 @@ function crate(root: Group, m: CargoMaterials, unit: Unit, y: number, tag: numbe
   }
   for (let index = 0; index < unit.latches; index += 1) {
     const offset = (index - (unit.latches - 1) * 0.5) * (w * 0.42)
-    toggleLatch(root, m, [
-      x + Math.cos(unit.yaw) * offset + Math.sin(unit.yaw) * (d * 0.5 + 0.004),
-      y + h - lid - 0.01,
-      z + Math.sin(unit.yaw) * offset + Math.cos(unit.yaw) * (d * 0.5 + 0.004),
-    ], 0.62, 'front')
+    toggleLatch(root, m, front(offset, h - lid - 0.01, 0), 0.62, 'front')
   }
-  if (tag === 0) {
+  // Graphics go on the +Z row and are kept out of the latch band, off the corner
+  // posts, and clear of the strap that crosses this column. Applied to units 0
+  // and 1 they were on the back row, facing into the 40 mm gap between the two
+  // rows, so neither appeared in any frame of the sheet.
+  const facing: [number, number, number] = [0, unit.yaw, 0]
+  if (tag === 2) {
     const label = addLabelDecal(bundle, { variant: 44 })
-    plaque(root, m, label, [0.24, 0.1], [x, y + h * 0.5, z + d * 0.5 + 0.006], 'front', m.shellLight)
+    plaque(root, m, label, [0.2, 0.09], front(-0.08, h * 0.35, 0), 'front', m.shellLight, 0, facing)
   }
-  if (tag === 1) {
-    paintMark(root, m.amberPaint, slashProfile(0.07, 0.16, 0.45), [x - 0.06, y + h * 0.5, z + d * 0.5 + 0.004], 'front', 0.01)
-    paintMark(root, m.amberPaint, slashProfile(0.035, 0.16, 0.45), [x + 0.03, y + h * 0.5, z + d * 0.5 + 0.004], 'front', 0.01)
+  if (tag === 3) {
+    paintMark(root, m.amberPaint, slashProfile(0.06, 0.13, 0.45), front(0.03, h * 0.4, 0), 'front', 0.01)
+    paintMark(root, m.amberPaint, slashProfile(0.03, 0.13, 0.45), front(0.14, h * 0.4, 0), 'front', 0.01)
   }
-  if (tag === 4) statusLens(root, m, [0.06, 0.024], [x, y + h * 0.5, z + d * 0.5 + 0.004], m.cyan, 'front')
+  if (tag === 4) statusLens(root, m, [0.06, 0.024], front(0.14, h * 0.4, 0), m.cyan, 'front', 0, facing)
 }
 
 function build(): { root: Group; sockets: CrateStackSockets; bundle: CargoMaterialBundle } {
@@ -146,10 +163,13 @@ function build(): { root: Group; sockets: CrateStackSockets; bundle: CargoMateri
   box(root, m.graphiteEdge, [SKID, 0.028, SKID_D], [0, SKID_H + 0.014, 0], {
     chamfer: 0.06, fillet: 0.02, bevel: 0.01,
   })
+  // The front runner is 0.16 deep about `SKID_D * 0.5 - 0.08`, so its face is at
+  // `SKID_D * 0.5`. Measured 60 mm in from the deck edge, the stripe and both
+  // bolts were 20 mm inside the runner and rendered as nothing.
   const stripe = addStripeDecal(bundle, { count: 6, lean: 1 })
-  plaque(root, m, stripe, [0.5, 0.055], [0, SKID_H * 0.5, SKID_D * 0.5 - 0.06], 'front', m.ink)
+  plaque(root, m, stripe, [0.5, 0.055], [0, SKID_H * 0.5, SKID_D * 0.5], 'front', m.ink)
   for (const sx of [-1, 1]) {
-    bolt(root, m.steel, [sx * (SKID * 0.5 - 0.1), SKID_H * 0.6, SKID_D * 0.5 - 0.06], 0.016, 'front')
+    bolt(root, m.steel, [sx * (SKID * 0.5 - 0.1), SKID_H * 0.6, SKID_D * 0.5], 0.016, 'front')
   }
 
   const deck = SKID_H + 0.028
@@ -157,20 +177,46 @@ function build(): { root: Group; sockets: CrateStackSockets; bundle: CargoMateri
     crate(root, m, unit, deck + unit.lift, index, bundle)
   }
 
-  // One strap over the whole stack, with its ratchet on the front runner.
+  // One strap per column, lying on the crate that column actually carries and
+  // running down to the skid on both sides.
+  //
+  // Both runs used to share the stack's overall top, so the +X run floated 32 mm
+  // above the crate under it; the vertical runs stood 44 mm off every face and
+  // there was no -Z run at all, which left both crown runs ending in mid-air.
+  // The base course's front skin is the outermost thing on the stack, so a
+  // tensioned strap lies on it and bridges the set-back second course.
   const top = deck + Math.max(...UNITS.map((unit) => unit.lift + unit.size[1]))
+  const strapX = 0.24
+  const strapZ = 0.442
+  const baseTop = deck + BASE
   for (const sx of [-1, 1]) {
-    box(root, m.webbing, [0.08, 0.012, SKID_D + 0.05], [sx * 0.24, top + 0.012, 0], {
+    const x = sx * strapX
+    const column = UNITS.filter((unit) => Math.abs(unit.at[0] - x) < unit.size[0] * 0.5)
+    const capping = column.reduce((best, unit) => (
+      unit.lift + unit.size[1] > best.lift + best.size[1] ? unit : best
+    ))
+    const crown = deck + capping.lift + capping.size[1]
+    box(root, m.webbing, [0.08, 0.012, capping.size[2] + 0.02], [x, crown + 0.002, capping.at[1]], {
       chamfer: 0.005, fillet: 0.003, bevel: 0.003,
     })
-    box(root, m.webbing, [0.08, top - SKID_H, 0.012], [sx * 0.24, SKID_H + (top - SKID_H) * 0.5, SKID_D * 0.5 + 0.02], {
-      chamfer: 0.005, fillet: 0.003, bevel: 0.003,
-    })
+    for (const sz of [-1, 1]) {
+      // The run leaves the top crate's edge and lands on the base course's, which
+      // is the outermost thing on the stack; a strap does not follow the profile
+      // of what it crosses, it spans between the points it bears on.
+      member(root, m.webbing,
+        [x, crown, capping.at[1] + sz * capping.size[2] * 0.5],
+        [x, baseTop, sz * strapZ], 0.012, 0.08)
+      box(root, m.webbing, [0.08, baseTop + 0.01 - SKID_H, 0.012], [x, (baseTop + 0.01 + SKID_H) * 0.5, sz * strapZ], {
+        chamfer: 0.005, fillet: 0.003, bevel: 0.003,
+      })
+    }
   }
-  box(root, m.amberPaint, [0.1, 0.14, 0.05], [0.24, SKID_H + 0.36, SKID_D * 0.5 + 0.04], {
+  // The ratchet grips the +X run rather than hanging 37 mm in front of it.
+  const ratchetZ = strapZ + 0.026
+  box(root, m.amberPaint, [0.1, 0.14, 0.05], [strapX, SKID_H + 0.36, ratchetZ], {
     chamfer: 0.024, fillet: 0.009, bevel: 0.007,
   })
-  root.add(cylinder(m.steel, 0.015, 0.13, [0.24, SKID_H + 0.36, SKID_D * 0.5 + 0.07], AXIS_X, 8))
+  root.add(cylinder(m.steel, 0.015, 0.13, [strapX, SKID_H + 0.36, ratchetZ + 0.03], AXIS_X, 8))
   seam(root, m.graphiteEdge, SKID - 0.2, [0, SKID_H + 0.028, 0], 'top', 'across', 0.026, 0.014)
 
   const sockets: CrateStackSockets = {
