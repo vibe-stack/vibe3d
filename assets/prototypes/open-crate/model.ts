@@ -73,14 +73,19 @@ function interior(hull: Group, m: CargoMaterials): void {
   // Liner walls, built as four plates so the cavity has thickness at the rim.
   // Each bites 10 mm into the shell wall behind it: sized flush to the shell's
   // inner face the two land on one plane and the cavity has no corner at all.
+  //
+  // They stop a face clearance under the rim for the same reason. Run to it,
+  // their top caps and the wall's were one plane over the whole 10 mm lap, and
+  // the corner armour's cap was on it too.
+  const linerTop = rimY - FACE_CLEARANCE
   box(hull, m.ink, [innerW, 0.02, innerD], [0, floorY, 0], { chamfer: 0.03, fillet: 0.01, bevel: 0.008 })
   for (const sz of [-1, 1]) {
-    box(hull, m.graphite, [innerW, rimY - floorY, 0.04], [0, (rimY + floorY) * 0.5, sz * (innerD * 0.5 - 0.01)], {
+    box(hull, m.graphite, [innerW, linerTop - floorY, 0.04], [0, (linerTop + floorY) * 0.5, sz * (innerD * 0.5 - 0.01)], {
       chamfer: 0.02, fillet: 0.008, bevel: 0.007,
     })
   }
   for (const sx of [-1, 1]) {
-    box(hull, m.graphite, [0.04, rimY - floorY, innerD], [sx * (innerW * 0.5 - 0.01), (rimY + floorY) * 0.5, 0], {
+    box(hull, m.graphite, [0.04, linerTop - floorY, innerD], [sx * (innerW * 0.5 - 0.01), (linerTop + floorY) * 0.5, 0], {
       chamfer: 0.02, fillet: 0.008, bevel: 0.007,
     })
   }
@@ -141,10 +146,14 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   // Corner armour, 10 mm proud of the walls it caps. Drawn 0.12 square its outer
   // faces were exactly the shell's on both axes - eight coplanar pairs, and the
   // corners photographed as speckle rather than as steel.
+  //
+  // It stands a face clearance over the rim as well, which is where a corner
+  // takes its knocks. Cut to the wall's own height its cap and the rim were one
+  // plane at every corner.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      box(hull, m.graphiteEdge, [0.14, bodyHeight, 0.14], [
-        sx * (WIDTH * 0.5 - 0.06), bodyY, sz * (DEPTH * 0.5 - 0.06),
+      box(hull, m.graphiteEdge, [0.14, bodyHeight + FACE_CLEARANCE, 0.14], [
+        sx * (WIDTH * 0.5 - 0.06), bodyY + FACE_CLEARANCE * 0.5, sz * (DEPTH * 0.5 - 0.06),
       ], { chamfer: 0.042, fillet: 0.013, bevel: 0.01 })
       groundPad(hull, m.amberPaint, [0.13, 0.13], [
         sx * (WIDTH * 0.5 - 0.06), 0, sz * (DEPTH * 0.5 - 0.06),
