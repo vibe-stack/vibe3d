@@ -81,35 +81,55 @@ export function createModel(): SmallContainerController {
   containerDoorFrame(shell, m, SPEC)
 
   // Roof canopy and vent stack: the module conditions itself.
-  box(shell, m.graphite, [SPEC.length - 0.5, 0.09, SPEC.width - 0.4], [0, SPEC.height + 0.03, 0], {
+  //
+  // The canopy is bolted down onto the roof deck, whose ribs top out at
+  // `height - 0.02`, and laps it by 20 mm. Hung at `height + 0.03` its
+  // underside cleared the deck plate by 30 mm and the module wore its roof as a
+  // separate floating lid; everything the canopy carries comes down with it.
+  const canopyTop = SPEC.height + 0.025
+  box(shell, m.graphite, [SPEC.length - 0.5, 0.09, SPEC.width - 0.4], [0, SPEC.height - 0.02, 0], {
     chamfer: 0.06, fillet: 0.02, bevel: 0.014,
   })
-  box(shell, m.shellShade, [0.5, 0.26, 0.5], [-0.42, SPEC.height + 0.19, 0], {
+  box(shell, m.shellShade, [0.5, 0.26, 0.5], [-0.42, SPEC.height + 0.135, 0], {
     chamfer: 0.09, fillet: 0.03, bevel: 0.016, capChamfer: 0.05,
   })
-  shell.add(cylinder(m.graphiteEdge, 0.14, 0.14, [-0.42, SPEC.height + 0.36, 0], AXIS_Y, 14))
-  shell.add(cylinder(m.ink, 0.11, 0.1, [-0.42, SPEC.height + 0.42, 0], AXIS_Y, 12))
-  louvreVent(shell, m, [0.3, 0.16], [-0.42, SPEC.height + 0.19, SPEC.width * 0.5 - 0.45], 3, 'front')
+  shell.add(cylinder(m.graphiteEdge, 0.14, 0.14, [-0.42, SPEC.height + 0.305, 0], AXIS_Y, 14))
+  shell.add(cylinder(m.ink, 0.11, 0.1, [-0.42, SPEC.height + 0.365, 0], AXIS_Y, 12))
+  // The stack's own +Z face is at 0.25; at 0.36 the vent hung 97.5 mm off it.
+  louvreVent(shell, m, [0.3, 0.16], [-0.42, SPEC.height + 0.135, 0.25], 3, 'front')
   for (const sx of [-1, 1]) {
-    box(shell, m.steel, [0.16, 0.05, 0.12], [sx * (SPEC.length * 0.5 - 0.42), SPEC.height + 0.1, 0], {
+    box(shell, m.steel, [0.16, 0.05, 0.12], [sx * (SPEC.length * 0.5 - 0.42), SPEC.height + 0.03, 0], {
       chamfer: 0.024, fillet: 0.009, bevel: 0.008,
     })
-    shell.add(cylinder(m.ink, 0.028, 0.06, [sx * (SPEC.length * 0.5 - 0.42), SPEC.height + 0.12, 0], AXIS_Y, 8))
+    shell.add(cylinder(m.ink, 0.028, 0.06, [sx * (SPEC.length * 0.5 - 0.42), SPEC.height + 0.05, 0], AXIS_Y, 8))
   }
 
   const label = addLabelDecal(bundle, { variant: 83 })
-  plaque(shell, m, label, [0.3, 0.13], [0.5, SPEC.height + 0.05, 0.3], 'top', m.shellLight)
-  statusLens(shell, m, [0.06, 0.05], [0.5, SPEC.height + 0.05, -0.2], m.cyan, 'top')
+  plaque(shell, m, label, [0.3, 0.13], [0.5, canopyTop, 0.3], 'top', m.shellLight)
+  statusLens(shell, m, [0.06, 0.05], [0.5, canopyTop, -0.2], m.cyan, 'top')
 
   const hinge = SPEC.width * 0.5 - (SPEC.casting ?? 0.22) - 0.015
-  doorLeft.position.set(SPEC.length * 0.5 - 0.2, 0, -hinge)
-  doorRight.position.set(SPEC.length * 0.5 - 0.2, 0, hinge)
+  // The leaves hang behind the door frame's head and sill bars, whose inboard
+  // face is at `length*0.5 - 0.24`. Set 85 mm further forward the 0.1-thick
+  // skins ran through both bars and the lock rods stood out past the end.
+  doorLeft.position.set(SPEC.length * 0.5 - 0.285, 0, -hinge)
+  doorRight.position.set(SPEC.length * 0.5 - 0.285, 0, hinge)
   containerDoorLeaf(doorLeft, m, bundle, { ...SPEC, side: 1 })
   containerDoorLeaf(doorRight, m, bundle, { ...SPEC, side: -1 })
+  // Each leaf is half the clear opening, so the pair shuts on a mathematical
+  // point and the 0.1 taken out for clearance is a 70 mm slit you see the
+  // cross members through. The leaf that shuts second carries a closing strip
+  // behind the joint, lapping both skins by 40 mm. Hinging the pair in would
+  // bring the leaves edge to edge instead, but the lock bars are set out from
+  // each leaf's own centre and would then cross the shut line.
+  const leaf = (SPEC.width - (SPEC.casting ?? 0.22) * 2 - 0.1) * 0.5
+  box(doorLeft, m.shell, [0.06, SPEC.height - 0.62, (hinge - leaf) * 2 + 0.08], [-0.06, (SPEC.height - 0.5) * 0.5 + 0.24, hinge], {
+    chamfer: 0.02, fillet: 0.008, bevel: 0.007,
+  })
 
   const sockets: SmallContainerSockets = {
-    lift_top: socket('lift_top', [0, SPEC.height + 0.14, 0]),
-    vent_stack: socket('vent_stack', [-0.42, SPEC.height + 0.5, 0]),
+    lift_top: socket('lift_top', [0, canopyTop, 0]),
+    vent_stack: socket('vent_stack', [-0.42, SPEC.height + 0.445, 0]),
     door_threshold: socket('door_threshold', [SPEC.length * 0.5, 0.2, 0]),
     stack_top: socket('stack_top', [0, SPEC.height, 0]),
   }
