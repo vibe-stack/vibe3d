@@ -1,6 +1,6 @@
 import { Group, Object3D } from 'three/webgpu'
 
-import { cylinder, extrudeProfile, type Vec2 } from '../../../src/asset-forge/generator/index.ts'
+import { cylinder, type Vec2 } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
   AXIS_Y,
@@ -14,6 +14,7 @@ import {
   facetRadius,
   finishModel,
   member,
+  paintMark,
   plaque,
   slashProfile,
   socket,
@@ -186,18 +187,13 @@ function build(): { root: Group; sockets: HorizontalTankSockets; bundle: CargoMa
   const stripe = addStripeDecal(bundle, { count: 6, lean: 1 })
   plaque(root, m, stripe, [0.34, 0.09], [-BARREL * 0.3, PLINTH * 0.5, RADIUS + 0.15], 'front', m.ink)
   const strokeTilt = FACET * -1.5
-  const strokeSeat = SKIN + STROKE * 0.36
   for (const [profile, x] of [
     [slashProfile(0.11, 0.18, 0.42), -0.42],
     [slashProfile(0.055, 0.18, 0.42), -0.24],
   ] as const) {
-    root.add(extrudeProfile(m.orangePaint, profile as Vec2[], STROKE, [
-      x, AXIS_HEIGHT + Math.sin(strokeTilt) * strokeSeat, Math.cos(strokeTilt) * strokeSeat,
-    ], {
-      fillet: STROKE * 0.5,
-      bevel: STROKE * 0.3,
-      rotation: [-strokeTilt, 0, 0],
-    }))
+    paintMark(root, m.orangePaint, profile as Vec2[], [
+      x, AXIS_HEIGHT + Math.sin(strokeTilt) * SKIN, Math.cos(strokeTilt) * SKIN,
+    ], 'front', STROKE, 0, [-strokeTilt, 0, 0])
   }
 
   const sockets: HorizontalTankSockets = {
