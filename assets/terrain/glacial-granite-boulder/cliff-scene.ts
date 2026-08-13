@@ -222,6 +222,7 @@ export async function createCliffScene(
   const root = new Group()
   root.name = 'cliff assembly'
   const disposers: Array<() => void> = []
+  const instances: Array<ReturnType<typeof createInstanceFromCompiled>> = []
   const compiled = new Map<string, Awaited<ReturnType<typeof loadInstance>>>()
   let cachedCount = 0
   let builtCount = 0
@@ -257,6 +258,7 @@ export async function createCliffScene(
     // Bed each block slightly into the ground so nothing floats on its contact.
     instance.root.position.y -= 0.08 * placement.scale[1]
     root.add(instance.root)
+    instances.push(instance)
     disposers.push(instance.dispose)
   }
   scene.add(root)
@@ -304,7 +306,9 @@ export async function createCliffScene(
     scene,
     camera,
     root,
-    update: () => undefined,
+    update: (deltaSeconds: number) => {
+      for (const instance of instances) instance.update(deltaSeconds, camera)
+    },
     dispose: () => {
       for (const dispose of disposers) dispose()
       groundGeometry.dispose()

@@ -2,6 +2,7 @@ import {
   AmbientLight,
   BufferAttribute,
   BufferGeometry,
+  ClampToEdgeWrapping,
   Color,
   DataTexture,
   DirectionalLight,
@@ -9,6 +10,7 @@ import {
   Group,
   HemisphereLight,
   LinearFilter,
+  LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
   MeshPhysicalMaterial,
@@ -18,10 +20,10 @@ import {
   PlaneGeometry,
   RGBAFormat,
   RedFormat,
-  RepeatWrapping,
   Scene,
   UnsignedByteType,
   Uint32BufferAttribute,
+  Vector3,
 } from 'three/webgpu'
 import {
   color,
@@ -34,6 +36,7 @@ import {
   smoothstep,
   texture,
   transformNormalToView,
+  uniform,
   uv,
   vec3,
 } from 'three/tsl'
@@ -57,6 +60,12 @@ import {
   materializePositions,
   topologyKeyFor,
 } from './topology.ts'
+import {
+  projectedErrorPixels,
+  settleLodWeights,
+  targetLodWeights,
+  type LodWeights,
+} from './lod.ts'
 
 export interface OutcropConfig {
   snow: number
@@ -75,7 +84,7 @@ export interface OutcropInstance {
   root: Group
   topology: CompiledTopology
   representation: 'compiled' | 'source'
-  update(deltaSeconds: number): void
+  update(deltaSeconds: number, camera?: PerspectiveCamera, viewportHeight?: number): void
   dispose(): void
 }
 
@@ -163,10 +172,12 @@ function bakeTexture(
   const result = new DataTexture(data, bake.width, bake.height, format, UnsignedByteType)
   result.name = `${ASSET_ID} / ${semantic} / high-to-low bake`
   result.colorSpace = NoColorSpace
-  result.wrapS = RepeatWrapping
-  result.wrapT = RepeatWrapping
+  result.wrapS = ClampToEdgeWrapping
+  result.wrapT = ClampToEdgeWrapping
   result.magFilter = LinearFilter
-  result.minFilter = LinearFilter
+  result.minFilter = LinearMipmapLinearFilter
+  result.generateMipmaps = true
+  result.anisotropy = 8
   result.flipY = false
   result.needsUpdate = true
   return result
@@ -284,23 +295,29 @@ function createGraniteMaterial(
   return { material, textures }
 }
 
-function createGeometry(
+function createGeometries(
   topology: CompiledTopology,
-  config: OutcropConfig,
   seed: number,
-): BufferGeometry {
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new Float32BufferAttribute(materializePositions(topology, seed), 3))
-  geometry.setAttribute('terrainDomain', new Float32BufferAttribute(topology.domainCoordinates.slice(), 3))
-  geometry.setAttribute('terrainStableVertexId', new Uint32BufferAttribute(topology.stableVertexIds.slice(), 1))
-  if (topology.bakeUvs) {
-    geometry.setAttribute('uv', new Float32BufferAttribute(topology.bakeUvs.slice(), 2))
+): [BufferGeometry, BufferGeometry, BufferGeometry] {
+  const position = new Float32BufferAttribute(materializePositions(topology, seed), 3)
+  const domain = new Float32BufferAttribute(topology.domainCoordinates.slice(), 3)
+  const stableIds = new Uint32BufferAttribute(topology.stableVertexIds.slice(), 1)
+  const bakeUvs = topology.bakeUvs
+    ? new Float32BufferAttribute(topology.bakeUvs.slice(), 2)
+    : undefined
+  const create = (lod: OutcropConfig['lod']) => {
+    const geometry = new BufferGeometry()
+    geometry.setAttribute('position', position)
+    geometry.setAttribute('terrainDomain', domain)
+    geometry.setAttribute('terrainStableVertexId', stableIds)
+    if (bakeUvs) geometry.setAttribute('uv', bakeUvs)
+    geometry.setIndex(new BufferAttribute(indicesFor(topology, lod).slice(), 1))
+    geometry.computeVertexNormals()
+    geometry.computeBoundingBox()
+    geometry.computeBoundingSphere()
+    return geometry
   }
-  geometry.setIndex(new BufferAttribute(indicesFor(topology, config.lod).slice(), 1))
-  geometry.computeVertexNormals()
-  geometry.computeBoundingBox()
-  geometry.computeBoundingSphere()
-  return geometry
+  return [create(0), create(1), create(2)]
 }
 
 function materialize(
@@ -320,31 +337,107 @@ function materialize(
     seed,
     representation,
   }
-  const geometry = createGeometry(topology, config, seed)
+  const geometries = createGeometries(topology, seed)
   const granite = config.diagnostic === 'wireframe' || !surfaceBake
     ? undefined
     : createGraniteMaterial(config, seed, surfaceBake)
-  const material = granite?.material ?? new MeshBasicMaterial({
+  const baseMaterial = granite?.material ?? new MeshBasicMaterial({
     color: 0xb7d2d9,
     wireframe: config.diagnostic === 'wireframe',
   })
-  const mesh = new Mesh(geometry, material)
-  mesh.name = 'reduced outcrop / high-to-low materialized'
-  mesh.castShadow = true
-  mesh.receiveShadow = true
-  root.add(mesh)
+  const materials = geometries.map((_, level) => level === 0 ? baseMaterial : baseMaterial.clone())
+  const fadeNodes = granite
+    ? materials.map((material, level) => {
+        const fade = uniform(level === config.lod ? 1 : 0)
+        ;(material as MeshStandardNodeMaterial).opacityNode = fade
+        material.alphaHash = true
+        return fade
+      })
+    : undefined
+  const meshes = geometries.map((geometry, level) => {
+    const mesh = new Mesh(geometry, materials[level]!)
+    mesh.name = `reduced outcrop / LOD${level} / high-to-low materialized`
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    mesh.visible = level === config.lod
+    mesh.renderOrder = level
+    root.add(mesh)
+    return mesh
+  })
+
+  const lod1Error = topology.lods.find((candidate) => candidate.level === 1)?.maxGeometricError ?? 0
+  const lod2Error = topology.lods.find((candidate) => candidate.level === 2)?.maxGeometricError ?? 0
+  let weights: LodWeights = config.lod === 0 ? [1, 0, 0] : config.lod === 1 ? [0, 1, 0] : [0, 0, 1]
+  const worldPosition = new Vector3()
+  const cameraPosition = new Vector3()
+  const worldScale = new Vector3()
+  const applyWeights = (next: LodWeights) => {
+    for (let level = 0; level < 3; level += 1) {
+      const weight = next[level]!
+      meshes[level]!.visible = weight > 0.002
+      materials[level]!.opacity = weight
+      if (fadeNodes) fadeNodes[level]!.value = weight
+    }
+  }
+  applyWeights(weights)
+
+  const updateLod = (
+    deltaSeconds: number,
+    camera: PerspectiveCamera,
+    viewportHeight?: number,
+  ) => {
+    if (config.diagnostic !== 'beauty') return
+    root.updateWorldMatrix(true, false)
+    camera.updateWorldMatrix(true, false)
+    root.getWorldPosition(worldPosition)
+    camera.getWorldPosition(cameraPosition)
+    root.getWorldScale(worldScale)
+    const maximumInstanceScale = Math.max(Math.abs(worldScale.x), Math.abs(worldScale.y), Math.abs(worldScale.z))
+    const distance = worldPosition.distanceTo(cameraPosition)
+    const pixels = viewportHeight
+      ?? (globalThis as { innerHeight?: number }).innerHeight
+      ?? 1080
+    const fov = camera.getEffectiveFOV()
+    // maxGeometricError is in normalized domain units; 1.7m is the largest
+    // materialization axis and therefore the conservative projection scale.
+    const lod1Pixels = projectedErrorPixels(lod1Error * 1.7 * maximumInstanceScale, distance, fov, pixels)
+    const lod2Pixels = projectedErrorPixels(lod2Error * 1.7 * maximumInstanceScale, distance, fov, pixels)
+    const target = targetLodWeights(lod1Pixels, lod2Pixels, config.lod)
+    weights = settleLodWeights(weights, target, Math.min(0.1, deltaSeconds))
+    applyWeights(weights)
+    root.userData.terrain.lodWeights = [...weights]
+    root.userData.terrain.projectedErrors = [lod1Pixels, lod2Pixels]
+  }
+
+  let lastRenderFrame = -1
+  let lastRenderTime = performance.now()
+  for (const mesh of meshes) {
+    mesh.onBeforeRender = (renderer, _scene, renderCamera) => {
+      if (!(renderCamera as PerspectiveCamera).isPerspectiveCamera) return
+      const frame = (renderer.info as unknown as { render: { frame: number } }).render.frame
+      if (frame === lastRenderFrame) return
+      lastRenderFrame = frame
+      const now = performance.now()
+      const deltaSeconds = Math.min(0.1, Math.max(0, (now - lastRenderTime) / 1_000))
+      lastRenderTime = now
+      const height = renderer.domElement.height || undefined
+      updateLod(deltaSeconds, renderCamera as PerspectiveCamera, height)
+    }
+  }
 
   let disposed = false
   return {
     root,
     topology,
     representation,
-    update: () => undefined,
+    update: (deltaSeconds, camera, viewportHeight) => {
+      if (camera) updateLod(deltaSeconds, camera, viewportHeight)
+    },
     dispose: () => {
       if (disposed) return
       disposed = true
-      geometry.dispose()
-      material.dispose()
+      for (const geometry of geometries) geometry.dispose()
+      for (const material of materials) material.dispose()
       for (const entry of granite?.textures ?? []) entry.dispose()
     },
   }
@@ -451,6 +544,7 @@ async function preview(
     ...model,
     scene,
     camera,
+    update: (deltaSeconds: number) => model.update(deltaSeconds, camera),
     dispose: () => {
       floorGeometry.dispose()
       floorMaterial.dispose()
