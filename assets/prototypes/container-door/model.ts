@@ -219,7 +219,10 @@ function preview(options: CargoPreviewOptions & { state?: DoorAssemblyState } = 
   const model = createModel()
   model.setState(options.state ?? 'closed')
   return createCargoPreview(model, {
-    target: [0, SPEC.height * 0.5, 0],
+    // The sill ramp reaches forward of the frame and drops to the floor, so the
+    // assembly's visible centre is well below the door's own mid-height. On half
+    // the height the ramp's front lip sat exactly on the bottom of the frame.
+    target: [0, SPEC.height * 0.43, 0],
     distance: 6.4,
     yaw: 1.0,
     pitch: 0.22,
