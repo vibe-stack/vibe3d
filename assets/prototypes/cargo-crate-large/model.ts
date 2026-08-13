@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -85,7 +86,11 @@ export interface CargoCrateController {
 }
 
 function plinth(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): void {
-  box(hull, m.graphite, [WIDTH, SKIRT, DEPTH], [0, SKIRT * 0.5, 0], {
+  // The crate rides on the rubber under its corner feet, so the plinth's own
+  // sole is a face clearance above the deck. Taken to zero it sat a millimetre
+  // off the pads' undersides - the whole 2.2 x 1.5 m of it against four patches
+  // of rubber, and the `below` tile mottled wherever they crossed.
+  box(hull, m.graphite, [WIDTH, SKIRT - FACE_CLEARANCE, DEPTH], [0, (SKIRT + FACE_CLEARANCE) * 0.5, 0], {
     chamfer: 0.09,
     fillet: 0.03,
     bevel: 0.022,
@@ -110,12 +115,13 @@ function plinth(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): vo
     plaque(hull, m, stripe, [0.3, 0.11], [0, SKIRT * 0.52, side * DEPTH * 0.5], face, m.ink)
   }
   // Corner feet in painted caution, the part a fork actually scrapes. They stand
-  // 4 mm up inside the plinth so their soles are not a second set of down-facing
-  // caps on the plinth's own bottom plane, and the rubber below them is the pad
-  // that actually meets the deck.
+  // a face clearance up inside the plinth so their soles are not a second set of
+  // down-facing caps on the plinth's own bottom plane, and the rubber below them
+  // is the pad that actually meets the deck.
+  const footY = FACE_CLEARANCE * 2
   for (const sx of [-1, 1] as Side[]) {
     for (const sz of [-1, 1] as Side[]) {
-      box(hull, m.amberPaint, [0.19, 0.16, 0.19], [sx * (WIDTH * 0.5 - 0.1), 0.084, sz * (DEPTH * 0.5 - 0.1)], {
+      box(hull, m.amberPaint, [0.19, 0.16, 0.19], [sx * (WIDTH * 0.5 - 0.1), footY + 0.08, sz * (DEPTH * 0.5 - 0.1)], {
         chamfer: 0.05, fillet: 0.014, bevel: 0.012,
       })
       groundPad(hull, m.rubber, [0.17, 0.17], [sx * (WIDTH * 0.5 - 0.1), 0, sz * (DEPTH * 0.5 - 0.1)], 0.035)
