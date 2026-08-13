@@ -98,11 +98,18 @@ function hook(root: Group, m: CargoMaterials, x: number, z: number): void {
     [0.05, -0.045], [0.036, -0.075], [0.008, -0.06],
     [0.012, -0.032], [-0.012, -0.02], [-0.028, -0.005],
   ]
-  root.add(extrudeProfile(m.steel, claw, 0.026, [x, 0.06, z], {
-    fillet: 0.006, bevel: 0.005, rotation: [0, Math.atan2(x, z), 0],
+  const yaw = Math.atan2(x, z)
+  // `extrudeProfile` adds the outline's own bounding-box centre to the position
+  // it is handed, in world axes and before the yaw - and this claw is authored
+  // about its throat, 11 mm off that centre in x and 12.5 mm in y. Handing the
+  // centre back is what puts the claw where it is asked for: left in, the offset
+  // pushed one hook of each mirrored pair 11 mm outboard and its opposite number
+  // 11 mm inboard, and dropped the tip of the curl 15 mm through the floor.
+  root.add(extrudeProfile(m.steel, claw, 0.026, [x - 0.011, 0.075, z], {
+    fillet: 0.006, bevel: 0.005, rotation: [0, yaw, 0],
   }))
-  box(root, m.webbing, [0.055, 0.05, 0.014], [x, 0.14, z], {
-    chamfer: 0.008, fillet: 0.004, bevel: 0.004, rotation: [0, Math.atan2(x, z), 0],
+  box(root, m.webbing, [0.055, 0.05, 0.014], [x, 0.1125, z], {
+    chamfer: 0.008, fillet: 0.004, bevel: 0.004, rotation: [0, yaw, 0],
   })
 }
 
@@ -123,7 +130,11 @@ function build(): { root: Group; sockets: CargoNetSockets; bundle: CargoMaterial
   box(root, m.shellShade, [loadX * 2, LOAD - 0.09, loadZ * 2], [0, 0.09 + (LOAD - 0.09) * 0.5, 0], {
     chamfer: 0.05, fillet: 0.02, bevel: 0.016, capChamfer: 0.03,
   })
-  box(root, m.graphiteEdge, [loadX * 1.4, 0.03, loadZ * 1.4], [0, LOAD + 0.008, 0], {
+  // Top wear plate, let into the load rather than stood on it. Centred at
+  // LOAD + 0.008 it was a 23 mm plinth in the middle of the crown - taller than
+  // the 16 mm cords that have to cross it - so it swallowed the middle of the
+  // net while the ends of every run hung clear of the deck around it.
+  box(root, m.graphiteEdge, [loadX * 1.4, 0.03, loadZ * 1.4], [0, LOAD - 0.007, 0], {
     chamfer: 0.06, fillet: 0.02, bevel: 0.01,
   })
 
@@ -131,18 +142,28 @@ function build(): { root: Group; sockets: CargoNetSockets; bundle: CargoMaterial
   // mass it crosses and drops nearly vertically to the skid; routing the sides
   // out to the anchors instead turns the whole thing into a tent frame, which is
   // what a net over nothing always becomes.
-  const crown = LOAD + 0.035
-  const shoulderX = loadX - 0.05
-  const shoulderZ = loadZ - 0.05
+  // The crown is the wear plate's top face (LOAD + 0.008) plus a cord radius, so
+  // the runs bear on the plate instead of hovering over it. At LOAD + 0.035 the
+  // net stood 27 mm clear of the load at the shoulders and read as a tent frame.
+  const crown = LOAD + 0.016
+  // The shoulder is the load's own top edge, a quarter of a cord's width clear
+  // of the flank so the side runs stay proud of it the whole way down. Turned
+  // 50 mm inboard of the flank they dived straight through the corner and only
+  // the last few centimetres above the skid ever came out of the mass.
+  const shoulderX = loadX + CORD * 0.25
+  const shoulderZ = loadZ + CORD * 0.25
+  // A crown run is carried by the load along its whole length, so it keeps only
+  // enough fall to break the straight line. At the 18 to 22 mm the drops use it
+  // dipped below the wear plate and the middle of the net vanished inside it.
   for (let index = 0; index < 5; index += 1) {
     const z = (index / 4 - 0.5) * shoulderZ * 2
-    cord(root, m, [-shoulderX, crown, z], [shoulderX, crown, z], 0.022)
+    cord(root, m, [-shoulderX, crown, z], [shoulderX, crown, z], 0.004)
     cord(root, m, [-shoulderX, crown, z], [-loadX - 0.012, 0.1, z * 0.99], 0.008)
     cord(root, m, [shoulderX, crown, z], [loadX + 0.012, 0.1, z * 0.99], 0.008)
   }
   for (let index = 0; index < 6; index += 1) {
     const x = (index / 5 - 0.5) * shoulderX * 2
-    cord(root, m, [x, crown, -shoulderZ], [x, crown, shoulderZ], 0.018)
+    cord(root, m, [x, crown, -shoulderZ], [x, crown, shoulderZ], 0.004)
     cord(root, m, [x, crown, -shoulderZ], [x * 0.99, 0.1, -loadZ - 0.012], 0.008)
     cord(root, m, [x, crown, shoulderZ], [x * 0.99, 0.1, loadZ + 0.012], 0.008)
   }
@@ -154,18 +175,33 @@ function build(): { root: Group; sockets: CargoNetSockets; bundle: CargoMaterial
     cord(root, m, [sx * (loadX + 0.012), 0.1, -loadZ - 0.012], [sx * (loadX + 0.012), 0.1, loadZ + 0.012], 0.012)
   }
 
+  // The hooks stand outboard of the skid, where a net's hardware reaches for the
+  // pallet's tie points, so each is lashed back to its own corner of the
+  // perimeter rope. That rope is 68 mm inboard of them in both axes: without the
+  // lashing the four hooks are hardware hanging in the air beside the load.
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) hook(root, m, sx * (SPAN * 0.5 + 0.05), sz * (DEPTH * 0.5 + 0.05))
+    for (const sz of [-1, 1]) {
+      const x = sx * (SPAN * 0.5 + 0.05)
+      const z = sz * (DEPTH * 0.5 + 0.05)
+      hook(root, m, x, z)
+      cord(root, m, [sx * (loadX + 0.012), 0.1, sz * (loadZ + 0.012)], [x, 0.1, z], 0.004)
+    }
   }
-  // Tensioner on the near edge, the one place the net is adjusted from.
-  box(root, m.amberPaint, [0.1, 0.11, 0.05], [0.2, 0.2, DEPTH * 0.5 + 0.055], {
+  // Tensioner on the near edge, the one place the net is adjusted from, clamped
+  // onto the side run it adjusts. Set out from the skid's face instead it stood
+  // 55 mm clear of the flank with no rope inside it.
+  const tensionerX = shoulderX * 0.6
+  const tensionerY = 0.2
+  box(root, m.amberPaint, [0.1, 0.11, 0.05], [tensionerX, tensionerY, loadZ + 0.008], {
     chamfer: 0.024, fillet: 0.009, bevel: 0.007,
   })
-  root.add(cylinder(m.steel, 0.014, 0.12, [0.2, 0.2, DEPTH * 0.5 + 0.085], AXIS_X, 8))
-  root.add(cylinder(m.steel, 0.012, 0.05, [0.2, 0.28, DEPTH * 0.5 + 0.055], AXIS_Z, 8))
+  root.add(cylinder(m.steel, 0.014, 0.12, [tensionerX, tensionerY, loadZ + 0.028], AXIS_X, 8))
+  // Spindle seated in the top of the clamp body, which is 55 mm above its
+  // centre. At 0.28 it stood 13 mm clear of the body with nothing between.
+  root.add(cylinder(m.steel, 0.012, 0.05, [tensionerX, tensionerY + 0.055, loadZ + 0.008], AXIS_Z, 8))
 
-  paintMark(root, m.orangePaint, slashProfile(0.06, 0.16, 0.42), [-0.3, LOAD * 0.5, loadZ + 0.002], 'front', 0.01)
-  statusLens(root, m, [0.05, 0.02], [0.34, LOAD * 0.62, loadZ + 0.002], m.cyan, 'front')
+  paintMark(root, m.orangePaint, slashProfile(0.06, 0.16, 0.42), [-0.3, LOAD * 0.5, loadZ], 'front', 0.01)
+  statusLens(root, m, [0.05, 0.02], [0.34, LOAD * 0.62, loadZ], m.cyan, 'front')
 
   const sockets: CargoNetSockets = {
     hook_fore_left: socket('hook_fore_left', [-(SPAN * 0.5 + 0.05), 0.05, DEPTH * 0.5 + 0.05]),
