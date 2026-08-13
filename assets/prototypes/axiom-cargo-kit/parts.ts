@@ -1095,13 +1095,19 @@ export function cavityLiner(
 }
 
 /**
- * A rubber pad under a foot, base ring, or runner, dropped 1 mm below the sole
- * it is bedded into.
+ * A rubber pad under a foot, base ring, or runner, dropped a face clearance
+ * below the sole it is bedded into.
  *
  * The idiom this replaces puts the pad inside the base with both bottom faces at
  * y = 0 - two down-facing planes on the same plane, which is the pack's single
  * most repeated z-fight. Standing the pad slightly proud is also what actually
  * happens: the pad is the part in contact, and the steel above it is not.
+ *
+ * The drop is the kit's own floor because the millimetre it was written with is
+ * under the playbook's 3 mm: a model that called this and did nothing else was
+ * still reported, so caller after caller raised and shortened its own sole to
+ * finish the job. Adopting the helper has to be enough on its own, or the idiom
+ * it exists to retire simply moves into the models that use it.
  */
 export function groundPad(
   parent: Group,
@@ -1112,7 +1118,7 @@ export function groundPad(
 ): Mesh {
   const mesh = prism(material, [size[0], thickness, size[1]], [
     sole[0],
-    sole[1] - 0.001 + thickness * 0.5,
+    sole[1] - FACE_CLEARANCE + thickness * 0.5,
     sole[2],
   ], {
     chamfer: Math.min(0.02, Math.min(size[0], size[1]) * 0.16),

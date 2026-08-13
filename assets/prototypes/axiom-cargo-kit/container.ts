@@ -11,6 +11,7 @@ import {
   box,
   boltRun,
   cornerCasting,
+  facetRadius,
   forkPocket,
   paintMark,
   plaque,
@@ -305,7 +306,13 @@ function endWall(
       chamfer: 0.05, fillet: 0.016, bevel: 0.014, rotation: [0, yaw, 0],
     }))
   }
-  parent.add(prism(m.graphite, [o.width - k.casting * 2 + 0.04, k.skirt, 0.14], [x, k.skirt * 0.5 + 0.02, 0], {
+  // The band runs to the same width as the panel above it, for the same reason
+  // and for one more: the bottom end rail reaches the castings' inner faces, so
+  // it runs 4 mm further out per side than the casting cubes suggest, and at the
+  // previous +0.04 the band's bottom-outer chamfer landed 0.32 mm outside the
+  // rail's - 13.5 cm² of 45° facet against 45° facet, twice at every closed end.
+  // Taken out to lap the posts the two are 50 mm apart at every length.
+  parent.add(prism(m.graphite, [o.width - k.casting * 2 + 0.18, k.skirt, 0.14], [x, k.skirt * 0.5 + 0.02, 0], {
     chamfer: 0.05, fillet: 0.018, bevel: 0.016, rotation: [0, yaw, 0],
   }))
   const label = addLabelDecal(bundle, { variant: (o.variant ?? 0) + 11 })
@@ -408,9 +415,17 @@ export function containerDoorLeaf(
     leaf.add(prism(m.amberPaint, [0.1, 0.09, 0.26], [0.16, options.height * 0.5, z + side * 0.09], { chamfer: 0.028, fillet: 0.01, bevel: 0.008 }))
     leaf.add(cylinder(m.steel, 0.02, 0.13, [0.19, options.height * 0.5, z], AXIS_X, 8))
   }
+  // The rod rides a face clearance proud of the keeper that retains it, which is
+  // also how a lock rod is held. Seated on the keeper's own centre plane it read
+  // as flush and was not: a ten-sided cylinder shows its flats at `facetRadius`,
+  // not at its nominal radius, so the rod came up 0.76 mm behind the keeper's
+  // front face - 26.7 cm² of it at each of three keepers, and in plain sight on
+  // any leaf a consumer of the pack swings open.
+  const keeperFace = 0.08 + 0.17 * 0.5
+  const rodX = keeperFace + FACE_CLEARANCE - facetRadius(0.036, 10)
   for (const y of [0.5, options.height * 0.5, options.height - 0.5]) {
     leaf.add(prism(m.graphiteEdge, [0.17, 0.19, 0.1], [0.08, y, 0], { chamfer: 0.03, fillet: 0.012, bevel: 0.01 }))
-    leaf.add(cylinder(m.steel, 0.036, 0.24, [0.13, y, 0], AXIS_Y, 10))
+    leaf.add(cylinder(m.steel, 0.036, 0.24, [rodX, y, 0], AXIS_Y, 10))
   }
   // The leaf's skin is 0.1 thick about x = 0, so its face is at 0.05, and the
   // pressed sub-panels are 0.04 thick at x = 0.055, so theirs is at 0.075.
