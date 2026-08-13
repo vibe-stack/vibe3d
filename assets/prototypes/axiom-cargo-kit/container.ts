@@ -67,22 +67,36 @@ export interface ContainerMetrics {
   readonly panelHeight: number
   readonly panelCentre: number
   readonly ribCount: number
+  /** Outward offset from a side wall's panel z to the corrugation's outer face. */
+  readonly ribFace: number
 }
 
 const DEFAULT_CASTING = 0.3
 const DEFAULT_SKIRT = 0.42
 const DEFAULT_RIB_PITCH = 0.405
 
+/** The rib is 0.052 deep, seated 0.055 out from the panel's centre plane. */
+const RIB_FACE = 0.081
+/** The end wall's ribs are 0.055 deep, seated 0.055 out. */
+const END_RIB_FACE = 0.0825
+
 export function containerMetrics(options: ContainerShellOptions): ContainerMetrics {
   const casting = options.casting ?? DEFAULT_CASTING
   const skirt = options.skirt ?? DEFAULT_SKIRT
-  const panelHeight = options.height - skirt - 0.38
+  // The panel is sized from the two members it seals against, not from a magic
+  // constant: the top rail's underside is at `height - casting*0.5 - 0.085` and
+  // the skirt band tops out at `skirt + 0.02`, and the panel laps both by 30 mm.
+  // Sized by subtracting a flat 0.38 it stopped 105 mm short of the rail on a
+  // standard box and 145 mm short on the small one - a slit the full length of
+  // all four walls, and one that got worse as the casting grew.
+  const panelHeight = options.height - skirt - casting * 0.5 - 0.045
   return {
     casting,
     skirt,
     panelHeight,
-    panelCentre: skirt + panelHeight * 0.5 + 0.04,
+    panelCentre: skirt - 0.01 + panelHeight * 0.5,
     ribCount: Math.max(3, Math.round((options.length - casting * 2 - 0.16) / (options.ribPitch ?? DEFAULT_RIB_PITCH))),
+    ribFace: RIB_FACE,
   }
 }
 
@@ -192,15 +206,20 @@ function sideWall(
       }))
     }
   }
+  // Everything applied to the wall is measured from the rib's outer face. Placed
+  // at the rib's centre plane - which is what `z + side * 0.055` is - a plaque
+  // whose plate is designed to embed 3 mm ends up 23 mm inside the corrugation
+  // and gets sliced by it, and the seams cut their grooves in mid-rib.
+  const ribZ = z + side * k.ribFace
   for (const y of [k.panelCentre - ribHeight * 0.5 - 0.03, k.panelCentre + ribHeight * 0.5 + 0.03]) {
-    seam(parent, m.shell, field, [0, y, z + side * 0.055], face, 'across', 0.034, 0.022)
+    seam(parent, m.shell, field, [0, y, ribZ], face, 'across', 0.034, 0.022)
   }
 
-  paintMark(parent, m.amberPaint, slashProfile(0.1, 0.44, 0.5), [side * -o.length * 0.4, o.height - 1.42, z + side * 0.056], face, 0.012)
+  paintMark(parent, m.amberPaint, slashProfile(0.1, 0.44, 0.5), [side * -o.length * 0.4, o.height - 1.42, ribZ], face, 0.012)
   const label = addLabelDecal(bundle, { variant: (o.variant ?? 0) + (side > 0 ? 3 : 7) })
-  plaque(parent, m, label, [0.6, 0.3], [-o.length * 0.3 * side, o.height - 0.66, z + side * 0.056], face, m.shellLight)
-  statusLens(parent, m, [0.07, 0.24], [side * o.length * 0.4, o.height - 0.62, z + side * 0.056], m.amber, face)
-  statusLens(parent, m, [0.07, 0.16], [side * o.length * 0.4, o.height - 1.02, z + side * 0.056], m.cyan, face)
+  plaque(parent, m, label, [0.6, 0.3], [-o.length * 0.3 * side, o.height - 0.66, ribZ], face, m.shellLight)
+  statusLens(parent, m, [0.07, 0.24], [side * o.length * 0.4, o.height - 0.62, ribZ], m.amber, face)
+  statusLens(parent, m, [0.07, 0.16], [side * o.length * 0.4, o.height - 1.02, ribZ], m.cyan, face)
 }
 
 function endWall(
@@ -214,7 +233,11 @@ function endWall(
   const x = sign * (o.length * 0.5 - 0.09)
   const face = sign > 0 ? 'right' : 'left'
   const yaw = sign > 0 ? Math.PI / 2 : -Math.PI / 2
-  parent.add(prism(m.shell, [o.width - k.casting * 2 + 0.04, k.panelHeight, 0.11], [x, k.panelCentre, 0], {
+  // Wide enough to lap the corner posts, whose inner faces are at
+  // `±(width*0.5 - casting*0.5 - casting*0.315)`. At the previous +0.04 the
+  // panel stopped 35.5 mm short of each post and left a vertical slit up the
+  // full height of both end-wall edges.
+  parent.add(prism(m.shell, [o.width - k.casting * 2 + 0.18, k.panelHeight, 0.11], [x, k.panelCentre, 0], {
     chamfer: 0.05, fillet: 0.018, bevel: 0.02, rotation: [0, yaw, 0],
   }))
   for (let index = 0; index < 5; index += 1) {
@@ -227,7 +250,7 @@ function endWall(
     chamfer: 0.05, fillet: 0.018, bevel: 0.016, rotation: [0, yaw, 0],
   }))
   const label = addLabelDecal(bundle, { variant: (o.variant ?? 0) + 11 })
-  plaque(parent, m, label, [0.62, 0.3], [x + sign * 0.058, o.height - 0.7, 0.42 * sign], face, m.shellLight)
+  plaque(parent, m, label, [0.62, 0.3], [x + sign * END_RIB_FACE, o.height - 0.7, 0.42 * sign], face, m.shellLight)
 }
 
 /** Builds the closed part of a container: frame, skirt, walls, and roof. */
@@ -305,15 +328,22 @@ export function containerDoorLeaf(
       leaf.add(cylinder(m.ink, 0.038, 0.09, [0.14, y, z], AXIS_X, 8))
     }
     leaf.add(prism(m.graphite, [0.12, 0.3, 0.11], [0.1, options.height * 0.5, z], { chamfer: 0.035, fillet: 0.012, bevel: 0.01 }))
-    leaf.add(prism(m.amberPaint, [0.1, 0.09, 0.36], [0.16, options.height * 0.5, z + side * 0.14], { chamfer: 0.028, fillet: 0.01, bevel: 0.008 }))
+    // Short enough, and set in far enough, that the two inner bars stop short of
+    // the centreline instead of reaching 190 mm past it into the other leaf's
+    // bar - two identical boxes in the same place, in the same paint.
+    leaf.add(prism(m.amberPaint, [0.1, 0.09, 0.26], [0.16, options.height * 0.5, z + side * 0.09], { chamfer: 0.028, fillet: 0.01, bevel: 0.008 }))
     leaf.add(cylinder(m.steel, 0.02, 0.13, [0.19, options.height * 0.5, z], AXIS_X, 8))
   }
   for (const y of [0.5, options.height * 0.5, options.height - 0.5]) {
     leaf.add(prism(m.graphiteEdge, [0.17, 0.19, 0.1], [0.08, y, 0], { chamfer: 0.03, fillet: 0.012, bevel: 0.01 }))
     leaf.add(cylinder(m.steel, 0.036, 0.24, [0.13, y, 0], AXIS_Y, 10))
   }
-  recessedHandle(leaf, m, [0.24, 0.1], [0.108, options.height * 0.62, centre - side * 0.02], 'right')
+  // The leaf's skin is 0.1 thick about x = 0, so its face is at 0.05, and the
+  // pressed sub-panels are 0.04 thick at x = 0.055, so theirs is at 0.075.
+  // Everything applied here was placed at 0.108 - past both - and floated by
+  // 25 to 55 mm across the whole door.
+  recessedHandle(leaf, m, [0.24, 0.1], [0.05, options.height * 0.62, centre - side * 0.02], 'right')
   const stripe = addStripeDecal(bundle, { count: 4, lean: -side })
-  plaque(leaf, m, stripe, [0.5, 0.13], [0.108, 0.62, centre], 'right', m.ink)
-  boltRun(leaf, m.steel, [0.108, 0.36, centre - width * 0.36], [0.108, 0.36, centre + width * 0.36], 5, 0.02, 'right')
+  plaque(leaf, m, stripe, [0.5, 0.13], [0.075, 0.62, centre], 'right', m.ink)
+  boltRun(leaf, m.steel, [0.05, 0.36, centre - width * 0.36], [0.05, 0.36, centre + width * 0.36], 5, 0.02, 'right')
 }

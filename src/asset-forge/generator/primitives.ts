@@ -375,6 +375,14 @@ function capIndices(outer: Vec2[], holes: Vec2[][]): number[] {
  * boxes to approximate a stepped or tapering mass leaves coincident interior
  * faces, a bevel that restarts at every joint, and a hard seam wherever two
  * blocks meet - the profile has to be one ring for the outline to be one edge.
+ *
+ * The mesh lands at **its authored profile coordinates plus `position`**. The
+ * rings are normalised to their bounding-box centre on the way in and that
+ * centre is added straight back on the way out, purely so `options.rotation`
+ * pivots about the profile rather than about the world origin. A profile drawn
+ * from 0 to h with `position[1] = 0` therefore occupies 0 to h, as drawn: do not
+ * add half a height to compensate for a re-centring that is already undone, or
+ * the part lands twice as far from where it was authored as it started.
  */
 export function extrudeProfile(
   material: MeshPhysicalMaterial,

@@ -1,4 +1,4 @@
-import { Group, Mesh, MeshPhysicalMaterial, Object3D, PlaneGeometry } from 'three/webgpu'
+import { Euler, Group, Mesh, MeshPhysicalMaterial, Object3D, PlaneGeometry, Vector3 } from 'three/webgpu'
 
 import {
   cylinder,
@@ -70,6 +70,32 @@ export function lift(position: Vec3, face: Face, distance: number): Vec3 {
     position[1] + normal[1] * distance,
     position[2] + normal[2] * distance,
   ]
+}
+
+/**
+ * Position for stacked surface detail. `n` = 1 for the first layer on a face.
+ *
+ * Every face-applied helper below already embeds its own back cap and stands its
+ * own front cap proud, so the position they want is the host's *outer face* and
+ * nothing else. The ad-hoc `+ 0.002` / `+ 0.004` a caller reaches for to "make
+ * sure it clears" is what turns a designed 3 mm embed into a 1 mm float. When
+ * something genuinely sits on top of something else that is already applied,
+ * count layers instead: this is the only offset the pack recognises.
+ */
+export function layer(face: Face, hostFace: Vec3, n = 1): Vec3 {
+  return lift(hostFace, face, LAYER_CLEARANCE * (n - 1))
+}
+
+/**
+ * The radius a faceted cylinder's flat surface actually sits at.
+ *
+ * `cylinder()` builds N chords, so its visible skin is the inscribed circle, not
+ * the nominal one - 4.7 mm inside at the pack's default 20 facets and a metre
+ * radius, 13 mm at the silo. Anything seated on a curved flank has to measure
+ * from here or it z-fights on the small props and floats on the big ones.
+ */
+export function facetRadius(radius: number, segments = 20): number {
+  return radius * Math.cos(Math.PI / segments)
 }
 
 /** Regular hexagon ring, flat-topped, for castings and lift sockets. */
@@ -165,8 +191,13 @@ export function faceSpin(face: Face, spin: number): Vec3 {
 export type SeamRun = 'along' | 'across'
 
 /**
- * A real cut panel line. Takes the host's outer surface position, not its
- * centre, so a seam is placed where it is seen.
+ * A real cut panel line. Takes the host's exact outer surface, not its centre
+ * and not that surface plus a margin, so a seam is placed where it is seen.
+ *
+ * The groove sits at zero lift because it is an open channel: a rim standing
+ * proud of the skin shows daylight under its lip at grazing angles, and callers
+ * that add their own clearance on top double it. The channel's draft angle is
+ * what keeps its walls off the host's plane, so no clearance is needed here.
  *
  * `run` picks the cut direction in the face plane: `across` is the face's
  * horizontal (world X for the side faces, world X for the roof), `along` is its
@@ -184,7 +215,7 @@ export function seam(
   depth = 0.018,
 ): Mesh {
   const rotation = faceSpin(face, run === 'across' ? Math.PI / 2 : 0)
-  const mesh = groove(material, length, width, depth, lift(position, face, 0.002), rotation)
+  const mesh = groove(material, length, width, depth, position, rotation)
   parent.add(mesh)
   return mesh
 }
@@ -255,9 +286,11 @@ export function cornerCasting(
   // A dark plug set back inside the bore. Without it the socket is a hole
   // straight through the silhouette, and against a black backdrop that reads as
   // a missing chunk of the casting rather than as a recess.
-  // Centred and short, so both mouths of the bore keep a visible lip of depth
-  // and the part needs no knowledge of which corner it was placed at.
-  casting.add(extrudeProfile(m.ink, hexagon(socketRadius * 0.99), depth * 0.5, position, {
+  // Centred, so both mouths of the bore keep a visible lip of depth and the part
+  // needs no knowledge of which corner it was placed at. At 0.88 of the bore the
+  // plug wall clears the bore wall by 6.6 mm; at the 0.99 it was drawn at, the
+  // two facing walls were 0.55 mm apart and their fillets interleaved.
+  casting.add(extrudeProfile(m.ink, hexagon(socketRadius * 0.88), depth * 0.6, position, {
     fillet: socketRadius * 0.16,
     bevel: 0.006,
     rotation,
@@ -302,6 +335,15 @@ export function forkPocket(
  *
  * Slats are separate proud bars rather than stripes on a texture, so the vent
  * self-shadows and keeps its depth read at grazing angles.
+ *
+ * The layering is what makes it a cavity: the surround's rim is the outermost
+ * thing, the slats sit level with the host skin, and the well is behind both.
+ * Built the other way round - well and slats in front of the rim - the part is
+ * arithmetically identical and reads as a proud black brick.
+ *
+ * Which means the surround has to be a rim and not a slab: with the well set
+ * back behind it, a solid surround simply hides the whole vent, so the opening
+ * is cut through it the way {@link forkPocket} cuts its mouth.
  */
 export function louvreVent(
   parent: Group,
@@ -321,9 +363,12 @@ export function louvreVent(
     chamfer: 0.028,
     fillet: 0.012,
     bevel: 0.009,
+    // The mouth is 4 mm tighter than the well all round, so the rim covers the
+    // well's own walls instead of meeting them on a shared plane.
+    holes: [slot(width * 0.5 - 0.004, height * 0.5 - 0.004, Math.min(width, height) * 0.16)],
     rotation,
   }))
-  vent.add(prism(m.ink, [width, height, 0.05], lift(position, face, 0.032), {
+  vent.add(prism(m.ink, [width, height, 0.05], lift(position, face, 0.004), {
     chamfer: 0.022,
     fillet: 0.009,
     bevel: 0.007,
@@ -335,9 +380,9 @@ export function louvreVent(
   for (let index = 0; index < slats; index += 1) {
     const offset = (index - (slats - 1) * 0.5) * pitch
     const centre: Vec3 = [
-      position[0] + across[0] * offset + normal[0] * 0.05,
-      position[1] + across[1] * offset + normal[1] * 0.05,
-      position[2] + across[2] * offset + normal[2] * 0.05,
+      position[0] + across[0] * offset + normal[0] * 0.016,
+      position[1] + across[1] * offset + normal[1] * 0.016,
+      position[2] + across[2] * offset + normal[2] * 0.016,
     ]
     vent.add(prism(m.graphiteEdge, [width - 0.03, pitch * 0.5, 0.032], centre, {
       chamfer: pitch * 0.14,
@@ -352,6 +397,10 @@ export function louvreVent(
 /**
  * A recessed grab handle: a dark well with a proud bar spanning it, so a hand
  * has somewhere to go and the silhouette stays flush.
+ *
+ * The well is set back so its mouth sits at the host face and only the bar
+ * stands proud. A well whose whole depth is ahead of the skin is a black box
+ * glued to the panel, which is the opposite of a grab pocket.
  */
 export function recessedHandle(
   parent: Group,
@@ -363,7 +412,7 @@ export function recessedHandle(
 ): void {
   const [width, height] = size
   const rotation = faceRotation(face)
-  parent.add(prism(m.ink, [width, height, 0.055], lift(position, face, -0.005), {
+  parent.add(prism(m.ink, [width, height, 0.055], lift(position, face, -0.026), {
     chamfer: Math.min(width, height) * 0.2,
     fillet: 0.01,
     bevel: 0.008,
@@ -410,8 +459,70 @@ export function toggleLatch(
 }
 
 /**
+ * The barrel hinge every lidded prop in this wave swings on: a continuous pin
+ * with knuckles and a strap either side of each one.
+ *
+ * `position` is the pin itself, and the pin belongs **outside** both leaves.
+ * Seven models built this by hand and all seven put the knuckles at a local
+ * coordinate inside the lid box, where they render as nothing at all - the case
+ * backs in the sheet are smooth, with no hinge anywhere on them. Sit the pin
+ * clear of the leaf's back face and the barrel is visible from every angle the
+ * lid can be seen from, which is the whole point of modelling it.
+ */
+export function lidHinge(
+  parent: Group,
+  m: CargoMaterials,
+  span: number,
+  position: Vec3,
+  axis: 'x' | 'z' = 'x',
+  knuckles = 3,
+  radius = 0.022,
+): Group {
+  const hinge = new Group()
+  hinge.name = 'axiom-cargo-kit / lid hinge'
+  parent.add(hinge)
+  const along: Vec3 = axis === 'x' ? [1, 0, 0] : [0, 0, 1]
+  const pinAxis = axis === 'x' ? AXIS_X : AXIS_Z
+
+  hinge.add(cylinder(m.steel, radius * 0.42, span, position, pinAxis, 8))
+  for (let index = 0; index < knuckles; index += 1) {
+    const t = knuckles === 1 ? 0.5 : index / (knuckles - 1)
+    const offset = (t - 0.5) * (span - radius * 6)
+    const centre: Vec3 = [
+      position[0] + along[0] * offset,
+      position[1] + along[1] * offset,
+      position[2] + along[2] * offset,
+    ]
+    hinge.add(cylinder(m.graphiteEdge, radius, radius * 3.4, centre, pinAxis, 10))
+    // The straps run out of the barrel into both leaves rather than stopping at
+    // it, because a knuckle floating on a pin is what a hinge looks like when
+    // the leaf plates have been left out.
+    for (const sign of [-1, 1]) {
+      const reach = sign * radius * 2.6
+      const strap: Vec3 = axis === 'x'
+        ? [centre[0], centre[1], centre[2] + reach]
+        : [centre[0] + reach, centre[1], centre[2]]
+      const size: Vec3 = axis === 'x'
+        ? [radius * 3, radius * 1.1, radius * 5.6]
+        : [radius * 5.6, radius * 1.1, radius * 3]
+      hinge.add(prism(m.graphiteEdge, size, strap, {
+        chamfer: radius * 0.3, fillet: radius * 0.12, bevel: radius * 0.1,
+      }))
+    }
+  }
+  return hinge
+}
+
+/**
  * A status lamp seated in a bezel. Emission never touches an unexplained
  * surface: the lit element is inside an ink recess with a chamfered rim.
+ *
+ * The bezel margin is a fraction of the lamp, capped at the 50 mm a hand-sized
+ * indicator wants. A flat 50 mm all round is right on a container's marker lamp
+ * and absurd on a 20 x 12 mm rack lamp, where it produced a 70 x 62 mm bezel
+ * that overhung its faceplate and collided with the lamp beside it. The two
+ * depths follow the margin for the same reason: a lamp an eighth of the size
+ * should not be seated eight times as deep.
  */
 export function statusLens(
   parent: Group,
@@ -420,19 +531,23 @@ export function statusLens(
   position: Vec3,
   lamp: MeshPhysicalMaterial = m.amber,
   face: Face = 'front',
+  spin = 0,
+  orient?: Vec3,
 ): void {
   const [width, height] = size
-  const rotation = faceRotation(face)
-  parent.add(prism(m.ink, [width + 0.05, height + 0.05, 0.04], lift(position, face, 0.01), {
+  const rotation = orient ?? faceSpin(face, spin)
+  const margin = Math.min(0.05, Math.min(width, height) * 0.6)
+  const seat = margin / 0.05
+  parent.add(prism(m.ink, [width + margin, height + margin, 0.04 * seat], lift(position, face, 0.01 * seat), {
     chamfer: Math.min(width, height) * 0.3,
-    fillet: 0.008,
-    bevel: 0.007,
+    fillet: 0.008 * seat,
+    bevel: 0.007 * seat,
     rotation,
   }))
-  parent.add(prism(lamp, [width, height, 0.026], lift(position, face, 0.032), {
+  parent.add(prism(lamp, [width, height, 0.026 * seat], lift(position, face, 0.032 * seat), {
     chamfer: Math.min(width, height) * 0.26,
-    fillet: 0.005,
-    bevel: 0.004,
+    fillet: 0.005 * seat,
+    bevel: 0.004 * seat,
     rotation,
   }))
 }
@@ -443,6 +558,10 @@ export function statusLens(
  * The plaque exists so the graphic inherits a physical edge and a shadow. A
  * decal plane alone lights identically to its host and reads as a sticker
  * printed on air.
+ *
+ * The decal sits 5 mm above the plate it is printed on. At the 1.5 mm it was
+ * drawn at, the pair is three depth-buffer steps apart at the far end of a
+ * container yard and the graphic flickers in and out between frames.
  */
 export function plaque(
   parent: Group,
@@ -452,9 +571,11 @@ export function plaque(
   position: Vec3,
   face: Face = 'front',
   plate: MeshPhysicalMaterial = m.shellShade,
+  spin = 0,
+  orient?: Vec3,
 ): Mesh {
   const [width, height] = size
-  const rotation = faceRotation(face)
+  const rotation = orient ?? faceSpin(face, spin)
   parent.add(prism(plate, [width + 0.04, height + 0.04, 0.022], lift(position, face, 0.008), {
     chamfer: Math.min(width, height) * 0.16,
     fillet: 0.006,
@@ -463,7 +584,7 @@ export function plaque(
   }))
   const mesh = new Mesh(new PlaneGeometry(width, height), decal)
   mesh.name = 'axiom-cargo-kit / seated decal'
-  const placed = lift(position, face, 0.0205)
+  const placed = lift(position, face, 0.024)
   mesh.position.set(...placed)
   mesh.rotation.set(...rotation)
   parent.add(mesh)
@@ -518,6 +639,15 @@ export function slashProfile(width: number, height: number, lean: number): Vec2[
  * tank, and silo in this wave needs its markings placed around a curve. Keeping
  * this as its own helper is what stops each of those models from hand-rolling
  * its own trigonometry and getting the decal's facing subtly wrong.
+ *
+ * `segments` has to match the facet count the body was built with, because the
+ * plate seats on the chord the cylinder actually renders, not on the nominal
+ * radius. Measured from the nominal radius, the same 4 mm embed is 0.3 mm proud
+ * on a 20-facet drum - coplanar, and it z-fights - and 6.7 mm short of a silo.
+ *
+ * `centre` is the cylinder's axis. It defaults to the group origin because most
+ * callers build one tank per model, but a rack of drums has four axes and a
+ * label measured about the wrong one ends up inside its neighbour.
  */
 export function radialPlaque(
   parent: Group,
@@ -528,12 +658,20 @@ export function radialPlaque(
   height: number,
   angle: number,
   plate: MeshPhysicalMaterial = m.ink,
+  segments = 20,
+  centre: Vec3 = [0, 0, 0],
 ): Mesh {
-  const [width, tall] = size
+  const facet = facetRadius(radius, segments)
+  // A flat plate laid on a curve lifts its corners by the sagitta of its own
+  // width, and the plate is only 20 mm thick. Past this width the corners leave
+  // the shell entirely - 39 mm on the chemical drum as drawn - so the plate is
+  // clamped to the width its embed can carry rather than allowed to peel.
+  const width = Math.min(size[0], 2 * Math.sqrt(0.008 * facet) - 0.05)
+  const tall = size[1]
   const place = (out: number): Vec3 => [
-    Math.sin(angle) * (radius + out),
-    height,
-    Math.cos(angle) * (radius + out),
+    centre[0] + Math.sin(angle) * (facet + out),
+    centre[1] + height,
+    centre[2] + Math.cos(angle) * (facet + out),
   ]
   parent.add(prism(plate, [width + 0.05, tall + 0.04, 0.02], place(0.006), {
     chamfer: Math.min(width, tall) * 0.16,
@@ -543,24 +681,86 @@ export function radialPlaque(
   }))
   const mesh = new Mesh(new PlaneGeometry(width, tall), decal)
   mesh.name = 'axiom-cargo-kit / radial decal'
-  mesh.position.set(...place(0.019))
+  mesh.position.set(...place(0.024))
   mesh.rotation.set(0, angle, 0)
   parent.add(mesh)
   return mesh
 }
 
-/** A painted stencil laid directly on a shell face, with no plaque behind it. */
+/**
+ * A painted mark on a cylindrical flank - the curved-body {@link paintMark}.
+ *
+ * Without this every drum, tank, and silo lays a flat extrusion tangent to its
+ * shell and the mark is buried at its centre and clear of the silhouette at its
+ * edges, or the reverse. Seated on the facet plane and rotated with it, a
+ * chevron on a barrel behaves like a chevron on a panel.
+ */
+export function radialMark(
+  parent: Group,
+  material: MeshPhysicalMaterial,
+  profile: Vec2[],
+  radius: number,
+  height: number,
+  angle: number,
+  segments = 20,
+  thickness = 0.013,
+): Mesh {
+  const seat = facetRadius(radius, segments) + thickness * 0.36
+  const mesh = extrudeProfile(material, profile, thickness, [
+    Math.sin(angle) * seat,
+    height,
+    Math.cos(angle) * seat,
+  ], {
+    fillet: thickness * 0.5,
+    bevel: thickness * 0.3,
+    rotation: [0, angle, 0],
+  })
+  parent.add(mesh)
+  return mesh
+}
+
+/**
+ * Where a fitting seats on a cylindrical flank: the position and rotation to
+ * hand to {@link statusLens}, {@link bolt}, or {@link box}.
+ *
+ * The flat helpers only know the six box faces, so a model that wants a lamp on
+ * a tank picks a corner like `[r*0.72, y, r*0.72]` and gets a part at 45 degrees
+ * to the surface. This returns the same pair those helpers would have been given
+ * on a flat panel, so nothing else about the call site has to change.
+ */
+export function radialFitting(
+  radius: number,
+  height: number,
+  angle: number,
+  segments = 20,
+): { position: Vec3; rotation: Vec3 } {
+  const facet = facetRadius(radius, segments)
+  return {
+    position: [Math.sin(angle) * facet, height, Math.cos(angle) * facet],
+    rotation: [0, angle, 0],
+  }
+}
+
+/**
+ * A painted stencil laid directly on a shell face, with no plaque behind it.
+ *
+ * Lifted half a layer clear rather than the 4 mm it was drawn at: this is a bare
+ * plane with no plate under it to hide a near-coincidence, so it is the one
+ * graphic in the kit that has nothing but its offset keeping it visible.
+ */
 export function stencil(
   parent: Group,
   decal: MeshPhysicalMaterial,
   size: Vec2,
   position: Vec3,
   face: Face = 'front',
+  spin = 0,
+  orient?: Vec3,
 ): Mesh {
   const mesh = new Mesh(new PlaneGeometry(size[0], size[1]), decal)
   mesh.name = 'axiom-cargo-kit / painted stencil'
-  mesh.position.set(...lift(position, face, 0.004))
-  mesh.rotation.set(...faceRotation(face))
+  mesh.position.set(...lift(position, face, LAYER_CLEARANCE * 0.5))
+  mesh.rotation.set(...(orient ?? faceSpin(face, spin)))
   parent.add(mesh)
   return mesh
 }
@@ -573,15 +773,32 @@ export function tick(
   position: Vec3,
   face: Face = 'front',
   spin = 0,
+  orient?: Vec3,
 ): Mesh {
-  const mesh = flatPlate(material, size, lift(position, face, 0.003), faceSpin(face, spin))
+  const mesh = flatPlate(material, size, lift(position, face, 0.006), orient ?? faceSpin(face, spin))
   parent.add(mesh)
   return mesh
 }
 
 /**
+ * How far a castor's mounting plate stands above the axle it is hung from.
+ *
+ * A chassis underside goes here, not at the wheel centre and not at the ground.
+ * Passing the wheel radius as the mount height buries the entire fork inside the
+ * floor slab and the prop renders sitting flat on the deck with no wheels at
+ * all, which is exactly what the dumpster does.
+ */
+export function castorMount(radius = 0.085): number {
+  return radius * 1.85 + 0.0175
+}
+
+/**
  * A swivel castor: fork, axle, tyre, and a top mounting plate. Used across the
  * carts, trolleys, and mobile racks so they all roll on the same hardware.
+ *
+ * `position` is the **axle**: the tyre bottoms at `y - radius`, so a wheel that
+ * touches the ground wants `y = radius`, and whatever it carries sits at
+ * `y + castorMount(radius)`.
  */
 export function castor(
   parent: Group,
@@ -612,8 +829,15 @@ export function castor(
 }
 
 /**
- * A straight structural member between two points in the XY plane. Keeps frame
- * bracing honest: one part, one bevel, correct length by construction.
+ * A straight structural member between two points. Keeps frame bracing honest:
+ * one part, one bevel, correct length by construction.
+ *
+ * The span is solved in all three axes. It used to take its length from x and y
+ * only and rotate about Z, so a diagonal authored across the XZ plane came out
+ * as an axis-aligned bar of the wrong length at the midpoint - silently, since
+ * there is nothing about the result that looks like an error. A drawbar ended up
+ * 305 mm short of its hitch and a set of saddle gussets vanished inside the
+ * saddle they were bracing.
  */
 export function member(
   parent: Group,
@@ -626,7 +850,11 @@ export function member(
 ): Mesh {
   const dx = to[0] - from[0]
   const dy = to[1] - from[1]
-  const length = Math.hypot(dx, dy)
+  const dz = to[2] - from[2]
+  const length = Math.hypot(dx, dy, dz)
+  // Yaw then pitch, in the order an XYZ Euler composes them, so the bar's long
+  // axis lands on the span and its width axis stays as near upright as the
+  // pitch allows.
   const mesh = prism(material, [length, width, depth], [
     (from[0] + to[0]) * 0.5,
     (from[1] + to[1]) * 0.5,
@@ -635,7 +863,7 @@ export function member(
     chamfer,
     fillet: Math.min(0.014, width * 0.12),
     bevel: Math.min(0.014, depth * 0.14),
-    rotation: [0, 0, Math.atan2(dy, dx)],
+    rotation: [0, Math.atan2(-dz, dx), Math.asin(length === 0 ? 0 : dy / length)],
   })
   parent.add(mesh)
   return mesh
@@ -672,6 +900,78 @@ export function tubeSection(
   return mesh
 }
 
+/**
+ * The dark inside of a carcass, built as five thin faces around a void rather
+ * than as one solid block.
+ *
+ * The solid-block idiom is the reason three of this wave's cabinets and chests
+ * ship shelves, drawer liners, stock boxes and tray dividers that never appear
+ * in a single frame: the interior is a `m.ink` box at the cavity's centre, so
+ * everything placed in the cavity is inside it. It also puts the block's front
+ * face on the same plane as whatever sits at the opening. Five faces cost four
+ * extra meshes and make the cavity an actual cavity.
+ *
+ * `size` is the clear opening. `open` is the face left out - the one the doors,
+ * drawers, or lid cover.
+ */
+export function cavityLiner(
+  parent: Group,
+  material: MeshPhysicalMaterial,
+  size: Vec3,
+  position: Vec3,
+  wall = 0.02,
+  open: Face = 'front',
+): Group {
+  const liner = new Group()
+  liner.name = 'axiom-cargo-kit / cavity liner'
+  parent.add(liner)
+  const [width, height, depth] = size
+  const half: Vec3 = [width * 0.5, height * 0.5, depth * 0.5]
+  const panel = (face: Face): void => {
+    if (face === open) return
+    const normal = FACE_NORMAL[face]
+    const axis = normal[0] !== 0 ? 0 : normal[1] !== 0 ? 1 : 2
+    const plate: Vec3 = [width, height, depth]
+    plate[axis] = wall
+    liner.add(prism(material, plate, [
+      position[0] + normal[0] * (half[0] + wall * 0.5),
+      position[1] + normal[1] * (half[1] + wall * 0.5),
+      position[2] + normal[2] * (half[2] + wall * 0.5),
+    ], { chamfer: wall * 0.35, fillet: wall * 0.15, bevel: wall * 0.12 }))
+  }
+  for (const face of ['front', 'back', 'left', 'right', 'top', 'bottom'] as const) panel(face)
+  return liner
+}
+
+/**
+ * A rubber pad under a foot, base ring, or runner, dropped 1 mm below the sole
+ * it is bedded into.
+ *
+ * The idiom this replaces puts the pad inside the base with both bottom faces at
+ * y = 0 - two down-facing planes on the same plane, which is the pack's single
+ * most repeated z-fight. Standing the pad slightly proud is also what actually
+ * happens: the pad is the part in contact, and the steel above it is not.
+ */
+export function groundPad(
+  parent: Group,
+  material: MeshPhysicalMaterial,
+  size: Vec2,
+  sole: Vec3,
+  thickness = 0.02,
+): Mesh {
+  const mesh = prism(material, [size[0], thickness, size[1]], [
+    sole[0],
+    sole[1] - 0.001 + thickness * 0.5,
+    sole[2],
+  ], {
+    chamfer: Math.min(0.02, Math.min(size[0], size[1]) * 0.16),
+    fillet: 0.006,
+    bevel: 0.005,
+  })
+  parent.add(mesh)
+  return mesh
+}
+
 export interface DrumOptions {
   /** Radial facets. 20 is the pack's default read for a metre-class drum. */
   readonly segments?: number
@@ -685,6 +985,15 @@ export interface DrumOptions {
   readonly band?: MeshPhysicalMaterial
 }
 
+/** What a drum publishes about itself so details can be seated on it. */
+export interface DrumShell {
+  readonly shell: Group
+  /** Facet plane of the body, which is where anything applied has to sit. */
+  readonly radius: number
+  /** The band of heights the chimes leave clear, measured from the base. */
+  readonly clearY: readonly [number, number]
+}
+
 /**
  * The pack's drum shell: a faceted body with real rolling hoops and top and
  * bottom chimes.
@@ -692,6 +1001,13 @@ export interface DrumOptions {
  * A drum's entire silhouette read is those three rings. Model it as a plain
  * cylinder and it becomes a can; the hoops are what tell you it can be tipped
  * onto its edge and walked, which is the only way anyone actually moves one.
+ *
+ * `position` is the **base**, so the body spans `y` to `y + height`. The chimes
+ * stand proud of the body at both ends, and a band or a bolt placed at the body
+ * radius inside those zones disappears inside them - a tamper seal, a catch and
+ * three fasteners are lost that way on the sealed barrel alone. `clearY` is the
+ * band between them, and `radius` is the facet plane rather than the nominal
+ * one, so both figures can be used without further arithmetic.
  */
 export function drum(
   parent: Group,
@@ -700,7 +1016,7 @@ export function drum(
   height: number,
   position: Vec3,
   options: DrumOptions = {},
-): Group {
+): DrumShell {
   const shell = new Group()
   shell.name = 'axiom-cargo-kit / drum shell'
   shell.position.set(...position)
@@ -722,7 +1038,93 @@ export function drum(
   for (const fraction of options.hoops ?? [0.36, 0.66]) {
     shell.add(cylinder(band, radius + chime * 0.8, 0.052, [0, height * fraction, 0], AXIS_Y, segments))
   }
-  return shell
+  return { shell, radius: facetRadius(radius, segments), clearY: [0.07, height - 0.07] }
+}
+
+/**
+ * A strap wrapped round a cylinder, built as a run of chords rather than as one
+ * tangent quad.
+ *
+ * A flat quad laid on a curve touches along a single line and leaves its ends in
+ * the air - 160 mm off the tarp roll on the open-top container. Chords follow
+ * the surface to whatever tolerance the chord count buys, and they are seated to
+ * bite into the shell at their ends so nothing along the run can float.
+ *
+ * The strap is authored around +Y at the group origin and the group is returned,
+ * so a band on a horizontal roll is the same call with the group rotated onto
+ * the roll's axis.
+ */
+export function wrapStrap(
+  parent: Group,
+  material: MeshPhysicalMaterial,
+  radius: number,
+  centre: Vec3,
+  from: number,
+  to: number,
+  width = 0.07,
+  thickness = 0.014,
+  chords = 3,
+): Group {
+  const strap = new Group()
+  strap.name = 'axiom-cargo-kit / wrap strap'
+  strap.position.set(...centre)
+  parent.add(strap)
+
+  const step = (to - from) / chords
+  const seat = (radius - 0.004) * Math.cos(step * 0.5) + thickness * 0.5
+  for (let index = 0; index < chords; index += 1) {
+    const angle = from + step * (index + 0.5)
+    strap.add(prism(material, [2 * seat * Math.tan(step * 0.5), width, thickness], [
+      Math.sin(angle) * seat,
+      0,
+      Math.cos(angle) * seat,
+    ], {
+      chamfer: thickness * 0.4,
+      fillet: thickness * 0.2,
+      bevel: thickness * 0.18,
+      rotation: [0, angle, 0],
+    }))
+  }
+  return strap
+}
+
+/**
+ * A pipe branch off a vessel: neck, flange, and a ring of studs round the
+ * flange.
+ *
+ * The studs are the reason this is shared. The local version it replaces decided
+ * which plane to lay them in by testing whether the rotation had an X term,
+ * which is only right for one of the three axes - on the other two the studs
+ * came out strung along the nozzle's own bore instead of round its face, half
+ * of them inside the shell and half hanging clear of it. Solving the flange
+ * plane from the bore direction is right for any orientation, including the
+ * angled ones a real vessel has.
+ */
+export function nozzle(
+  parent: Group,
+  m: CargoMaterials,
+  position: Vec3,
+  rotation: Vec3,
+  radius: number,
+  reach: number,
+  studs = 6,
+): void {
+  parent.add(cylinder(m.steel, radius, reach, position, rotation, 12))
+  parent.add(cylinder(m.graphiteEdge, radius * 1.7, 0.055, position, rotation, 12))
+
+  const bore = new Vector3(0, 1, 0).applyEuler(new Euler(...rotation)).normalize()
+  const seed = Math.abs(bore.x) > 0.9 ? new Vector3(0, 0, 1) : new Vector3(1, 0, 0)
+  const u = new Vector3().crossVectors(bore, seed).normalize()
+  const v = new Vector3().crossVectors(bore, u)
+  const offset = radius * 1.4
+  for (let index = 0; index < studs; index += 1) {
+    const angle = ((Math.PI * 2) / studs) * index
+    parent.add(cylinder(m.steel, 0.014, 0.075, [
+      position[0] + (u.x * Math.cos(angle) + v.x * Math.sin(angle)) * offset,
+      position[1] + (u.y * Math.cos(angle) + v.y * Math.sin(angle)) * offset,
+      position[2] + (u.z * Math.cos(angle) + v.z * Math.sin(angle)) * offset,
+    ], rotation, 6))
+  }
 }
 
 /**
@@ -752,6 +1154,11 @@ export function hookProfile(scale = 1): Vec2[] {
 /**
  * A complete hook block: shackle ears, a cross pin, a swivel nut, and the forged
  * hook itself, hung from `position` with the pin at that height.
+ *
+ * `position` is the **shackle cross pin** - the ears reach down to `-0.31s`, the
+ * swivel nut to `-0.425s`, and the hook body occupies `-0.55s` to `-1.17s`.
+ * A rope or a sheave block aimed at the middle of the assembly rather than at
+ * the pin misses it by most of a hook length.
  */
 export function hookBlock(
   parent: Group,
