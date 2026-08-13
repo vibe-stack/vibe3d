@@ -76,8 +76,9 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   // and shallow, two small feet leave the silhouette as one unbroken light bar;
   // the rail gives it the dark lower third every reference in the family has.
   //
-  // It laps the shell by 20 mm and clears the deck by two face clearances: one
-  // for the pads the crate rides on, one for the saddles between them. At the
+  // It laps the shell by 20 mm and stands two face clearances off the deck, so
+  // its sole shares a plane with neither the saddles the crate rides on nor the
+  // pads bedded under them, which drop below the deck in turn. At the
   // 55 mm it was drawn at, a 45 mm slot ran the whole length between the rail's
   // top and the body's underside, with only the two saddles bridging it.
   box(hull, m.graphite, [LENGTH - 0.06, FOOT - FACE_CLEARANCE * 2, DEPTH - 0.04], [
@@ -85,9 +86,10 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   ], { chamfer: 0.03, fillet: 0.011, bevel: 0.01, capChamfer: 0.02 })
   // Saddle feet. Two, not four, because a long shallow box wants a strap route
   // under its middle third and legs at the ends would fight it. The rubber under
-  // them is what meets the deck, so the saddle's own sole stops clear of it.
+  // them is what meets the deck, and it drops a face clearance below the sole it
+  // beds on its own, so the saddle takes the deck rather than starting above it.
   for (const x of [-0.78, 0.78]) {
-    box(hull, m.graphite, [0.42, FOOT - FACE_CLEARANCE, DEPTH + 0.03], [x, (FOOT + FACE_CLEARANCE) * 0.5, 0], {
+    box(hull, m.graphite, [0.42, FOOT, DEPTH + 0.03], [x, FOOT * 0.5, 0], {
       chamfer: 0.04, fillet: 0.014, bevel: 0.012, capChamfer: 0.03,
     })
     groundPad(hull, m.rubber, [0.4, DEPTH - 0.06], [x, 0, 0], 0.024)
