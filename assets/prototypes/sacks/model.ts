@@ -7,7 +7,6 @@ import {
   box,
   createCargoPreview,
   finishModel,
-  paintMark,
   plaque,
   slashProfile,
   socket,
@@ -67,6 +66,14 @@ function sackProfile(width: number, height: number, slump: number): Vec2[] {
   ]
 }
 
+/**
+ * One filled sack, returning where its front cap sits at a given x.
+ *
+ * The cap is a flat plane tilted by the sack's own yaw, and it is the only thing
+ * on this prop a graphic can be laid on. Handing it back is what lets the label
+ * and the sprayed marks be measured off the surface they lie on instead of off
+ * the stack's bounding box.
+ */
 function sack(
   root: Group,
   m: CargoMaterials,
@@ -76,10 +83,14 @@ function sack(
   position: [number, number, number],
   yaw: number,
   slump: number,
-): void {
-  root.add(extrudeProfile(m.fabric, sackProfile(width, height, slump), depth, [
-    position[0], position[1] + height * 0.5, position[2],
-  ], {
+): (x: number) => number {
+  // `position` is the sack's base. The profile is authored 0 to `height` and
+  // `extrudeProfile` lands it at those coordinates plus the offset, so adding
+  // half a height here to correct for a re-centring the primitive already undoes
+  // double-shifted every sack: the stack stood 155 to 170 mm clear of its own
+  // sheet and the neck and tie, authored in the unshifted frame, ended up buried
+  // at mid-height with no sack showing a gather at all.
+  root.add(extrudeProfile(m.fabric, sackProfile(width, height, slump), depth, position, {
     fillet: Math.min(width, depth) * 0.22,
     bevel: Math.min(width, depth) * 0.2,
     capChamfer: depth * 0.24,
@@ -97,6 +108,7 @@ function sack(
   ], {
     chamfer: 0.01, fillet: 0.005, bevel: 0.004, rotation: [0, yaw, 0],
   })
+  return (x) => position[2] + (depth * 0.5 - Math.sin(yaw) * (x - position[0])) / Math.cos(yaw)
 }
 
 function build(): { root: Group; sockets: SackSockets; bundle: CargoMaterialBundle } {
@@ -115,18 +127,35 @@ function build(): { root: Group; sockets: SackSockets; bundle: CargoMaterialBund
   })
 
   // Bottom course of three, laid across the sheet with real variation in yaw,
-  // slump, and size. Identical sacks are the tell that nobody filled them.
-  sack(root, m, 0.46, 0.34, 0.4, [-0.26, 0.03, -0.13], 0.16, 1)
+  // slump, and size. Identical sacks are the tell that nobody filled them. The
+  // two that carry graphics keep their yaw in a name, because every mark on them
+  // has to be turned by the same angle the sack was.
+  const LEFT_YAW = 0.16
+  const FRONT_YAW = 0.06
+  const leftFace = sack(root, m, 0.46, 0.34, 0.4, [-0.26, 0.03, -0.13], LEFT_YAW, 1)
   sack(root, m, 0.5, 0.31, 0.42, [0.24, 0.03, -0.1], -0.22, 0.7)
-  sack(root, m, 0.48, 0.33, 0.44, [-0.02, 0.03, 0.18], 0.06, 0.9)
+  const frontFace = sack(root, m, 0.48, 0.33, 0.44, [-0.02, 0.03, 0.18], FRONT_YAW, 0.9)
   // Two on top, crossed the other way, one clearly heavier than the other.
   sack(root, m, 0.44, 0.29, 0.38, [-0.16, 0.335, 0.02], 1.32, 0.5)
   sack(root, m, 0.42, 0.26, 0.36, [0.2, 0.315, 0.06], 1.5, 0.3)
 
+  // Both graphics ride a sack's front cap, and both are turned onto that cap's
+  // plane rather than left square to the world. Laid on the axis at z = 0.14 and
+  // 0.05 they stood 60 to 90 mm out in front of the fabric, which the sheet
+  // showed as a barcode card and two orange fins hanging clear of the stack.
   const label = addLabelDecal(bundle, { variant: 37, ground: 0xc9b99e })
-  plaque(root, m, label, [0.2, 0.1], [0.24, 0.17, 0.14], 'front', m.fabric)
-  paintMark(root, m.orangePaint, slashProfile(0.06, 0.13, 0.4), [-0.3, 0.19, 0.05], 'front', 0.008)
-  paintMark(root, m.orangePaint, slashProfile(0.03, 0.13, 0.4), [-0.22, 0.19, 0.05], 'front', 0.008)
+  plaque(root, m, label, [0.15, 0.055], [-0.03, 0.195, frontFace(-0.03)], 'front', m.fabric, 0, [0, FRONT_YAW, 0])
+  // The sprayed marks are extruded straight rather than through `paintMark`,
+  // which can only lay a mark in one of the six world faces. Square to +Z each
+  // of these crosses 13 mm of the cap's fall over its own width: anchored at one
+  // end it stands 7 mm off the fabric, anchored at the other it disappears into
+  // it, and there is no single height in between that works. Turned with the
+  // sack the embed is the same 4 mm from end to end.
+  for (const [markX, width] of [[-0.35, 0.04], [-0.285, 0.02]] as const) {
+    root.add(extrudeProfile(m.orangePaint, slashProfile(width, 0.1, 0.4), 0.008, [markX, 0.19, leftFace(markX)], {
+      fillet: 0.004, bevel: 0.0024, rotation: [0, LEFT_YAW, 0],
+    }))
+  }
 
   const sockets: SackSockets = {
     top_left: socket('top_left', [-0.16, 0.63, 0.02]),
