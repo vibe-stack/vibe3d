@@ -1,6 +1,6 @@
 import { Group, Object3D } from 'three/webgpu'
 
-import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
+import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
   acquireCargoMaterials,
@@ -9,6 +9,7 @@ import {
   boltRun,
   createCargoPreview,
   finishModel,
+  lidHinge,
   paintMark,
   plaque,
   seam,
@@ -133,13 +134,10 @@ function lidBody(lid: Group, m: CargoMaterials): void {
   })
   // The knuckles have to clear the lid's own back face. Drawn 52 mm inside it
   // they render as nothing, which is why the case back was a smooth shell with
-  // no hinge on it anywhere.
-  for (const sx of [-1, 1]) {
-    lid.add(prism(m.graphiteEdge, [0.11, 0.07, 0.06], [sx * 0.2, LID * 0.55, lidBack + 0.01], {
-      chamfer: 0.02, fillet: 0.007, bevel: 0.006,
-    }))
-    lid.add(cylinder(m.steel, 0.016, 0.13, [sx * 0.2, LID * 0.55, lidBack - 0.016], AXIS_X, 8))
-  }
+  // no hinge on it anywhere. The barrel sits on the line the lid actually turns
+  // about, kept inboard of the tow-handle channels and short enough in the strap
+  // that the lower pair stops above the back bolt run.
+  lidHinge(lid, m, WIDTH - 0.3, [0, 0, lidBack - 0.016], 'x', 2, 0.018, 0.055, 0.016)
 }
 
 /** Telescoping tow handle: two stiles in guide channels plus a rubber grip. */
