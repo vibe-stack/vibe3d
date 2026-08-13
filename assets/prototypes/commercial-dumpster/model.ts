@@ -4,6 +4,7 @@ import { cylinder, extrudeProfile, type Vec2 } from '../../../src/asset-forge/ge
 import {
   AXIS_X,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -86,11 +87,18 @@ export interface CommercialBinController {
   dispose(): void
 }
 
-/** Side elevation: vertical front, sloped back, flat floor. */
+/**
+ * Side elevation: vertical front, sloped back, flat floor.
+ *
+ * The floor is drawn a clearance up rather than at zero because the skirt band
+ * below wraps the whole base from y = 0 to 0.07 and is the underside anyone
+ * actually sees; a wall that started at zero put its own downward cap on that
+ * same plane, facing the same way.
+ */
 function sideProfile(): Vec2[] {
   return [
-    [-LENGTH * 0.5, 0],
-    [LENGTH * 0.5, 0],
+    [-LENGTH * 0.5, FACE_CLEARANCE],
+    [LENGTH * 0.5, FACE_CLEARANCE],
     [LENGTH * 0.5, HEIGHT],
     [-LENGTH * 0.5 + SLOPE, HEIGHT],
   ]
@@ -102,9 +110,11 @@ function bodyBuild(body: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
       fillet: 0.035, bevel: 0.024,
     }))
   }
-  box(body, m.shell, [0.05, HEIGHT, WIDTH - 0.06], [LENGTH * 0.5 - 0.025, HEIGHT * 0.5, 0], {
-    chamfer: 0.04, fillet: 0.014, bevel: 0.012,
-  })
+  // The front wall starts on the same floor as the side elevations, and for the
+  // same reason: 66 mm of it is still buried in the skirt band.
+  box(body, m.shell, [0.05, HEIGHT - FACE_CLEARANCE, WIDTH - 0.06], [
+    LENGTH * 0.5 - 0.025, (HEIGHT + FACE_CLEARANCE) * 0.5, 0,
+  ], { chamfer: 0.04, fillet: 0.014, bevel: 0.012 })
   const slant = Math.atan2(SLOPE, HEIGHT)
   box(body, m.shell, [0.05, Math.hypot(HEIGHT, SLOPE), WIDTH - 0.06], [
     -LENGTH * 0.5 + SLOPE * 0.5, HEIGHT * 0.5, 0,
