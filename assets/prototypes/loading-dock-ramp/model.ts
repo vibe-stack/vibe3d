@@ -309,8 +309,10 @@ function preview(options: CargoPreviewOptions & { state?: RampState } = {}): Car
   const model = createModel()
   model.setState(options.state ?? 'landed')
   return createCargoPreview(model, {
-    target: [0, RISE * 0.6, 0],
-    distance: 8.6,
+    // The ramp is nearly six metres of run against one of rise, so the frame is
+    // set by its length: at 8.6 m the toe plate ran off the right-hand edge.
+    target: [0, RISE * 0.51, 0],
+    distance: 10.2,
     yaw: 0.86,
     pitch: 0.46,
     fov: 30,
