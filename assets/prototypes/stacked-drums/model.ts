@@ -66,8 +66,11 @@ function pallet(root: Group, m: CargoMaterials, bundle: CargoMaterialBundle): vo
   box(root, m.graphite, [span, 0.08, span], [0, PALLET - 0.02, 0], {
     chamfer: 0.05, fillet: 0.018, bevel: 0.012,
   })
+  // The stringers stop a face clearance inside the deck's own ends. Sawn to the
+  // deck's full span they shared both end planes with it over the 25 mm the deck
+  // bites down into them, which is three coincident same-facing pairs per end.
   for (const sx of [-1, 0, 1]) {
-    box(root, m.graphiteEdge, [0.14, PALLET - 0.035, span], [sx * (span * 0.5 - 0.09), (PALLET - 0.035) * 0.5, 0], {
+    box(root, m.graphiteEdge, [0.14, PALLET - 0.035, span - FACE_CLEARANCE * 2], [sx * (span * 0.5 - 0.09), (PALLET - 0.035) * 0.5, 0], {
       chamfer: 0.035, fillet: 0.012, bevel: 0.01,
     })
   }
@@ -126,7 +129,11 @@ function build(): { root: Group; sockets: DrumStackSockets; bundle: CargoMateria
         // The crown ring is what a strap laid over the stack actually bears on,
         // so it reaches above the body rather than straddling it.
         root.add(cylinder(m.graphite, RADIUS - 0.06, 0.05, [sx * SPREAD, baseY + BODY + 0.005, sz * SPREAD], AXIS_Y, 14))
-        root.add(cylinder(m.amberPaint, 0.055, 0.035, [sx * SPREAD, baseY + BODY + 0.02, sz * SPREAD], AXIS_Y, 8))
+        // The bung is wider than the strap that crosses it, so it has to break
+        // the webbing's top face rather than meet it: the strap's crown is 37 mm
+        // above the drum and the bung was drawn to 37.5, which is half a
+        // millimetre between two up-facing surfaces over the whole 75 mm width.
+        root.add(cylinder(m.amberPaint, 0.055, 0.035, [sx * SPREAD, baseY + BODY + 0.0235, sz * SPREAD], AXIS_Y, 8))
       }
     }
     if (tier === 0) spacerDeck(root, m, PALLET + BODY)
