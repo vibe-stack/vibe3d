@@ -2,8 +2,8 @@ dist/
 node_modules/
 .asset-forge/
 build/assets/
-renders/*.png
-renders/*.json
+renders/
+assets/prototypes/.qa-views-*/
 *.log
 .DS_Store
 coverage/
