@@ -11,7 +11,9 @@ import {
   box,
   createCargoPreview,
   finishModel,
+  groundPad,
   louvreVent,
+  member,
   plaque,
   seam,
   socket,
@@ -38,6 +40,20 @@ const DEPTH = 0.62
 const HEIGHT = 1.94
 const POST = 0.075
 const LEVELS = [0.34, 0.82, 1.3, 1.74]
+/** Back panel: its span, and the outer face anything mounted on it seats at. */
+const PANEL_BOTTOM = 0.15
+const PANEL_TOP = HEIGHT - 0.02
+const PANEL_Z = -(DEPTH * 0.5 - POST * 0.5) - 0.015
+/** Busbar spine, lapping the panel's inner face by 20 mm. */
+const SPINE_Z = -(DEPTH * 0.5 - POST * 0.5) + 0.03
+/**
+ * How far an outlet sits above the tray it feeds. The top bay sets the figure:
+ * its lamp stands 75 mm above the outlet's centre and has to stay on the panel.
+ */
+const OUTLET_RISE = 0.09
+/** Foot pad and plate, stacked so the rubber is the part in contact. */
+const PAD = 0.018
+const FOOT = 0.028
 
 interface ShelvingSockets {
   bay_a: Object3D
@@ -80,10 +96,12 @@ function outlet(root: Group, m: CargoMaterials, y: number, lamp: typeof m.cyan):
     chamfer: 0.03, fillet: 0.011, bevel: 0.009,
   })
   root.add(cylinder(m.ink, 0.032, 0.04, [WIDTH * 0.5 - 0.34, y, z + 0.04], AXIS_Z, 10))
-  box(root, m.amberPaint, [0.05, 0.06, 0.03], [WIDTH * 0.5 - 0.22, y, z + 0.04], {
+  box(root, m.amberPaint, [0.05, 0.06, 0.03], [WIDTH * 0.5 - 0.22, y, z + 0.045], {
     chamfer: 0.012, fillet: 0.005, bevel: 0.004,
   })
-  statusLens(root, m, [0.05, 0.02], [WIDTH * 0.5 - 0.28, y + 0.055, z + 0.035], lamp, 'front')
+  // The lamp seats on the outlet's own front face and inside its 0.14 height;
+  // lifted 10 mm off it and 55 mm up, the bezel floated and overshot the box.
+  statusLens(root, m, [0.05, 0.02], [WIDTH * 0.5 - 0.28, y + 0.045, z + 0.025], lamp, 'front')
 }
 
 function build(): { root: Group; sockets: ShelvingSockets; bundle: CargoMaterialBundle } {
@@ -98,39 +116,59 @@ function build(): { root: Group; sockets: ShelvingSockets; bundle: CargoMaterial
       const x = sx * (WIDTH * 0.5 - POST * 0.5)
       const z = sz * (DEPTH * 0.5 - POST * 0.5)
       tubeSection(root, m.shell, [POST, POST], 0.012, HEIGHT, [x, HEIGHT * 0.5, z], [Math.PI / 2, 0, 0])
-      box(root, m.graphite, [0.12, 0.028, 0.12], [x, 0.014, z], { chamfer: 0.03, fillet: 0.01, bevel: 0.006 })
-      root.add(cylinder(m.rubber, 0.04, 0.02, [x, 0.008, z], AXIS_Y, 8))
-      bolt(root, m.steel, [x, 0.028, z], 0.013, 'top')
+      // The pad is wider than the plate it beds, which is the only way it shows
+      // at all - a 0.08 disc under a 0.12 plate is rubber nobody ever sees.
+      groundPad(root, m.rubber, [0.14, 0.14], [x, 0, z], PAD)
+      box(root, m.graphite, [0.12, FOOT, 0.12], [x, PAD * 0.5 + FOOT * 0.5, z], {
+        chamfer: 0.03, fillet: 0.01, bevel: 0.006,
+      })
+      bolt(root, m.steel, [x, PAD * 0.5 + FOOT, z], 0.013, 'top')
     }
   }
-  // Back panel with a louvred field, so the bay reads as ventilated.
-  box(root, m.shellShade, [WIDTH - POST, HEIGHT - 0.3, 0.03], [0, HEIGHT * 0.5, -(DEPTH * 0.5 - POST * 0.5)], {
+  // Back panel with a louvred field, so the bay reads as ventilated. It runs to
+  // the head of the frame because the top bay's outlet hangs on it; stopped at
+  // HEIGHT - 0.3 it ended below that outlet and left it in mid-air.
+  box(root, m.shellShade, [WIDTH - POST, PANEL_TOP - PANEL_BOTTOM, 0.03], [
+    0, (PANEL_TOP + PANEL_BOTTOM) * 0.5, -(DEPTH * 0.5 - POST * 0.5),
+  ], {
     chamfer: 0.04, fillet: 0.014, bevel: 0.01,
   })
-  louvreVent(root, m, [0.36, 0.44], [-WIDTH * 0.5 + 0.34, HEIGHT * 0.42, -(DEPTH * 0.5 + 0.005)], 5, 'back')
+  louvreVent(root, m, [0.36, 0.44], [-WIDTH * 0.5 + 0.34, HEIGHT * 0.42, PANEL_Z], 5, 'back')
 
   for (const y of LEVELS) tray(root, m, y)
 
   // Busbar trunking down the spine plus a cable basket under the top tray.
-  box(root, m.graphite, [0.1, HEIGHT - 0.42, 0.07], [WIDTH * 0.5 - 0.14, HEIGHT * 0.5, -(DEPTH * 0.5 - 0.1)], {
+  box(root, m.graphite, [0.1, HEIGHT - 0.42, 0.07], [WIDTH * 0.5 - 0.14, HEIGHT * 0.5, SPINE_Z], {
     chamfer: 0.024, fillet: 0.009, bevel: 0.008,
   })
   for (const [index, y] of LEVELS.entries()) {
-    outlet(root, m, y + 0.12, index === 2 ? m.amber : m.cyan)
+    outlet(root, m, y + OUTLET_RISE, index === 2 ? m.amber : m.cyan)
   }
   box(root, m.graphiteEdge, [WIDTH - 0.4, 0.05, 0.16], [0, LEVELS[3] - 0.1, DEPTH * 0.5 - 0.2], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.007,
   })
-  for (let index = 0; index < 6; index += 1) {
-    root.add(cylinder(m.rubber, 0.012, WIDTH - 0.44, [0, LEVELS[3] - 0.07 + (index % 2) * 0.02, DEPTH * 0.5 - 0.24 + index * 0.012], AXIS_X, 6))
+  // Two straps carrying the basket off the tray above it. Without them the
+  // basket and its cable run hung 60 mm under the shelf on nothing at all; they
+  // sit outboard of the cables so the run passes between them.
+  for (const sx of [-1, 1]) {
+    box(root, m.shellShade, [0.03, 0.14, 0.16], [sx * ((WIDTH - 0.4) * 0.5 - 0.02), LEVELS[3] - 0.065, DEPTH * 0.5 - 0.2], {
+      chamfer: 0.008, fillet: 0.004, bevel: 0.004,
+    })
   }
-  // Earth strap from the frame to the deck.
-  box(root, m.amberPaint, [0.03, 0.22, 0.012], [-WIDTH * 0.5 + 0.1, 0.16, DEPTH * 0.5 - 0.06], {
-    chamfer: 0.006, fillet: 0.003, bevel: 0.003, rotation: [0, 0, 0.24],
-  })
+  for (let index = 0; index < 6; index += 1) {
+    root.add(cylinder(m.rubber, 0.012, WIDTH - 0.52, [0, LEVELS[3] - 0.07 + (index % 2) * 0.02, DEPTH * 0.5 - 0.24 + index * 0.012], AXIS_X, 6))
+  }
+  // Earth strap, bonding the front post to its own base plate. Drawn as a free
+  // box it reached neither: 10 mm clear of the post at the top and 55 mm short
+  // of the plate at the bottom, a bond wire bonding nothing.
+  member(root, m.amberPaint, [
+    -(WIDTH * 0.5 - POST * 0.5), 0.26, DEPTH * 0.5 - 0.06,
+  ], [
+    -(WIDTH * 0.5 - POST * 0.5) + 0.05, PAD * 0.5 + FOOT * 0.5, DEPTH * 0.5 - 0.06,
+  ], 0.03, 0.012)
 
   const label = addLabelDecal(bundle, { variant: 170 })
-  plaque(root, m, label, [0.24, 0.09], [-WIDTH * 0.5 + 0.26, HEIGHT - 0.1, DEPTH * 0.5 - 0.16], 'top', m.shellLight)
+  plaque(root, m, label, [0.2, 0.07], [-WIDTH * 0.5 + 0.26, LEVELS[3] + 0.015, DEPTH * 0.5 - 0.12], 'top', m.shellLight)
 
   const sockets: ShelvingSockets = {
     bay_a: socket('bay_a', [0, LEVELS[0] + 0.03, 0]),
