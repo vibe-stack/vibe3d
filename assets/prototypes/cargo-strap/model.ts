@@ -56,8 +56,11 @@ function hook(root: Group, m: CargoMaterials, position: [number, number, number]
   ]
   // Laid flat on the deck, because the strap it terminates is lying flat. The
   // extrusion axis becomes world +Y, so the claw's own thickness is its height.
+  // The spin belongs in Z, which an XYZ Euler applies before the part is stood
+  // up: put in Y it composes into an extrusion axis with a horizontal term and
+  // tips the whole claw 29 to 49 degrees out of the deck instead of turning it.
   root.add(extrudeProfile(m.steel, claw, 0.038, position, {
-    fillet: 0.008, bevel: 0.007, rotation: [Math.PI / 2, yaw, 0],
+    fillet: 0.008, bevel: 0.007, rotation: [Math.PI / 2, 0, yaw],
   }))
 }
 
@@ -106,33 +109,52 @@ function build(): { root: Group; sockets: StrapSockets; bundle: CargoMaterialBun
   // the roll has a visible edge spiral instead of reading as a solid ring.
   for (let turn = 0; turn < TURNS; turn += 1) {
     const radius = COIL_R - turn * (WEB * 0.42)
-    const lift = 0.004 + turn * 0.0035
+    // The outer turn is the one on the ground, so the spiral counts up from the
+    // deck rather than from 4 mm above it.
+    const lift = turn * 0.0035
     root.add(cylinder(m.webbing, radius, WEB, [0, WEB * 0.5 + lift, 0], AXIS_Y, 22))
     root.add(cylinder(m.shellShade, radius - 0.004, WEB - 0.006, [0, WEB * 0.5 + lift, 0], AXIS_Y, 22))
   }
-  root.add(cylinder(m.ink, COIL_R - TURNS * WEB * 0.42 - 0.012, WEB + 0.02, [0, WEB * 0.5 + 0.012, 0], AXIS_Y, 18))
+  root.add(cylinder(m.ink, COIL_R - TURNS * WEB * 0.42 - 0.012, WEB + 0.02, [0, (WEB + 0.02) * 0.5, 0], AXIS_Y, 18))
 
-  // The loose tail leaving the coil, and the free hook at the end of it.
+  // The loose tail leaving the coil, and the free hook at the end of it. A
+  // positive Ry aims a run at -Z, so the two runs that travel to +Z carry the
+  // same negative yaw the -Z one already does. Signed the other way they walked
+  // apart: 117 mm of daylight between the first tail and the second, with the
+  // hook stranded past the end of both.
+  const TAIL_YAW = -0.3
   box(root, m.webbing, [0.3, 0.012, WEB], [COIL_R + 0.12, 0.006, 0.05], {
-    chamfer: 0.005, fillet: 0.003, bevel: 0.003, rotation: [0, 0.3, 0],
+    chamfer: 0.005, fillet: 0.003, bevel: 0.003, rotation: [0, TAIL_YAW, 0],
   })
   box(root, m.webbing, [0.16, 0.012, WEB], [COIL_R + 0.3, 0.006, 0.14], {
-    chamfer: 0.005, fillet: 0.003, bevel: 0.003, rotation: [0, 0.85, 0],
+    chamfer: 0.005, fillet: 0.003, bevel: 0.003, rotation: [0, -0.85, 0],
   })
-  // Raised to the claw's own half-height: the profile straddles y = 0, so
-  // planting it at deck level buries the throat and leaves a stub.
-  hook(root, m, [COIL_R + 0.36, 0.1, 0.21], 0.85)
-  hook(root, m, [-COIL_R - 0.06, 0.1, -0.11], -0.5)
+  // `extrudeProfile` hangs the claw from the centre of its own outline, which is
+  // 22.5 mm above the throat, and the extrusion adds half its 38 mm depth on top
+  // of that - so the deck is 41.5 mm under the anchor, not level with it.
+  hook(root, m, [COIL_R + 0.36, 0.0415, 0.21], 0.85)
+  hook(root, m, [-COIL_R - 0.06, 0.0415, -0.11], -0.5)
   box(root, m.webbing, [0.12, 0.012, WEB], [-COIL_R - 0.02, 0.006, -0.06], {
     chamfer: 0.005, fillet: 0.003, bevel: 0.003, rotation: [0, -0.5, 0],
   })
 
-  ratchet(root, m, WEB + 0.028)
+  // Bedded into the coil's core, which tops out 6 mm above the innermost turn.
+  ratchet(root, m, WEB + 0.012)
 
-  // Load-rating tag sewn to the tail: the one graphic a strap carries.
+  // Load-rating tag sewn to the tail: the one graphic a strap carries. It takes
+  // the tail's own yaw and its exact top face, and its plate is sized to the
+  // strap it is sewn to - square to the world and half as wide again, the plate
+  // it is printed on overhung the webbing by 12 mm on both sides.
   const stripe = addStripeDecal(bundle, { count: 3, lean: 1 })
-  plaque(root, m, stripe, [0.11, 0.035], [COIL_R + 0.14, 0.014, 0.06], 'top', m.ink)
-  root.add(cylinder(m.steel, 0.006, 0.03, [COIL_R + 0.2, 0.012, 0.09], AXIS_X, 6))
+  plaque(root, m, stripe, [0.1, 0.014], [
+    COIL_R + 0.12 + Math.cos(TAIL_YAW) * 0.02, 0.012, 0.05 - Math.sin(TAIL_YAW) * 0.02,
+  ], 'top', m.ink, TAIL_YAW)
+  // Keeper ferrule, set 115 mm along the tail so it clears the tag: the plate
+  // reaches 89 mm along, and at the fixed world point it used to sit at, half
+  // the ferrule was inside the plate's far corner.
+  root.add(cylinder(m.steel, 0.006, 0.03, [
+    COIL_R + 0.12 + Math.cos(TAIL_YAW) * 0.115, 0.012, 0.05 - Math.sin(TAIL_YAW) * 0.115,
+  ], AXIS_X, 6))
 
   const sockets: StrapSockets = {
     ratchet_handle: socket('ratchet_handle', [-0.12, WEB + 0.07, 0]),
