@@ -143,9 +143,14 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
       ], { chamfer: 0.075, fillet: 0.02, bevel: 0.014 })
       // The lift socket is bored into the armour itself. A separate casting
       // perched on top of it reads as a clip somebody left behind.
+      //
+      // It takes no inset, because this is the one casting in the pack that is
+      // not measured from its host: it stands 5 mm proud of the armour it caps
+      // on all four flanks, and the kit's default shrink would leave that lip
+      // 1 mm - inside the floor, on a 340 cm² patch, on every corner.
       cornerCasting(hull, m, [0.21, 0.17, 0.21], [
         sx * (WIDTH * 0.5 - 0.12), SKIRT + 0.11, sz * (DEPTH * 0.5 - 0.12),
-      ], 0.042, 'y', m.graphiteEdge)
+      ], 0.042, 'y', m.graphiteEdge, 0)
     }
   }
 
