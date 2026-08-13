@@ -4,6 +4,7 @@ import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
   AXIS_Y,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -119,7 +120,9 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   const bodyHeight = HEIGHT - SKIRT - LID
   const bodyY = SKIRT + bodyHeight * 0.5
 
-  box(hull, m.graphite, [WIDTH - 0.02, SKIRT, DEPTH - 0.02], [0, SKIRT * 0.5, 0], {
+  // The crate rides on the painted pads under its corners, so the skirt's own
+  // sole is a face clearance above the deck rather than a millimetre off theirs.
+  box(hull, m.graphite, [WIDTH - 0.02, SKIRT - FACE_CLEARANCE, DEPTH - 0.02], [0, (SKIRT + FACE_CLEARANCE) * 0.5, 0], {
     chamfer: 0.05, fillet: 0.016, bevel: 0.013, capChamfer: 0.03,
   })
   // The shell is authored as four walls plus a floor, so the opening is a real
