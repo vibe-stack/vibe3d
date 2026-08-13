@@ -1,6 +1,6 @@
 import { Group, Object3D } from 'three/webgpu'
 
-import { cylinder } from '../../../src/asset-forge/generator/index.ts'
+import { cylinder, type Vec3 } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
   AXIS_Y,
@@ -151,24 +151,19 @@ function build(): { root: Group; sockets: DrumStackSockets; bundle: CargoMateria
   })
   root.add(cylinder(m.steel, 0.017, 0.14, [SPREAD, PALLET + 0.42, span * 0.5 + 0.08], AXIS_X, 8))
 
-  // Dressing goes on one named drum at a time. The curved helpers measure from
-  // their parent's origin, and this stack has four axes: measured about the
-  // stack's own, a label is buried inside the drum beside the one it belongs to
-  // and a chevron lands 55 mm inside a flank. Everything sits in the field
-  // between the two rolling hoops, which are prouder than any of it.
-  const onDrum = (sx: number, sz: number, baseY: number): Group => {
-    const frame = new Group()
-    frame.position.set(sx * SPREAD, baseY, sz * SPREAD)
-    root.add(frame)
-    return frame
-  }
+  // Dressing goes on one named drum at a time, and each curved helper is handed
+  // the axis of the drum it belongs to: this stack has four of them, and a label
+  // measured about the stack's own axis is buried inside the drum beside the one
+  // it is meant for while a chevron lands 55 mm inside a flank. Everything sits
+  // in the field between the two rolling hoops, which are prouder than any of it.
+  const axisOf = (sx: number, sz: number, baseY: number): Vec3 => [sx * SPREAD, baseY, sz * SPREAD]
   const label = addLabelDecal(bundle, { variant: 27 })
-  radialPlaque(onDrum(1, 1, PALLET), m, label, [0.046, 0.1], RADIUS, BODY * 0.48, 0.45, m.ink, 16)
-  const marked = onDrum(-1, 1, PALLET + BODY + DECK)
-  radialMark(marked, m.orangePaint, slashProfile(0.055, 0.17, 0.3), RADIUS, BODY * 0.48, -0.68, 16, 0.016)
-  radialMark(marked, m.orangePaint, slashProfile(0.03, 0.17, 0.3), RADIUS, BODY * 0.48, -0.32, 16, 0.016)
-  const lamp = radialFitting(RADIUS, BODY * 0.7, -0.5, 16)
-  statusLens(onDrum(1, 1, PALLET + BODY + DECK), m, [0.05, 0.02], lamp.position, m.cyan, 'front', 0, lamp.rotation)
+  radialPlaque(root, m, label, [0.046, 0.1], RADIUS, BODY * 0.48, 0.45, m.ink, 16, axisOf(1, 1, PALLET))
+  const marked = axisOf(-1, 1, PALLET + BODY + DECK)
+  radialMark(root, m.orangePaint, slashProfile(0.055, 0.17, 0.3), RADIUS, BODY * 0.48, -0.68, 16, 0.016, marked)
+  radialMark(root, m.orangePaint, slashProfile(0.03, 0.17, 0.3), RADIUS, BODY * 0.48, -0.32, 16, 0.016, marked)
+  const lamp = radialFitting(RADIUS, BODY * 0.7, -0.5, 16, axisOf(1, 1, PALLET + BODY + DECK))
+  statusLens(root, m, [0.05, 0.02], lamp.position, m.cyan, 'front', 0, lamp.rotation)
 
   const sockets: DrumStackSockets = {
     fork_left: socket('fork_left', [-0.3, PALLET * 0.5, span * 0.5]),
