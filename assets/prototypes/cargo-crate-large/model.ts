@@ -329,8 +329,12 @@ function preview(options: CargoPreviewOptions & { state?: CrateState } = {}): Ca
   const model = createModel()
   model.setState(options.state ?? 'sealed')
   return createCargoPreview(model, {
-    target: [0, HEIGHT * 0.48, 0],
-    distance: 5.1,
+    // The crate is 2.4 m across its diagonal against 1.32 m of height, so width
+    // is what sets the frame: at 5.1 m the far bottom corner ran off the
+    // right-hand edge. The target drops with the distance to keep the crate on
+    // the frame's centre line rather than in its lower half.
+    target: [0, HEIGHT * 0.36, 0],
+    distance: 5.8,
     yaw: 0.78,
     pitch: 0.33,
     fov: 30,
