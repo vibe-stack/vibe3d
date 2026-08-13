@@ -12,8 +12,9 @@ import {
   drum,
   finishModel,
   hexagon,
-  paintMark,
-  plaque,
+  radialFitting,
+  radialMark,
+  radialPlaque,
   slashProfile,
   socket,
   statusLens,
@@ -36,6 +37,7 @@ import {
 const RADIUS = 0.38
 const BODY = 0.82
 const BASE = 0.1
+const HOOPS = [0.34, 0.68]
 
 interface FuelDrumSockets {
   fill_cap: Object3D
@@ -108,7 +110,12 @@ function build(): { root: Group; column: Group; sockets: FuelDrumSockets; bundle
     ], { chamfer: 0.02, fillet: 0.008, bevel: 0.007, rotation: [0, -angle, 0] })
   }
 
-  drum(root, m, RADIUS, BODY, [0, BASE, 0], { hoops: [0.34, 0.68], chime: 0.026 })
+  const shell = drum(root, m, RADIUS, BODY, [0, BASE, 0], { hoops: HOOPS, chime: 0.026 })
+  // The two rolling hoops stand 21 mm proud of the flank, so the band between
+  // them is the only height a graphic can be seated at without being swallowed.
+  const fieldFoot = BASE + BODY * HOOPS[0] + 0.026
+  const fieldHead = BASE + BODY * HOOPS[1] - 0.026
+  const fieldY = (fieldFoot + fieldHead) * 0.5
 
   // Crown: a recessed deck with a hex fill cap and two lift lugs.
   const crown = BASE + BODY
@@ -118,11 +125,13 @@ function build(): { root: Group; column: Group; sockets: FuelDrumSockets; bundle
     fillet: 0.012, bevel: 0.008, rotation: [Math.PI / 2, 0, 0],
   }))
   root.add(cylinder(m.steel, 0.03, 0.06, [0, crown + 0.06, 0], AXIS_Y, 8))
+  // The lugs flank the fill cap, so they belong on the crown's axis. Mirrored in
+  // x but given the same z, the pair sat 120 mm off the cap it is paired with.
   for (const sx of [-1, 1]) {
-    box(root, m.steel, [0.11, 0.045, 0.05], [sx * (RADIUS - 0.11), crown + 0.028, 0.12], {
+    box(root, m.steel, [0.11, 0.045, 0.05], [sx * (RADIUS - 0.11), crown + 0.028, 0], {
       chamfer: 0.016, fillet: 0.006, bevel: 0.005,
     })
-    root.add(cylinder(m.ink, 0.018, 0.055, [sx * (RADIUS - 0.11), crown + 0.04, 0.12], AXIS_Y, 8))
+    root.add(cylinder(m.ink, 0.018, 0.055, [sx * (RADIUS - 0.11), crown + 0.04, 0], AXIS_Y, 8))
   }
   // Carry lugs: a bracket and a bar running around the drum, not a pin poking
   // out of it. A radial rod on a cylinder reads as damage, never as a handle.
@@ -136,11 +145,14 @@ function build(): { root: Group; column: Group; sockets: FuelDrumSockets; bundle
   }
 
   // Vertical panel seams: three welded strakes, the drum's only large-scale
-  // relief and what keeps the flank from reading as a blank cylinder.
+  // relief and what keeps the flank from reading as a blank cylinder. Measured
+  // off the chord the shell renders rather than off the nominal radius, where
+  // the strake's back cap lands 0.3 mm outside the skin and the two trade places
+  // from frame to frame.
   for (let index = 0; index < 3; index += 1) {
     const angle = 0.55 + index * 1.15
     box(root, m.shellShade, [0.035, BODY - 0.24, 0.02], [
-      Math.sin(angle) * (RADIUS + 0.005), BASE + BODY * 0.5, Math.cos(angle) * (RADIUS + 0.005),
+      Math.sin(angle) * (shell.radius + 0.012), BASE + BODY * 0.5, Math.cos(angle) * (shell.radius + 0.012),
     ], { chamfer: 0.01, fillet: 0.004, bevel: 0.004, rotation: [0, angle, 0] })
   }
 
@@ -148,12 +160,18 @@ function build(): { root: Group; column: Group; sockets: FuelDrumSockets; bundle
   dispenseValve(root, m)
 
   // Identity: an orange fluid mark on the flank opposite the gauge, plus the
-  // manifest plaque where a forklift driver reads it.
-  paintMark(root, m.orangePaint, slashProfile(0.11, 0.4, 0.4), [-0.1, BASE + BODY * 0.5, -RADIUS - 0.004], 'back', 0.012)
-  paintMark(root, m.orangePaint, slashProfile(0.055, 0.4, 0.4), [0.04, BASE + BODY * 0.5, -RADIUS - 0.004], 'back', 0.012)
+  // manifest plaque where a forklift driver reads it. All three are placed by
+  // angle around the shell rather than at a corner like [r*0.72, y, r*0.72],
+  // which is a flat card stood at 45 degrees to a curve - buried at one end and
+  // clear of the silhouette at the other. The pair of slashes is set between two
+  // strakes for the same reason the plaque is: a strake is prouder than paint.
+  const stroke = (fieldHead - fieldFoot) - 0.03
+  radialMark(root, m.orangePaint, slashProfile(0.06, stroke, 0.22), RADIUS, fieldY, Math.PI + 0.4, 20, 0.016)
+  radialMark(root, m.orangePaint, slashProfile(0.042, stroke, 0.22), RADIUS, fieldY, Math.PI + 0.1, 20, 0.016)
   const label = addLabelDecal(bundle, { variant: 5 })
-  plaque(root, m, label, [0.26, 0.12], [RADIUS * 0.72, BASE + BODY * 0.52, RADIUS * 0.72], 'front', m.shellLight)
-  statusLens(root, m, [0.06, 0.024], [-RADIUS * 0.72, BASE + BODY * 0.72, RADIUS * 0.72], m.amber, 'front')
+  radialPlaque(root, m, label, [0.1, 0.07], RADIUS, fieldY, 1.1, m.shellLight)
+  const lamp = radialFitting(RADIUS, BASE + BODY * 0.8, -Math.PI / 4)
+  statusLens(root, m, [0.06, 0.024], lamp.position, m.amber, 'front', 0, lamp.rotation)
 
   const sockets: FuelDrumSockets = {
     fill_cap: socket('fill_cap', [0, BASE + BODY + 0.09, 0]),
