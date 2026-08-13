@@ -5,6 +5,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   bolt,
@@ -54,6 +55,8 @@ const OUTLET_RISE = 0.09
 /** Foot pad and plate, stacked so the rubber is the part in contact. */
 const PAD = 0.018
 const FOOT = 0.028
+/** Cable basket depth, and the span the two straps carrying it sit inside. */
+const BASKET = 0.16
 
 interface ShelvingSockets {
   bay_a: Object3D
@@ -149,14 +152,17 @@ function build(): { root: Group; sockets: ShelvingSockets; bundle: CargoMaterial
   for (const [index, y] of LEVELS.entries()) {
     outlet(root, m, y + OUTLET_RISE, index === 2 ? m.amber : m.cyan)
   }
-  box(root, m.graphiteEdge, [WIDTH - 0.4, 0.05, 0.16], [0, LEVELS[3] - 0.1, DEPTH * 0.5 - 0.2], {
+  box(root, m.graphiteEdge, [WIDTH - 0.4, 0.05, BASKET], [0, LEVELS[3] - 0.1, DEPTH * 0.5 - 0.2], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.007,
   })
   // Two straps carrying the basket off the tray above it. Without them the
   // basket and its cable run hung 60 mm under the shelf on nothing at all; they
   // sit outboard of the cables so the run passes between them.
+  // A strap is let into the basket rather than run to the same depth: built to
+  // the basket's own 0.16 both of its faces landed on the basket's, and the two
+  // fought down each side of both straps.
   for (const sx of [-1, 1]) {
-    box(root, m.shellShade, [0.03, 0.14, 0.16], [sx * ((WIDTH - 0.4) * 0.5 - 0.02), LEVELS[3] - 0.065, DEPTH * 0.5 - 0.2], {
+    box(root, m.shellShade, [0.03, 0.14, BASKET - FACE_CLEARANCE * 2], [sx * ((WIDTH - 0.4) * 0.5 - 0.02), LEVELS[3] - 0.065, DEPTH * 0.5 - 0.2], {
       chamfer: 0.008, fillet: 0.004, bevel: 0.004,
     })
   }
