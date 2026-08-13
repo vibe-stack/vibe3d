@@ -162,44 +162,62 @@ export const catalog: CatalogItem[] = Object.entries(modules)
 export const categories = [...new Set(catalog.map((item) => item.category))]
 
 /**
- * Models bucketed by the date they were introduced, newest first.
+ * Models bucketed by the commit that introduced them, newest first.
  *
- * Grouped by *date* rather than listed as a flat sorted run because models
- * arrive in waves — a batch lands in one commit and shares a timestamp — so a
- * flat sort would present fifty siblings in arbitrary name order and hide the
- * only structure that matters. Undated models fall into a final bucket rather
- * than being dropped, so the view can never silently omit part of the library.
+ * Grouped rather than listed as a flat sorted run because models arrive in
+ * waves — a batch lands in one commit and shares a timestamp — so a flat sort
+ * would present fifty siblings in arbitrary name order and hide the only
+ * structure the view exists to show. Undated models fall into a final bucket
+ * rather than being dropped, so the list can never silently omit part of the
+ * library.
+ *
+ * The key is the full timestamp, deliberately. Bucketing by calendar day looks
+ * tidier and is wrong: this library's first 110 models and the next 50 landed
+ * twenty-one hours apart on the same date, so a day key merged them into one
+ * group and marked the entire catalogue as new. Two commits are two drops even
+ * when the clock agrees about the date.
  */
 export interface ReleaseGroup {
-  /** ISO date shared by the group, or null for models git could not date. */
+  /** ISO timestamp shared by the group, or null for models git could not date. */
   addedAt: string | null
   label: string
   items: CatalogItem[]
 }
 
-const dateLabel = (iso: string): string =>
+const dayOf = (iso: string): string =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+
+const timeOf = (iso: string): string =>
+  new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 
 export function releaseGroups(items: readonly CatalogItem[]): ReleaseGroup[] {
   const buckets = new Map<string, CatalogItem[]>()
   for (const item of items) {
-    // Bucket on the calendar day, not the exact timestamp: two commits an hour
-    // apart are one drop as far as anyone reviewing the library is concerned.
-    const key = item.addedAt ? item.addedAt.slice(0, 10) : ''
+    const key = item.addedAt ?? ''
     const bucket = buckets.get(key)
     if (bucket) bucket.push(item)
     else buckets.set(key, [item])
   }
+  const keys = [...buckets.keys()]
+  // Only spell out the time when a date carries more than one drop; otherwise
+  // the label is noise on a list where most days have a single release.
+  const crowdedDays = new Set(
+    keys.filter((key) => key)
+      .map((key) => key.slice(0, 10))
+      .filter((day, index, all) => all.indexOf(day) !== index),
+  )
   return [...buckets.entries()]
     .sort((a, b) => (a[0] && b[0] ? b[0].localeCompare(a[0]) : a[0] ? -1 : 1))
     .map(([key, group]) => ({
       addedAt: key || null,
-      label: key ? dateLabel(key) : 'Undated',
+      label: key
+        ? crowdedDays.has(key.slice(0, 10)) ? `${dayOf(key)} · ${timeOf(key)}` : dayOf(key)
+        : 'Undated',
       items: [...group].sort((a, b) => a.name.localeCompare(b.name)),
     }))
 }
 
-/** The most recent introduction date present in the library. */
+/** The most recent introduction timestamp present in the library. */
 export const latestRelease: string | null = catalog
   .map((item) => item.addedAt)
   .filter((value): value is string => Boolean(value))

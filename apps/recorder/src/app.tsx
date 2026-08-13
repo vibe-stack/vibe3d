@@ -12,8 +12,9 @@ import { Stage } from './stage.tsx'
 
 type SortMode = 'category' | 'latest'
 
+/** In the most recent drop — matched on the exact commit, not the calendar day. */
 const isNew = (item: CatalogItem): boolean =>
-  latestRelease !== null && item.addedAt?.slice(0, 10) === latestRelease.slice(0, 10)
+  latestRelease !== null && item.addedAt === latestRelease
 
 interface ItemCardProps {
   item: CatalogItem
