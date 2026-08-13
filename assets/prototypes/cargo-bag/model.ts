@@ -4,6 +4,7 @@ import { cylinder, extrudeProfile, type Vec2 } from '../../../src/asset-forge/ge
 import {
   AXIS_X,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   box,
@@ -52,7 +53,13 @@ export interface CargoBagController {
   dispose(): void
 }
 
-/** Side elevation of a packed holdall: flat base, bulged crown, pinched ends. */
+/**
+ * Side elevation of a packed holdall: flat base, bulged crown, pinched ends.
+ *
+ * The flat run sits a face clearance up, because the rigid pan below is what
+ * the bag stands on. Authored at zero the fabric laid its own down-facing skin
+ * a millimetre off the pan's, over the whole 0.75 x 0.34 m of it.
+ */
 function bodyProfile(): Vec2[] {
   const hl = LENGTH * 0.5
   const h = HEIGHT
@@ -67,8 +74,8 @@ function bodyProfile(): Vec2[] {
     [-hl * 0.95, h * 0.62],
     [-hl, h * 0.28],
     [-hl * 0.9, 0.03],
-    [-hl * 0.8, 0],
-    [hl * 0.8, 0],
+    [-hl * 0.8, FACE_CLEARANCE],
+    [hl * 0.8, FACE_CLEARANCE],
   ]
 }
 
