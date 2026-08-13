@@ -3,14 +3,18 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder, prism } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
+  AXIS_Y,
   AXIS_Z,
+  LAYER_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
   box,
   boltRun,
+  cavityLiner,
   createCargoPreview,
   finishModel,
+  groundPad,
   paintMark,
   plaque,
   recessedHandle,
@@ -77,15 +81,16 @@ function drawerFront(drawer: Group, m: CargoMaterials, height: number, index: nu
   box(drawer, m.graphiteEdge, [WIDTH - 0.34, height * 0.16, 0.026], [0, height * 0.18, DEPTH * 0.5 + 0.03], {
     chamfer: 0.01, fillet: 0.004, bevel: 0.004,
   })
-  // The box behind the front, so an open drawer is not a floating panel.
-  box(drawer, m.shellShade, [WIDTH - 0.14, height - 0.03, DEPTH - 0.1], [0, 0, 0.02], {
-    chamfer: 0.02, fillet: 0.008, bevel: 0.007,
-  })
-  box(drawer, m.ink, [WIDTH - 0.2, height - 0.07, DEPTH - 0.16], [0, 0.012, 0.02], {
-    chamfer: 0.016, fillet: 0.006, bevel: 0.005,
+  // The box behind the front, so an open drawer is not a floating panel. Built
+  // as a tray: as a solid block it contained the dark liner meant to line it,
+  // and a drawer pulled out showed a lid rather than an inside.
+  cavityLiner(drawer, m.shellShade, [WIDTH - 0.18, height - 0.05, DEPTH - 0.12], [0, 0, 0.02], 0.02, 'top')
+  box(drawer, m.ink, [WIDTH - 0.18, 0.014, DEPTH - 0.12], [0, -(height - 0.05) * 0.5 + 0.005, 0.02], {
+    chamfer: 0.01, fillet: 0.005, bevel: 0.004,
   })
   if (index === 1) {
-    box(drawer, m.amberPaint, [0.07, height * 0.3, 0.022], [WIDTH * 0.5 - 0.11, -height * 0.18, DEPTH * 0.5 + 0.026], {
+    // Inboard of the locking bar at x 0.3825, which all but hid it.
+    box(drawer, m.amberPaint, [0.07, height * 0.3, 0.022], [WIDTH * 0.5 - 0.18, -height * 0.18, DEPTH * 0.5 + 0.026], {
       chamfer: 0.008, fillet: 0.004, bevel: 0.003,
     })
   }
@@ -95,17 +100,18 @@ function body(bodyGroup: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
   const caseHeight = HEIGHT - PLINTH - TOP
   const caseY = PLINTH + caseHeight * 0.5
 
-  box(bodyGroup, m.graphite, [WIDTH - 0.04, PLINTH, DEPTH - 0.04], [0, PLINTH * 0.5, 0], {
-    chamfer: 0.045, fillet: 0.016, bevel: 0.012, capChamfer: 0.028,
+  // The plinth stands on the levelling feet, so it starts above them. Taken all
+  // the way to the floor it swallowed all four and the chest sat on the plinth.
+  const foot = 0.03
+  box(bodyGroup, m.graphite, [WIDTH - 0.04, PLINTH - foot, DEPTH - 0.04], [0, foot + (PLINTH - foot) * 0.5, 0], {
+    chamfer: 0.032, fillet: 0.016, bevel: 0.012, capChamfer: 0.028,
   })
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      bodyGroup.add(cylinder(m.steel, 0.026, 0.05, [
-        sx * (WIDTH * 0.5 - 0.1), 0.025, sz * (DEPTH * 0.5 - 0.1),
-      ], [0, 0, 0], 8))
-      bodyGroup.add(cylinder(m.rubber, 0.036, 0.02, [
-        sx * (WIDTH * 0.5 - 0.1), 0.01, sz * (DEPTH * 0.5 - 0.1),
-      ], [0, 0, 0], 8))
+      const legX = sx * (WIDTH * 0.5 - 0.1)
+      const legZ = sz * (DEPTH * 0.5 - 0.1)
+      bodyGroup.add(cylinder(m.steel, 0.028, 0.055, [legX, 0.0325, legZ], AXIS_Y, 8))
+      groundPad(bodyGroup, m.rubber, [0.07, 0.07], [legX, 0, legZ], 0.02)
     }
   }
 
@@ -118,40 +124,54 @@ function body(bodyGroup: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
   box(bodyGroup, m.shell, [WIDTH, caseHeight, 0.05], [0, caseY, -(DEPTH * 0.5 - 0.025)], {
     chamfer: 0.045, fillet: 0.016, bevel: 0.014,
   })
-  box(bodyGroup, m.ink, [WIDTH - 0.1, caseHeight - 0.04, DEPTH - 0.1], [0, caseY, -0.02], {
-    chamfer: 0.03, fillet: 0.012, bevel: 0.008,
-  })
+  // Five thin faces rather than one block: as a solid it enclosed every drawer
+  // tray put into it, which is the whole point of the cavity.
+  cavityLiner(bodyGroup, m.ink, [WIDTH - 0.1, caseHeight - 0.04, DEPTH - 0.1], [0, caseY, -0.02], 0.02, 'front')
 
   // Top well with its own lid band.
   box(bodyGroup, m.shellLight, [WIDTH, TOP, DEPTH], [0, HEIGHT - TOP * 0.5, 0], {
     chamfer: 0.055, fillet: 0.02, bevel: 0.016, capChamfer: 0.035,
   })
-  box(bodyGroup, m.ink, [WIDTH - 0.22, 0.024, DEPTH - 0.18], [0, HEIGHT - 0.006, 0], {
+  const wellBand = 0.024
+  box(bodyGroup, m.ink, [WIDTH - 0.22, wellBand, DEPTH - 0.18], [0, HEIGHT - 0.006, 0], {
     chamfer: 0.05, fillet: 0.016, bevel: 0.01,
   })
-  seam(bodyGroup, m.shellLight, DEPTH - 0.12, [0, HEIGHT, 0], 'top', 'along', 0.026, 0.014)
+  // The lid seam is cut in the band, not in the slab under it - at the slab's
+  // own top face the whole groove ran inside the band and only its tips showed.
+  seam(bodyGroup, m.shellLight, DEPTH - 0.12, [0, HEIGHT - 0.006 + wellBand * 0.5, 0], 'top', 'along', 0.026, 0.014)
   for (const sx of [-1, 1]) {
-    recessedHandle(bodyGroup, m, [0.24, 0.09], [sx * (WIDTH * 0.5 + 0.004), HEIGHT - TOP * 0.5, 0], sx > 0 ? 'right' : 'left')
+    recessedHandle(bodyGroup, m, [0.24, 0.09], [sx * WIDTH * 0.5, HEIGHT - TOP * 0.5, 0], sx > 0 ? 'right' : 'left')
   }
 
-  // Locking bar down the face, hinged at the plinth and latched at the top.
+  // Locking bar down the face, carried on a bracket into the plinth and another
+  // into the top slab, and standing one layer clear of the drawer fronts. Hung
+  // from nothing it floated 27.5 mm off them over its whole 890 mm.
   const barX = WIDTH * 0.5 - 0.07
-  bodyGroup.add(prism(m.graphiteEdge, [0.055, HEIGHT - PLINTH - 0.05, 0.045], [barX, PLINTH + (HEIGHT - PLINTH) * 0.5 - 0.02, DEPTH * 0.5 + 0.055], {
+  const drawerFace = DEPTH * 0.5 + 0.005
+  const barZ = drawerFace + LAYER_CLEARANCE + 0.0225
+  for (const y of [PLINTH - 0.015, HEIGHT - 0.075]) {
+    box(bodyGroup, m.graphiteEdge, [0.075, 0.07, 0.1], [barX, y, DEPTH * 0.5 + 0.01], {
+      chamfer: 0.018, fillet: 0.007, bevel: 0.006,
+    })
+  }
+  bodyGroup.add(prism(m.graphiteEdge, [0.055, HEIGHT - PLINTH - 0.05, 0.045], [barX, PLINTH + (HEIGHT - PLINTH) * 0.5 - 0.02, barZ], {
     chamfer: 0.016, fillet: 0.006, bevel: 0.006,
   }))
   box(bodyGroup, m.amberPaint, [0.075, 0.11, 0.05], [barX, HEIGHT - 0.26, DEPTH * 0.5 + 0.07], {
     chamfer: 0.018, fillet: 0.007, bevel: 0.006,
   })
   bodyGroup.add(cylinder(m.steel, 0.014, 0.09, [barX, HEIGHT - 0.26, DEPTH * 0.5 + 0.1], AXIS_Z, 8))
-  bodyGroup.add(cylinder(m.steel, 0.016, 0.07, [barX, PLINTH + 0.05, DEPTH * 0.5 + 0.055], AXIS_X, 8))
+  bodyGroup.add(cylinder(m.steel, 0.016, 0.11, [barX, PLINTH - 0.015, barZ - 0.005], AXIS_X, 8))
 
+  // Both graphics go on the top slab: over the drawer stack the label straddled
+  // the 30 mm void between the top drawer and the slab's underside.
   const label = addLabelDecal(bundle, { variant: 180 })
-  plaque(bodyGroup, m, label, [0.26, 0.1], [-WIDTH * 0.5 + 0.24, HEIGHT - TOP - 0.02, DEPTH * 0.5 + 0.006], 'front', m.shellLight)
-  statusLens(bodyGroup, m, [0.05, 0.02], [-WIDTH * 0.5 + 0.24, HEIGHT - 0.05, DEPTH * 0.5 + 0.006], m.cyan, 'front')
+  plaque(bodyGroup, m, label, [0.24, 0.08], [-WIDTH * 0.5 + 0.22, HEIGHT - TOP * 0.5, DEPTH * 0.5], 'front', m.shellLight)
+  statusLens(bodyGroup, m, [0.05, 0.02], [-0.04, HEIGHT - TOP * 0.5, DEPTH * 0.5], m.cyan, 'front')
   const stripe = addStripeDecal(bundle, { count: 4, lean: 1 })
-  plaque(bodyGroup, m, stripe, [0.4, 0.06], [0, PLINTH * 0.5, DEPTH * 0.5 + 0.006], 'front', m.ink)
-  paintMark(bodyGroup, m.amberPaint, slashProfile(0.05, 0.11, 0.45), [-WIDTH * 0.5 + 0.1, HEIGHT * 0.5, -(DEPTH * 0.5 + 0.002)], 'back', 0.009)
-  boltRun(bodyGroup, m.steel, [-WIDTH * 0.3, HEIGHT * 0.35, -(DEPTH * 0.5 + 0.002)], [WIDTH * 0.3, HEIGHT * 0.35, -(DEPTH * 0.5 + 0.002)], 4, 0.014, 'back')
+  plaque(bodyGroup, m, stripe, [0.4, 0.04], [0, foot + (PLINTH - foot) * 0.5, DEPTH * 0.5 - 0.02], 'front', m.ink)
+  paintMark(bodyGroup, m.amberPaint, slashProfile(0.05, 0.11, 0.45), [-WIDTH * 0.5 + 0.1, HEIGHT * 0.5, -DEPTH * 0.5], 'back', 0.009)
+  boltRun(bodyGroup, m.steel, [-WIDTH * 0.3, HEIGHT * 0.35, -DEPTH * 0.5], [WIDTH * 0.3, HEIGHT * 0.35, -DEPTH * 0.5], 4, 0.014, 'back')
 }
 
 function build(): { root: Group; bodyGroup: Group; drawers: Group[]; sockets: ChestSockets; bundle: CargoMaterialBundle } {
