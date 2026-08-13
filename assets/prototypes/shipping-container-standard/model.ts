@@ -144,8 +144,12 @@ function preview(options: CargoPreviewOptions & { state?: ContainerState } = {})
   const model = createModel()
   model.setState(options.state ?? 'sealed')
   return createCargoPreview(model, {
-    target: [0, SPEC.height * 0.5, 0],
-    distance: 12.4,
+    // A 6 m box seen across its diagonal is 6.5 m wide in frame, and at 12.4 m
+    // the door end ran off the right-hand edge. Framing on half the height then
+    // left the container low in the frame as well, so the target comes down with
+    // the distance going out.
+    target: [0, SPEC.height * 0.36, 0],
+    distance: 14.2,
     yaw: 0.78,
     pitch: 0.29,
     fov: 30,
