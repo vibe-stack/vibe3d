@@ -38,6 +38,12 @@ const DEPTH = 0.56
 const HEIGHT = 2.1
 const POST = 0.06
 const LEVELS = [0.12, 0.6, 1.0, 1.4, 1.76]
+/** Front beam depth, and the outer face a level's labels are seated on. */
+const RAIL = 0.12
+const RAIL_Z = DEPTH * 0.5 - POST * 0.5 + 0.0175
+/** Rear brace lean, and the diagonal that lean has to be cut to. */
+const BRACE_LEAN = 0.62
+const BRACE = (WIDTH - POST) / Math.cos(BRACE_LEAN)
 
 interface ShelfSockets {
   level_1: Object3D
@@ -58,12 +64,15 @@ function deck(root: Group, m: CargoMaterials, y: number): void {
   box(root, m.shellShade, [WIDTH - POST, 0.022, DEPTH - POST], [0, y, 0], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.007,
   })
-  box(root, m.graphiteEdge, [WIDTH - POST, 0.045, 0.035], [0, y - 0.02, DEPTH * 0.5 - POST * 0.5], {
+  // The front beam is what a level's label is bolted to, so it is deep enough to
+  // hold one. At the 45 mm it was drawn at, a plaque could bite half a
+  // millimetre of it and hang the rest of itself over the open bay.
+  box(root, m.graphiteEdge, [WIDTH - POST, RAIL, 0.035], [0, y - RAIL * 0.5 + 0.005, DEPTH * 0.5 - POST * 0.5], {
     chamfer: 0.012, fillet: 0.005, bevel: 0.005,
   })
   for (let index = 0; index < 11; index += 1) {
     const x = (index / 10 - 0.5) * (WIDTH - 0.18)
-    root.add(cylinder(m.steel, 0.007, DEPTH - 0.1, [x, y + 0.016, 0], AXIS_Z, 5))
+    root.add(cylinder(m.steel, 0.007, DEPTH - POST, [x, y + 0.016, 0], AXIS_Z, 5))
   }
 }
 
@@ -96,8 +105,11 @@ function build(): { root: Group; sockets: ShelfSockets; bundle: CargoMaterialBun
       bolt(root, m.steel, [x, 0.018, z], 0.012, 'top')
     }
     // Rear cross brace, which is what stops boltless shelving racking sideways.
-    box(root, m.shellShade, [WIDTH - POST, 0.05, 0.02], [0, HEIGHT * 0.62, -(DEPTH * 0.5 - POST * 0.5)], {
-      chamfer: 0.012, fillet: 0.005, bevel: 0.004, rotation: [0, 0, sx * 0.62],
+    // A brace is cut to the diagonal, not to the span it covers: at the bare
+    // frame width and laid over 36 degrees, all four ends stopped 155 mm short
+    // of the posts they are supposed to tie together.
+    box(root, m.shellShade, [BRACE, 0.05, 0.02], [0, HEIGHT * 0.62, -(DEPTH * 0.5 - POST * 0.5)], {
+      chamfer: 0.012, fillet: 0.005, bevel: 0.004, rotation: [0, 0, sx * BRACE_LEAN],
     })
   }
   box(root, m.shellShade, [WIDTH - POST, 0.05, 0.02], [0, HEIGHT - 0.06, -(DEPTH * 0.5 - POST * 0.5)], {
@@ -127,9 +139,11 @@ function build(): { root: Group; sockets: ShelfSockets; bundle: CargoMaterialBun
     })
   }
 
+  // Level identity, on the beam face rather than in the aisle in front of it.
   const label = addLabelDecal(bundle, { variant: 160 })
-  plaque(root, m, label, [0.24, 0.09], [WIDTH * 0.5 - 0.28, LEVELS[2] - 0.05, DEPTH * 0.5 - 0.01], 'front', m.shellLight)
-  statusLens(root, m, [0.05, 0.02], [-WIDTH * 0.5 + 0.2, LEVELS[2] - 0.05, DEPTH * 0.5 - 0.01], m.cyan, 'front')
+  const railY = LEVELS[2] - RAIL * 0.5 + 0.005
+  plaque(root, m, label, [0.13, 0.055], [WIDTH * 0.5 - 0.28, railY, RAIL_Z], 'front', m.shellLight)
+  statusLens(root, m, [0.05, 0.02], [-WIDTH * 0.5 + 0.2, railY, RAIL_Z], m.cyan, 'front')
 
   const sockets: ShelfSockets = {
     level_1: socket('level_1', [0, LEVELS[0] + 0.02, 0]),
