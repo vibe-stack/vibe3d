@@ -114,18 +114,8 @@ export function createModel(): SmallContainerController {
   // skins ran through both bars and the lock rods stood out past the end.
   doorLeft.position.set(SPEC.length * 0.5 - 0.285, 0, -hinge)
   doorRight.position.set(SPEC.length * 0.5 - 0.285, 0, hinge)
-  containerDoorLeaf(doorLeft, m, bundle, { ...SPEC, side: 1 })
+  containerDoorLeaf(doorLeft, m, bundle, { ...SPEC, side: 1, closingStrip: hinge })
   containerDoorLeaf(doorRight, m, bundle, { ...SPEC, side: -1 })
-  // Each leaf is half the clear opening, so the pair shuts on a mathematical
-  // point and the 0.1 taken out for clearance is a 70 mm slit you see the
-  // cross members through. The leaf that shuts second carries a closing strip
-  // behind the joint, lapping both skins by 40 mm. Hinging the pair in would
-  // bring the leaves edge to edge instead, but the lock bars are set out from
-  // each leaf's own centre and would then cross the shut line.
-  const leaf = (SPEC.width - (SPEC.casting ?? 0.22) * 2 - 0.1) * 0.5
-  box(doorLeft, m.shell, [0.06, SPEC.height - 0.62, (hinge - leaf) * 2 + 0.08], [-0.06, (SPEC.height - 0.5) * 0.5 + 0.24, hinge], {
-    chamfer: 0.02, fillet: 0.008, bevel: 0.007,
-  })
 
   const sockets: SmallContainerSockets = {
     lift_top: socket('lift_top', [0, canopyTop, 0]),
