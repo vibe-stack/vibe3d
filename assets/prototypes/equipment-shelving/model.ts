@@ -5,6 +5,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   bolt,
@@ -115,7 +116,11 @@ function build(): { root: Group; sockets: ShelvingSockets; bundle: CargoMaterial
     for (const sz of [-1, 1]) {
       const x = sx * (WIDTH * 0.5 - POST * 0.5)
       const z = sz * (DEPTH * 0.5 - POST * 0.5)
-      tubeSection(root, m.shell, [POST, POST], 0.012, HEIGHT, [x, HEIGHT * 0.5, z], [Math.PI / 2, 0, 0])
+      // The post is bedded in its pad rather than run through it: taken to the
+      // deck its own sole was a millimetre off the rubber's, four times over.
+      tubeSection(root, m.shell, [POST, POST], 0.012, HEIGHT - FACE_CLEARANCE, [
+        x, (HEIGHT + FACE_CLEARANCE) * 0.5, z,
+      ], [Math.PI / 2, 0, 0])
       // The pad is wider than the plate it beds, which is the only way it shows
       // at all - a 0.08 disc under a 0.12 plate is rubber nobody ever sees.
       groundPad(root, m.rubber, [0.14, 0.14], [x, 0, z], PAD)
