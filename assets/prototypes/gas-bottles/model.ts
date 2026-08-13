@@ -10,10 +10,12 @@ import {
   bolt,
   box,
   createCargoPreview,
+  facetRadius,
   finishModel,
+  groundPad,
   member,
   paintMark,
-  radialPlaque,
+  plaque,
   slashProfile,
   socket,
   statusLens,
@@ -41,6 +43,10 @@ const BOTTLE_R = 0.105
 const BOTTLE_H = 1.16
 const BASE = 0.11
 const PITCH = 0.245
+/** Fore-and-aft line the cradle posts, the waist rails and the braces share. */
+const RAIL_Z = BOTTLE_R + 0.045
+/** Top of the posts, and the tallest thing on the prop. */
+const CRADLE = BASE + BOTTLE_H + 0.32
 
 interface GasBottleSockets {
   valve_a: Object3D
@@ -77,35 +83,41 @@ function build(): { root: Group; sockets: GasBottleSockets; bundle: CargoMateria
   const root = new Group()
   root.name = 'AXR_CARGO_GAS-BOTTLES_ROOT_DEFAULT'
 
-  const span = PITCH * 3 + BOTTLE_R * 2 + 0.09
+  // Wide enough that a post at each corner stands outside the outer bottles.
+  // At the width it was drawn to, the two end posts ran 40 mm through them.
+  const span = PITCH * 3 + BOTTLE_R * 2 + 0.19
   box(root, m.graphite, [span, BASE, BOTTLE_R * 2 + 0.16], [0, BASE * 0.5, 0], {
     chamfer: 0.045, fillet: 0.016, bevel: 0.013, capChamfer: 0.03,
   })
-  box(root, m.rubber, [span - 0.06, 0.02, BOTTLE_R * 2 + 0.1], [0, 0.01, 0], {
-    chamfer: 0.02, fillet: 0.008, bevel: 0.006,
-  })
+  groundPad(root, m.rubber, [span - 0.06, BOTTLE_R * 2 + 0.1], [0, 0, 0])
 
   const shoulders = [m.amberPaint, m.orangePaint, m.redPaint, m.amberPaint]
   for (let index = 0; index < 4; index += 1) {
     bottle(root, m, (index - 1.5) * PITCH, shoulders[index])
   }
 
-  // Cradle: two uprights per end, a waist rail, and a valve guard over the top.
+  // Cradle: a post at each corner, a waist rail down each side, and a valve
+  // guard over the top. The posts stand on the line the rails and the chain run
+  // along, because a rail 120 mm inboard or outboard of its post is a bar
+  // hanging in the air at both ends - which is what the single centre post per
+  // end left. Every post foot, rail end and brace end is a lap, never a butt.
+  const postFoot = BASE - 0.04
   for (const sx of [-1, 1]) {
     const x = sx * (span * 0.5 - 0.055)
-    box(root, m.graphiteEdge, [0.06, BOTTLE_H + 0.28, 0.06], [x, BASE + (BOTTLE_H + 0.28) * 0.5, 0], {
-      chamfer: 0.018, fillet: 0.007, bevel: 0.006,
-    })
     for (const sz of [-1, 1]) {
-      member(root, m.graphiteEdge, [x, BASE + 0.02, sz * (BOTTLE_R + 0.06)], [x, BASE + 0.34, sz * (BOTTLE_R + 0.06)], 0.035, 0.035)
+      box(root, m.graphiteEdge, [0.06, CRADLE - postFoot, 0.06], [x, (CRADLE + postFoot) * 0.5, sz * RAIL_Z], {
+        chamfer: 0.018, fillet: 0.007, bevel: 0.006,
+      })
+      member(root, m.graphiteEdge, [sx * (span * 0.5 - 0.195), BASE - 0.02, sz * RAIL_Z], [x, BASE + 0.34, sz * RAIL_Z], 0.035, 0.035)
     }
-    bolt(root, m.steel, [x, BASE + 0.06, BOTTLE_R + 0.09], 0.016, 'front')
+    bolt(root, m.steel, [x, BASE + 0.06, RAIL_Z + 0.03], 0.016, 'front')
   }
   for (const sz of [-1, 1]) {
-    member(root, m.steel, [-span * 0.5 + 0.03, BASE + BOTTLE_H * 0.62, sz * (BOTTLE_R + 0.045)], [span * 0.5 - 0.03, BASE + BOTTLE_H * 0.62, sz * (BOTTLE_R + 0.045)], 0.032, 0.032)
+    member(root, m.steel, [-span * 0.5 + 0.03, BASE + BOTTLE_H * 0.62, sz * RAIL_Z], [span * 0.5 - 0.03, BASE + BOTTLE_H * 0.62, sz * RAIL_Z], 0.032, 0.032)
   }
-  // Valve guard cage.
-  box(root, m.graphiteEdge, [span - 0.05, 0.045, BOTTLE_R * 2 + 0.05], [0, BASE + BOTTLE_H + 0.3, 0], {
+  // Valve guard cage. It stops short of the posts' outer skins in both axes so
+  // the joint is an overlap rather than four coincident faces.
+  box(root, m.graphiteEdge, [span - 0.09, 0.045, BOTTLE_R * 2 + 0.12], [0, BASE + BOTTLE_H + 0.3, 0], {
     chamfer: 0.02, fillet: 0.008, bevel: 0.007,
   })
   for (let index = 0; index < 5; index += 1) {
@@ -122,12 +134,18 @@ function build(): { root: Group; sockets: GasBottleSockets; bundle: CargoMateria
   box(root, m.amberPaint, [0.08, 0.09, 0.05], [span * 0.5 - 0.14, BASE + BOTTLE_H * 0.62, BOTTLE_R + 0.085], {
     chamfer: 0.022, fillet: 0.008, bevel: 0.007,
   })
-  root.add(cylinder(m.steel, 0.013, 0.1, [span * 0.5 - 0.14, BASE + BOTTLE_H * 0.62, BOTTLE_R + 0.12], AXIS_X, 8))
+  root.add(cylinder(m.steel, 0.013, 0.1, [span * 0.5 - 0.14, BASE + BOTTLE_H * 0.62, BOTTLE_R + 0.1], AXIS_X, 8))
 
+  // The cradle's end face is flat, so it takes the flat plaque; drawn as a
+  // radius it stood 6 mm off the panel and the curved helper's width clamp had
+  // squeezed the stripe to a tenth of its length. A bottle flank is the reverse
+  // case: everything on one is measured from the chord a 16-facet shell renders,
+  // and a mark is only as wide as its own thickness lets it bed into that chord.
   const stripe = addStripeDecal(bundle, { count: 5, lean: 1 })
-  radialPlaque(root, m, stripe, [0.3, 0.055], BOTTLE_R + 0.09, BASE * 0.5, 0, m.ink)
-  paintMark(root, m.orangePaint, slashProfile(0.05, 0.2, 0.42), [-PITCH * 1.5, BASE + BOTTLE_H * 0.34, BOTTLE_R + 0.002], 'front', 0.009)
-  statusLens(root, m, [0.045, 0.018], [PITCH * 1.5, BASE + BOTTLE_H * 0.34, BOTTLE_R + 0.002], m.cyan, 'front')
+  plaque(root, m, stripe, [0.3, 0.05], [0, BASE * 0.5, BOTTLE_R + 0.08], 'front', m.ink)
+  const flank = facetRadius(BOTTLE_R, 16)
+  paintMark(root, m.orangePaint, slashProfile(0.028, 0.15, 0.18), [-PITCH * 1.5, BASE + BOTTLE_H * 0.34, flank], 'front', 0.012)
+  statusLens(root, m, [0.035, 0.018], [PITCH * 1.5, BASE + BOTTLE_H * 0.34, flank], m.cyan, 'front')
 
   const sockets: GasBottleSockets = {
     valve_a: socket('valve_a', [-PITCH * 1.5, BASE + BOTTLE_H + 0.28, 0]),
@@ -159,8 +177,8 @@ export function createModel(): GasBottleController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0, (BASE + BOTTLE_H) * 0.55, 0],
-    distance: 3.3,
+    target: [0, CRADLE * 0.5, 0],
+    distance: 3.6,
     yaw: 0.62,
     pitch: 0.24,
     fov: 30,
