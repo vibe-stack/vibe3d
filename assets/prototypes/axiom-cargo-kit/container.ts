@@ -7,6 +7,7 @@ import {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   box,
   boltRun,
   cornerCasting,
@@ -104,6 +105,12 @@ function frame(parent: Group, m: CargoMaterials, o: ContainerShellOptions, k: Co
   const cornerX = o.length * 0.5 - k.casting * 0.5
   const cornerZ = o.width * 0.5 - k.casting * 0.5
   const post = k.casting * 0.63
+  // The rails stop on the castings' inner faces, and a casting is held a face
+  // clearance inside the cube it is asked for, so the run between two of them is
+  // that much longer than the cubes suggest. Left at `length - casting * 2` each
+  // of these sixteen joints would stand a 4 mm slit open at the corner.
+  const railRun = o.length - k.casting * 2 + FACE_CLEARANCE * 2
+  const railSpan = o.width - k.casting * 2 + FACE_CLEARANCE * 2
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const x = sx * cornerX
@@ -115,10 +122,10 @@ function frame(parent: Group, m: CargoMaterials, o: ContainerShellOptions, k: Co
       })
     }
     const z = sx * cornerZ
-    box(parent, m.graphite, [o.length - k.casting * 2, 0.17, 0.16], [0, o.height - k.casting * 0.5, z], { chamfer: 0.04 })
-    box(parent, m.graphite, [o.length - k.casting * 2, 0.2, 0.17], [0, 0.14, z], { chamfer: 0.045 })
-    box(parent, m.graphiteEdge, [0.16, 0.17, o.width - k.casting * 2], [sx * (o.length * 0.5 - 0.09), o.height - k.casting * 0.5, 0], { chamfer: 0.04 })
-    box(parent, m.graphiteEdge, [0.17, 0.2, o.width - k.casting * 2], [sx * (o.length * 0.5 - 0.09), 0.14, 0], { chamfer: 0.045 })
+    box(parent, m.graphite, [railRun, 0.17, 0.16], [0, o.height - k.casting * 0.5, z], { chamfer: 0.04 })
+    box(parent, m.graphite, [railRun, 0.2, 0.17], [0, 0.14, z], { chamfer: 0.045 })
+    box(parent, m.graphiteEdge, [0.16, 0.17, railSpan], [sx * (o.length * 0.5 - 0.09), o.height - k.casting * 0.5, 0], { chamfer: 0.04 })
+    box(parent, m.graphiteEdge, [0.17, 0.2, railSpan], [sx * (o.length * 0.5 - 0.09), 0.14, 0], { chamfer: 0.045 })
   }
 }
 

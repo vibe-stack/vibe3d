@@ -41,10 +41,10 @@ are metres, measured **along the host face normal, relative to the position argu
 | `plaque()` decal plane | `PlaneGeometry` at `+0.024` | — | +0.024 |
 | `radialPlaque()` plate | prism t=0.02 at `facet+0.006` | facet−0.004 | facet+0.016 |
 | `radialPlaque()` decal | plane at `facet+0.024` | — | facet+0.024 |
-| `radialMark(t)` | extrusion t at `facet + 0.36·t` | facet−0.14·t | facet+0.86·t |
+| `radialMark(t)` | extrusion t at `facet + t/2 − e`, `e = min(0.004, t/2)` | facet−e | facet+t−e |
 | `stencil()` | bare plane at `+0.008` (`LAYER_CLEARANCE/2`) | — | +0.008 |
 | `tick()` | bare quad at `+0.006` | — | +0.006 |
-| `paintMark(t)` | extrusion t at `+0.36·t` | −0.14·t | +0.86·t |
+| `paintMark(t)` | extrusion t at `+t/2 − e`, `e = min(0.004, t/2)` | −e | +t−e |
 | `statusLens()` bezel | prism t=0.04s at `+0.010s` | −0.010s | +0.030s |
 | `statusLens()` lamp | prism t=0.026s at `+0.032s` | +0.019s | +0.045s |
 | `recessedHandle()` well | prism t=0.055 at `−0.026` | −0.0535 | **+0.0015** |
@@ -56,7 +56,7 @@ are metres, measured **along the host face normal, relative to the position argu
 | `louvreVent()` well | prism t=0.05 at `+0.004` | −0.021 | +0.029 |
 | `louvreVent()` slats | prism t=0.032 at `+0.016` | 0 | +0.032 |
 | `forkPocket()` plate | prism t=0.05 at `+0.012` | −0.013 | +0.037 |
-| `forkPocket()` tunnel | prism t=depth at `−depth/2` | −depth | 0 |
+| `forkPocket()` tunnel | prism t=depth at `−depth/2 − 0.004` | −depth−0.004 | −0.004 |
 
 `facet` is `facetRadius(radius, segments)` = `radius·cos(π/segments)`, per §1.3. `s` in the
 `statusLens` rows is `margin / 0.05` where `margin = min(0.05, min(width, height)·0.6)`: the seat
@@ -68,7 +68,9 @@ hand-rolled epsilon. Every helper that needs to embed already embeds (note the n
 numbers) and every helper that needs to stand proud already stands proud.
 
 Everything else is a volume **centred** on the position you give it: `box`, `prism`, `cylinder`,
-`member`, `tubeSection`, `cornerCasting`.
+`member`, `tubeSection`, `cornerCasting`. `cornerCasting` is also the one of those that is not built
+at the size it is handed: it holds each of its six faces `inset` (4 mm by default) inside the block
+you asked for, because every host that carries one sizes it from a dimension the host already owns.
 
 Four helpers are **not** centred, and assuming they are is a defect source in its own right
 (see **K12**):

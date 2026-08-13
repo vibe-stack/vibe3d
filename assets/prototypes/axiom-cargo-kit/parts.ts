@@ -37,6 +37,17 @@ export const AXIS_Y: Vec3 = [0, 0, 0]
 /** Minimum clearance between a host face and an applied layer, in metres. */
 export const LAYER_CLEARANCE = 0.016
 
+/**
+ * How far a surface is set off a plane it would otherwise share, in metres.
+ *
+ * The playbook's floor is 3 mm - the point at which two same-facing surfaces
+ * stop resolving at the far side of the biggest prop in the pack - so this is
+ * that floor with a millimetre in hand. It is already the figure the louvre's
+ * mouth is cut to and the one the radial plate embeds by; the helpers below now
+ * all measure their shared planes from it.
+ */
+export const FACE_CLEARANCE = 0.004
+
 export type Face = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom'
 
 const FACE_ROTATION: Record<Face, Vec3> = {
@@ -306,6 +317,15 @@ export function seamRun(
  * The socket is a hole in the profile rather than a dark disc laid on the face,
  * because a lift point is the one detail a rigger's eye goes to and a painted
  * one falls apart the moment the camera moves off axis.
+ *
+ * `inset` is how far the block is held off each of its own six planes, and it
+ * belongs to the casting rather than to the caller because every host that
+ * carries one measures it from a dimension the host already owns: a container
+ * seats a casting cube at half its own edge, so the bottom cap lands on the
+ * under-frame pan's, and the door module hands it the module depth, so both end
+ * caps land on the jamb's. Built at exactly the size it is given, the casting is
+ * coplanar with its host by construction. Pass 0 where it is deliberately proud
+ * of the mass it caps and the shrink would eat that lip instead.
  */
 export function cornerCasting(
   parent: Group,
@@ -319,6 +339,7 @@ export function cornerCasting(
   // corner casting is the one part every reference sheet draws as the darkest
   // thing on the prop, because it is raw unpainted steel.
   plate: MeshPhysicalMaterial = m.graphiteEdge,
+  inset = FACE_CLEARANCE,
 ): Group {
   const casting = new Group()
   casting.name = 'axiom-cargo-kit / corner casting'
@@ -326,9 +347,10 @@ export function cornerCasting(
 
   // The profile plane is chosen so the bore runs along the requested axis.
   const rotation: Vec3 = axis === 'x' ? [0, Math.PI / 2, 0] : axis === 'y' ? [Math.PI / 2, 0, 0] : [0, 0, 0]
-  const [width, height, depth] = axis === 'x'
-    ? [size[2], size[1], size[0]] as Vec3
-    : axis === 'y' ? [size[0], size[2], size[1]] as Vec3 : size
+  const bore: Vec3 = axis === 'x'
+    ? [size[2], size[1], size[0]]
+    : axis === 'y' ? [size[0], size[2], size[1]] : size
+  const [width, height, depth] = bore.map((extent) => extent - inset * 2) as Vec3
 
   const clip = Math.min(width, height) * 0.26
   casting.add(prism(plate, [width, height, depth], position, {
@@ -378,7 +400,12 @@ export function forkPocket(
     holes: [slot(width * 0.5, height * 0.5, clip)],
     rotation,
   }))
-  parent.add(prism(m.ink, [width + 0.02, height + 0.02, depth], lift(position, face, -depth * 0.5), {
+  // The tunnel is sunk a face clearance behind the skin it is let into. Seated
+  // at half its own depth its front cap landed on the host's outer face and
+  // pointed the same way, and because the lip plate has the mouth cut through
+  // it that coincidence was framed rather than covered - the five largest
+  // overlaps in the wave, one on every container's skirt band.
+  parent.add(prism(m.ink, [width + 0.02, height + 0.02, depth], lift(position, face, -depth * 0.5 - FACE_CLEARANCE), {
     chamfer: clip,
     fillet: 0.01,
     bevel: 0.008,
@@ -689,9 +716,15 @@ export function paintMark(
   spin = 0,
   orient?: Vec3,
 ): Mesh {
+  // The embed is a fixed depth rather than a share of the thickness. At 0.14 of
+  // the default 14 mm it was 1.96 mm, inside the pack's own 3 mm floor, so the
+  // back cap sat a depth step from the skin the mark is painted on instead of
+  // safely under it. A stroke thinner than twice the clearance keeps half its
+  // thickness proud, the way a flush-driven bolt keeps its head.
+  const embed = Math.min(FACE_CLEARANCE, thickness * 0.5)
   const seat = orient
-    ? liftAlong(position, orient, thickness * 0.36)
-    : lift(position, face, thickness * 0.36)
+    ? liftAlong(position, orient, thickness * 0.5 - embed)
+    : lift(position, face, thickness * 0.5 - embed)
   const mesh = extrudeProfile(material, profile, thickness, seat, {
     fillet: thickness * 0.5,
     bevel: thickness * 0.3,
@@ -796,15 +829,20 @@ export function radialMark(
   const facet = facetRadius(radius, segments)
   // A stroke lies exactly flat on the chord it is centred on, and then leaves
   // it: past that facet's own edge each further millimetre of width drops away
-  // at the next facet's slope, while the mark embeds only 0.14 of its thickness.
+  // at the next facet's slope, and all the mark has to give is its embed.
   // Wider than this and the far corners are off the shell, which is why the
   // pressure vessel's chevrons had to be sized to the facet by hand. A stroke
   // that outruns its facet is narrowed rather than left to peel.
+  //
+  // The embed is the flat {@link paintMark}'s, and for the same reason: 0.14 of
+  // a 13 mm stroke is 1.8 mm, and a back cap that close to the shell is a back
+  // cap on it.
+  const embed = Math.min(FACE_CLEARANCE, thickness * 0.5)
   const step = (Math.PI * 2) / segments
-  const reach = facet * Math.tan(step * 0.5) + (thickness * 0.14) / Math.tan(step)
+  const reach = facet * Math.tan(step * 0.5) + embed / Math.tan(step)
   const half = Math.max(...profile.map(([x]) => Math.abs(x)))
   const stroke = half > reach ? profile.map(([x, y]): Vec2 => [x * (reach / half), y]) : profile
-  const seat = facet + thickness * 0.36
+  const seat = facet + thickness * 0.5 - embed
   const mesh = extrudeProfile(material, stroke, thickness, [
     centre[0] + Math.sin(angle) * seat,
     centre[1] + height,

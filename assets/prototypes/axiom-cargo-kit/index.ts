@@ -20,6 +20,7 @@ export {
   AXIS_X,
   AXIS_Y,
   AXIS_Z,
+  FACE_CLEARANCE,
   FACE_NORMAL,
   LAYER_CLEARANCE,
   bolt,
