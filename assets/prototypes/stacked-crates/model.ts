@@ -3,6 +3,7 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   addStripeDecal,
@@ -118,10 +119,16 @@ function crate(root: Group, m: CargoMaterials, unit: Unit, y: number, tag: numbe
   })
   // Corner posts stand 5 mm proud on both axes; sized flush their outer faces
   // were the body's own on all four flanks.
+  //
+  // The corner is carried round the yaw the same way the box itself is, which
+  // is `[cos, sin; -sin, cos]`. Turned the other way the four posts came out
+  // rotated by twice the crate's yaw about its own centre - 41 mm off the
+  // corners of this unit and 64 mm off the wide one's - which sank two of them
+  // into the body far enough to lay their chamfers on its own.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      const cx = x + Math.cos(unit.yaw) * sx * (w * 0.5 - 0.045) - Math.sin(unit.yaw) * sz * (d * 0.5 - 0.045)
-      const cz = z + Math.sin(unit.yaw) * sx * (w * 0.5 - 0.045) + Math.cos(unit.yaw) * sz * (d * 0.5 - 0.045)
+      const cx = x + Math.cos(unit.yaw) * sx * (w * 0.5 - 0.045) + Math.sin(unit.yaw) * sz * (d * 0.5 - 0.045)
+      const cz = z - Math.sin(unit.yaw) * sx * (w * 0.5 - 0.045) + Math.cos(unit.yaw) * sz * (d * 0.5 - 0.045)
       box(root, m.graphiteEdge, [0.1, h - skirt - lid + 0.01, 0.1], [cx, y + skirt + (h - skirt - lid) * 0.5, cz], {
         chamfer: 0.035, fillet: 0.012, bevel: 0.009, rotation,
       })
@@ -183,11 +190,17 @@ function build(): { root: Group; sockets: CrateStackSockets; bundle: CargoMateri
   // Both runs used to share the stack's overall top, so the +X run floated 32 mm
   // above the crate under it; the vertical runs stood 44 mm off every face and
   // there was no -Z run at all, which left both crown runs ending in mid-air.
-  // The base course's front skin is the outermost thing on the stack, so a
+  // The base course's lid band is the outermost thing on the stack, so a
   // tensioned strap lies on it and bridges the set-back second course.
   const top = deck + Math.max(...UNITS.map((unit) => unit.lift + unit.size[1]))
   const strapX = 0.24
-  const strapZ = 0.442
+  // The lid band is what the run actually bears on: it is 7 mm proud of the
+  // 0.42-deep body at |z| = 0.23, so its face is at 0.447 and the 12 mm webbing
+  // centres a face clearance inside it. Measured to the skin behind the band
+  // instead, the strap's outer face came up 1 mm short of the band's over 49 cm²
+  // of the crate it crosses, and it bridges the body under the band the way it
+  // already bridges the skirt.
+  const strapZ = 0.447 - FACE_CLEARANCE + 0.006
   const baseTop = deck + BASE
   for (const sx of [-1, 1]) {
     const x = sx * strapX
@@ -211,12 +224,17 @@ function build(): { root: Group; sockets: CrateStackSockets; bundle: CargoMateri
       })
     }
   }
-  // The ratchet grips the +X run rather than hanging 37 mm in front of it.
+  // The ratchet grips the +X run rather than hanging 37 mm in front of it, and
+  // it rides under the base course's latch band: the keepers are 0.2 x 0.62 tall
+  // about a latch line 10 mm below each lid, so the run is only clear below
+  // 0.37. Level with them the buckle sat on the lever of the crate behind it,
+  // sharing one flank plane with it and coming within 0.15 mm of its face.
   const ratchetZ = strapZ + 0.026
-  box(root, m.amberPaint, [0.1, 0.14, 0.05], [strapX, SKID_H + 0.36, ratchetZ], {
+  const ratchetY = baseTop - BASE * 0.24 - 0.01 - 0.2 * 0.62 * 0.5 - FACE_CLEARANCE - 0.07
+  box(root, m.amberPaint, [0.1, 0.14, 0.05], [strapX, ratchetY, ratchetZ], {
     chamfer: 0.024, fillet: 0.009, bevel: 0.007,
   })
-  root.add(cylinder(m.steel, 0.015, 0.13, [strapX, SKID_H + 0.36, ratchetZ + 0.03], AXIS_X, 8))
+  root.add(cylinder(m.steel, 0.015, 0.13, [strapX, ratchetY, ratchetZ + 0.03], AXIS_X, 8))
   seam(root, m.graphiteEdge, SKID - 0.2, [0, SKID_H + 0.028, 0], 'top', 'across', 0.026, 0.014)
 
   const sockets: CrateStackSockets = {
