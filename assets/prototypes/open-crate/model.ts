@@ -245,8 +245,11 @@ export function createModel(): OpenCrateController {
 
 export const createPreview = (options: CargoPreviewOptions = {}): CargoPreview =>
   createCargoPreview(createModel(), {
-    target: [0, HEIGHT * 0.52, 0],
-    distance: 2.75,
+    // The lid stands open above and behind the body, so the prop is half again
+    // as tall as the crate it is measured from. Framed on the body's own
+    // mid-height at 2.75 m the lid lost its whole top corner off the frame.
+    target: [0, HEIGHT * 0.88, 0],
+    distance: 3.8,
     yaw: 0.7,
     pitch: 0.42,
     fov: 30,
