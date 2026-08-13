@@ -2,6 +2,7 @@ import { Group, Object3D } from 'three/webgpu'
 
 import {
   acquireCargoMaterials,
+  box,
   containerDoorFrame,
   containerDoorLeaf,
   containerMetrics,
@@ -70,10 +71,24 @@ export function createModel(): ShippingContainerController {
   containerDoorFrame(shell, m, SPEC)
 
   const hinge = SPEC.width * 0.5 - k.casting - 0.02
-  doorLeft.position.set(SPEC.length * 0.5 - 0.22, 0, -hinge)
-  doorRight.position.set(SPEC.length * 0.5 - 0.22, 0, hinge)
+  // The leaves hang behind the door frame's head and sill bars, whose inboard
+  // face is at `length*0.5 - 0.24`. Set 130 mm further forward the 0.1-thick
+  // skins ran straight through both bars for the full width of the opening.
+  doorLeft.position.set(SPEC.length * 0.5 - 0.285, 0, -hinge)
+  doorRight.position.set(SPEC.length * 0.5 - 0.285, 0, hinge)
   containerDoorLeaf(doorLeft, m, bundle, { ...SPEC, side: 1 })
   containerDoorLeaf(doorRight, m, bundle, { ...SPEC, side: -1 })
+  // Each leaf is half the clear opening, so the pair shuts on a mathematical
+  // point and the 0.1 taken out for clearance is a 60 mm slit you see the
+  // cross members through. The leaf that shuts second carries a closing strip
+  // behind the joint, lapping both skins by 40 mm. Hinging the pair 30 mm
+  // further in would bring the leaves edge to edge instead, but the lock bars
+  // are set out from each leaf's own centre and would then cross the shut line
+  // and duplicate each other for 50 mm.
+  const leaf = (SPEC.width - k.casting * 2 - 0.1) * 0.5
+  box(doorLeft, m.shell, [0.06, SPEC.height - 0.62, (hinge - leaf) * 2 + 0.08], [-0.06, (SPEC.height - 0.5) * 0.5 + 0.24, hinge], {
+    chamfer: 0.02, fillet: 0.008, bevel: 0.007,
+  })
 
   const cornerX = SPEC.length * 0.5 - k.casting * 0.5
   const cornerZ = SPEC.width * 0.5 - k.casting * 0.5
