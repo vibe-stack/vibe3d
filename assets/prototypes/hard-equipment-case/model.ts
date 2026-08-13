@@ -3,11 +3,13 @@ import { Group, Object3D } from 'three/webgpu'
 import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import {
   AXIS_X,
+  FACE_CLEARANCE,
   acquireCargoMaterials,
   addLabelDecal,
   box,
   boltRun,
   createCargoPreview,
+  facetRadius,
   finishModel,
   lidHinge,
   paintMark,
@@ -38,6 +40,14 @@ const DEPTH = 0.44
 const HEIGHT = 0.72
 const LID = 0.16
 const WHEEL = 0.075
+/**
+ * Axle height.
+ *
+ * A 14-facet tyre meets the deck on the flat chord between two facets, not on
+ * its nominal radius: hung at the radius the tread stopped 1.9 mm up, a hair
+ * off the shell's own sole and reading as a wheel that carries nothing.
+ */
+const AXLE = facetRadius(WHEEL, 14)
 
 interface HardCaseSockets {
   tow_handle: Object3D
@@ -61,15 +71,20 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
   const bodyHeight = HEIGHT - LID
   const bodyY = bodyHeight * 0.5
 
-  box(hull, m.shell, [WIDTH, bodyHeight, DEPTH], [0, bodyY, 0], {
+  // The case is carried by its skid feet and its wheels, so the shell's own
+  // underside is two face clearances up: one to clear the feet, one more to
+  // clear the corner extrusions that wrap past it.
+  box(hull, m.shell, [WIDTH, bodyHeight - FACE_CLEARANCE * 2, DEPTH], [0, bodyY + FACE_CLEARANCE, 0], {
     chamfer: 0.07, fillet: 0.024, bevel: 0.018, capChamfer: 0.045,
   })
   // Corner extrusions run the full height, which is what a case that is dragged
-  // over kerbs actually has.
+  // over kerbs actually has, and they take the kerb below the feet as well as at
+  // the corners. The 3 mm they used to reach past the skids is the playbook's
+  // floor to the millimetre, so it is a face clearance now.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      box(hull, m.graphiteEdge, [0.075, bodyHeight + 0.006, 0.075], [
-        sx * (WIDTH * 0.5 - 0.035), bodyY, sz * (DEPTH * 0.5 - 0.035),
+      box(hull, m.graphiteEdge, [0.075, bodyHeight + FACE_CLEARANCE + 0.003, 0.075], [
+        sx * (WIDTH * 0.5 - 0.035), (bodyHeight + 0.003 - FACE_CLEARANCE) * 0.5, sz * (DEPTH * 0.5 - 0.035),
       ], { chamfer: 0.028, fillet: 0.01, bevel: 0.008 })
     }
   }
@@ -79,12 +94,12 @@ function hullBody(hull: Group, m: CargoMaterials, bundle: CargoMaterialBundle): 
       chamfer: 0.024, fillet: 0.009, bevel: 0.007,
     })
     const wheelZ = -(DEPTH * 0.5 - 0.02)
-    box(hull, m.graphite, [0.09, 0.15, 0.11], [sx * (WIDTH * 0.5 - 0.055), WHEEL + 0.01, wheelZ], {
+    box(hull, m.graphite, [0.09, 0.15, 0.11], [sx * (WIDTH * 0.5 - 0.055), AXLE + 0.01, wheelZ], {
       chamfer: 0.03, fillet: 0.011, bevel: 0.009,
     })
-    hull.add(cylinder(m.rubber, WHEEL, 0.055, [sx * (WIDTH * 0.5 - 0.055), WHEEL, wheelZ], AXIS_X, 14))
-    hull.add(cylinder(m.steel, WHEEL * 0.44, 0.062, [sx * (WIDTH * 0.5 - 0.055), WHEEL, wheelZ], AXIS_X, 10))
-    hull.add(cylinder(m.ink, WHEEL * 0.16, 0.07, [sx * (WIDTH * 0.5 - 0.055), WHEEL, wheelZ], AXIS_X, 8))
+    hull.add(cylinder(m.rubber, WHEEL, 0.055, [sx * (WIDTH * 0.5 - 0.055), AXLE, wheelZ], AXIS_X, 14))
+    hull.add(cylinder(m.steel, WHEEL * 0.44, 0.062, [sx * (WIDTH * 0.5 - 0.055), AXLE, wheelZ], AXIS_X, 10))
+    hull.add(cylinder(m.ink, WHEEL * 0.16, 0.07, [sx * (WIDTH * 0.5 - 0.055), AXLE, wheelZ], AXIS_X, 8))
   }
 
   // The service panel is what the whole front is applied to, so it laps the shell
@@ -197,7 +212,7 @@ function build(): {
   const sockets: HardCaseSockets = {
     tow_handle: socket('tow_handle', [0, HEIGHT - LID + 0.05, channelFace]),
     lid_hinge: socket('lid_hinge', [0, HEIGHT - LID, -(DEPTH * 0.5 - 0.032)]),
-    wheel_axle: socket('wheel_axle', [0, WHEEL, -(DEPTH * 0.5 - 0.02)]),
+    wheel_axle: socket('wheel_axle', [0, AXLE, -(DEPTH * 0.5 - 0.02)]),
   }
   return { root, hull, lid, handle, sockets, bundle }
 }
