@@ -62,7 +62,15 @@ export interface HoistController {
   dispose(): void
 }
 
-/** Load chain: alternating links, each rotated a quarter turn from the last. */
+/**
+ * Load chain: alternating links, each rotated a quarter turn from the last.
+ *
+ * The alternation is counted from the bottom of the run rather than the top,
+ * because the bottom link is the one the hook block's shackle pin is threaded
+ * through and a pin passes through a link square to its plane. Counted from the
+ * top, an odd run ended on its edge instead: the pin is 28 mm across the flats
+ * and the stock is 26 mm, so it stood a millimetre proud of both link flanks.
+ */
 function chain(parent: Group, m: CargoMaterials, x: number, top: number, length: number): void {
   const pitch = 0.075
   const stock = 0.026
@@ -76,7 +84,7 @@ function chain(parent: Group, m: CargoMaterials, x: number, top: number, length:
     const y = top - index * pitch
     box(parent, m.steel, [stock, link, 0.05], [x, y, 0], {
       chamfer: 0.011, fillet: 0.005, bevel: 0.004,
-      rotation: [0, index % 2 === 0 ? 0 : Math.PI / 2, 0],
+      rotation: [0, (links - index) % 2 === 0 ? 0 : Math.PI / 2, 0],
     })
   }
 }
