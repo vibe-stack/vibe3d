@@ -9,12 +9,13 @@ import {
   box,
   createCargoPreview,
   finishModel,
+  groundPad,
   hexagon,
   paintMark,
-  plaque,
   slashProfile,
   socket,
   statusLens,
+  stencil,
   type CargoMaterialBundle,
   type CargoMaterials,
   type CargoPreview,
@@ -104,17 +105,20 @@ function skidFrame(root: Group, m: CargoMaterials, bundle: CargoMaterialBundle):
     box(root, m.graphite, [LENGTH - 0.02, SKID, 0.15], [0, SKID * 0.5, z], {
       chamfer: 0.035, fillet: 0.013, bevel: 0.011, capChamfer: 0.025,
     })
-    box(root, m.rubber, [LENGTH - 0.12, 0.018, 0.11], [0, 0.009, z], {
-      chamfer: 0.02, fillet: 0.008, bevel: 0.006,
-    })
+    groundPad(root, m.rubber, [LENGTH - 0.12, 0.11], [0, 0, z], 0.018)
   }
   // End beams close the frame, so the fork tunnels are real openings.
   for (const sx of [-1, 1]) {
     box(root, m.graphiteEdge, [0.1, SKID, WIDTH - 0.02], [sx * (LENGTH * 0.5 - 0.05), SKID * 0.5, 0], {
       chamfer: 0.03, fillet: 0.011, bevel: 0.01,
     })
+    // Painted straight onto the beam end, which a seated plaque cannot be: the
+    // beam is 95 mm deep with a 28.5 mm chamfer top and bottom, so the plate a
+    // plaque draws is 47 mm taller than the flat it would sit on. The band is
+    // cut to that flat and takes the beam's real face at LENGTH * 0.5 - the
+    // 0.57 the plaque was placed at is the beam's centre, 31 mm inside it.
     const stripe = addStripeDecal(bundle, { count: 4, lean: sx })
-    plaque(root, m, stripe, [0.42, 0.045], [sx * (LENGTH * 0.5 - 0.05), SKID * 0.55, 0], sx > 0 ? 'right' : 'left', m.ink)
+    stencil(root, stripe, [0.42, 0.034], [sx * LENGTH * 0.5, SKID * 0.5, 0], sx > 0 ? 'right' : 'left')
   }
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
@@ -134,7 +138,7 @@ function build(): { root: Group; sockets: CargoPalletSockets; bundle: CargoMater
   locators(root, m)
 
   // Tag reader on one long edge: the pallet's only powered part.
-  const readerZ = WIDTH * 0.5 + 0.004
+  const readerZ = WIDTH * 0.5
   box(root, m.graphite, [0.2, 0.07, 0.035], [-LENGTH * 0.25, SKID + DECK * 0.5, readerZ], {
     chamfer: 0.022, fillet: 0.008, bevel: 0.007,
   })
