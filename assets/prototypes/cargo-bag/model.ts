@@ -94,8 +94,14 @@ function strap(root: Group, m: CargoMaterials, x: number, crown: number, depth: 
   box(root, m.webbing, [0.06, 0.014, depth * 0.66], [x, crown + 0.003, 0], {
     chamfer: 0.005, fillet: 0.003, bevel: 0.003,
   })
+  // A side run stands a face clearance proud of the flank and beds the rest of
+  // its thickness into it. Drawn 14 mm thick about `DEPTH * 0.5 - 0.005` it
+  // stood only 2 mm out, under the floor the pack keeps between two surfaces
+  // looking the same way; the thickness rather than the seating is what gives,
+  // because the buckle's own inboard face is 10 mm inside the fabric and a run
+  // walked out to meet the datum lands on it.
   for (const sz of [-1, 1]) {
-    box(root, m.webbing, [0.06, crown * 0.72, 0.014], [x, crown * 0.42, sz * (DEPTH * 0.5 - 0.005)], {
+    box(root, m.webbing, [0.06, crown * 0.72, 0.01], [x, crown * 0.42, sz * (DEPTH * 0.5 + FACE_CLEARANCE - 0.005)], {
       chamfer: 0.005, fillet: 0.003, bevel: 0.003,
     })
   }
