@@ -195,8 +195,11 @@ function preview(options: CargoPreviewOptions & { state?: CargoPalletState } = {
   const model = createModel()
   model.setState(options.state ?? 'idle')
   return createCargoPreview(model, {
-    target: [0, 0.11, 0],
-    distance: 2.4,
+    // A pallet is all plan and no elevation, so its diagonal is what sets the
+    // frame. At 2.4 m the deck ran off both sides of it; the target drops to the
+    // deck line because there is nothing above the deck to leave room for.
+    target: [0, 0.01, 0],
+    distance: 3.2,
     yaw: 0.78,
     pitch: 0.4,
     fov: 30,
