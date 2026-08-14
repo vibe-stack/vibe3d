@@ -11,6 +11,5 @@ Select the affected packages, choose the appropriate semantic version bump,
 and write a short user-facing summary. Documentation-only and internal changes
 do not require a changeset.
 
-The Vibe3D core packages are a fixed group and always share one version.
-`vibe-model` and registry packages such as `@scifi-kit/registry` version
-independently.
+The published Vibe3D packages are a fixed group and always share one version.
+Any changeset for one package advances the complete release train together.

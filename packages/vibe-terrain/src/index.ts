@@ -9,6 +9,11 @@ import pc from 'picocolors'
 const moduleDirectory = dirname(fileURLToPath(import.meta.url))
 const bundledSkill = join(moduleDirectory, 'skill')
 
+async function packageVersion(): Promise<string> {
+  const manifest = JSON.parse(await readFile(join(moduleDirectory, '..', 'package.json'), 'utf8')) as { version: string }
+  return manifest.version
+}
+
 async function validateBundle(): Promise<void> {
   const skill = await readFile(join(bundledSkill, 'SKILL.md'), 'utf8')
   if (!skill.startsWith('---\nname: vibe-terrain\n')) {
@@ -34,7 +39,7 @@ async function install(options: { cwd: string; global?: boolean; force?: boolean
 const program = new Command()
   .name('vibe-terrain')
   .description('Install the Vibe Terrain skill for procedural WebGPU terrain work.')
-  .version('0.0.1')
+  .version(await packageVersion())
 
 program.command('install', { isDefault: true })
   .description('Install the skill in the current project or Codex home.')

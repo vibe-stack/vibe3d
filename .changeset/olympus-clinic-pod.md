@@ -1,5 +1,5 @@
 ---
-"@scifi-kit/registry": minor
+"@scifi-kit/registry": patch
 ---
 
 Add the Olympus clinic pod: `clinic-facade-module`, `treatment-rooms`, and the `lifeline-clinic` hero assembly.

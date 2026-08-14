@@ -1,5 +1,5 @@
 ---
-"@scifi-kit/registry": minor
+"@scifi-kit/registry": patch
 ---
 
 Add the Axiom Relay cargo, storage, and logistics wave: fifty new procedural

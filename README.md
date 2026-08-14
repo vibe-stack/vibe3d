@@ -61,6 +61,8 @@ For source-first WebGPU terrain with game-ready compiled topology caches:
 
 ```bash
 bunx vibe-terrain
+# npm works too
+npx vibe-terrain
 ```
 
 The terrain recipe remains authoritative. The optional compiled representation

@@ -9,7 +9,10 @@
       "@vibe3djs/registry",
       "@vibe3djs/conformance",
       "@vibe3djs/terrain",
-      "vibe3d"
+      "vibe3d",
+      "vibe-model",
+      "vibe-terrain",
+      "@scifi-kit/registry"
     ]
   ],
   "linked": [],

@@ -96,7 +96,7 @@ const docsCopy = {
     title: 'Install the terrain authoring workflow.',
     intro: 'The vibe-terrain package installs the project-local workflow for deterministic WebGPU terrain, compiled topology, multi-seed validation, and biome-aware materials.',
     body: <>Author the field and runtime source together, preview the single asset early, compile topology and surface caches only after the shape is accepted, and keep source fallback working. The installed workflow documents the cache contract, catalogue metadata, preview loop, and runtime ownership rules beside the project that uses them.</>,
-    code: 'bunx vibe-terrain\n\n# the workflow is installed into the current project\n# commit it beside the terrain source it governs',
+    code: 'bunx vibe-terrain\n# or with npm\nnpx vibe-terrain\n\n# the workflow is installed into the current project\n# commit it beside the terrain source it governs',
   },
 } as const
 

@@ -1,11 +1,11 @@
 ---
-"@vibe3djs/schema": minor
-"@vibe3djs/registry-sdk": minor
-"@vibe3djs/registry": minor
-"@vibe3djs/conformance": minor
-"@vibe3djs/terrain": minor
-"vibe3d": minor
-"vibe-terrain": minor
+"@vibe3djs/schema": patch
+"@vibe3djs/registry-sdk": patch
+"@vibe3djs/registry": patch
+"@vibe3djs/conformance": patch
+"@vibe3djs/terrain": patch
+"vibe3d": patch
+"vibe-terrain": patch
 ---
 
 Add schema-v2 source and compiled-topology representations for procedural
