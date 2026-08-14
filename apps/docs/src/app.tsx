@@ -29,6 +29,22 @@ function Home() {
         <article><Braces /><h2>Runtime access included</h2><p>Stable handles expose doors, lights, panels, and dimensions to the rest of your application.</p></article>
       </section>
       <section className="home-models"><div><p className="eyebrow">The first library</p><h2>Sci-Fi Kit is built to be taken apart.</h2><p>Start with one prop or install the complete set. The same registry contract is open to every kit author.</p></div><div className="model-links">{catalog.slice(0, 6).map((model) => <Link key={model.id} to={`/models/${model.id}`}><span>{model.name}</span><ArrowRight /></Link>)}</div></section>
+      <section className="home-contributors">
+        <div className="contributors-heading">
+          <p className="eyebrow">Contributors</p>
+          <h2>Built by people who care about the details.</h2>
+          <p>Vibe3D grows through source contributions that make the library broader, sharper, and more useful.</p>
+        </div>
+        <a className="contributor-card" href="https://github.com/aronprins" target="_blank" rel="noreferrer">
+          <img src="https://github.com/aronprins.png?size=160" alt="" width="80" height="80" loading="lazy" />
+          <span>
+            <small>Contributor · @aronprins</small>
+            <strong>Aron Prins</strong>
+            <p>Created the 50-model Axiom Relay cargo, storage, and logistics collection.</p>
+          </span>
+          <ArrowRight aria-hidden="true" />
+        </a>
+      </section>
     </main>
   </>
 }
