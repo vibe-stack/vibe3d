@@ -213,7 +213,10 @@ export function frameModel(preview: ModelPreview, padding = FRAME_PADDING): Vect
   const viewDirection = preview.camera.getWorldDirection(new Vector3()).normalize()
 
   preview.camera.position.copy(center).addScaledVector(viewDirection, -distance)
-  preview.camera.near = Math.max(0.01, distance - radius * 1.5)
+  // OrbitControls lets reviewers dolly right up to a surface. A near plane
+  // derived from the initial framing distance becomes a giant invisible knife
+  // once they do, so keep it close to the lens for inspection work.
+  preview.camera.near = 0.01
   preview.camera.far = Math.max(preview.camera.far, distance + radius * 4)
   preview.camera.lookAt(center)
   preview.camera.updateProjectionMatrix()

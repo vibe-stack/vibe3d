@@ -183,6 +183,10 @@ button { color: inherit; }
   .loading-state, .error-state { left: 50%; }
 }
 
+@media (max-width: 480px) {
+  .render-mode-toggle span, .animation-toggle span { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }

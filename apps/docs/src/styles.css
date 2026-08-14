@@ -59,6 +59,7 @@ code { font-family: "SFMono-Regular", Consolas, monospace; }
 .home-contributors { width: min(1180px, calc(100% - 48px)); margin: 0 auto 140px; padding-top: 78px; border-top: 1px solid var(--line); display: grid; grid-template-columns: .8fr 1.2fr; gap: 100px; align-items: end; }
 .contributors-heading h2 { max-width: 480px; margin: 0; font-size: 40px; letter-spacing: -.04em; }
 .contributors-heading > p:not(.eyebrow) { max-width: 510px; color: var(--muted); line-height: 1.65; }
+.contributor-list { display: grid; gap: 12px; }
 .contributor-card { min-height: 154px; padding: 28px; display: flex; align-items: center; gap: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); transition: border-color .16s ease, background .16s ease, transform .16s ease; }
 .contributor-card:hover { border-color: #3b444e; background: #13181e; transform: translateY(-2px); }
 .contributor-card img { width: 80px; height: 80px; flex: 0 0 auto; border: 1px solid #39434d; border-radius: 50%; background: #151a20; object-fit: cover; }

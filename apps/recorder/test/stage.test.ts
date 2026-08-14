@@ -84,6 +84,7 @@ describe('recorder model framing', () => {
     expect(target?.toArray()).toEqual([10, 1, 1])
     expect(root.position.toArray()).toEqual([0, 0, 0])
     expect(camera.getWorldDirection(new Vector3()).dot(target!.clone().sub(camera.position).normalize())).toBeCloseTo(1)
+    expect(camera.near).toBe(0.01)
     expect(camera.far).toBeGreaterThan(20)
   })
 })

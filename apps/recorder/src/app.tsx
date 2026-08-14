@@ -172,6 +172,7 @@ export function App() {
   const handleExporterChange = useCallback((exporter: (() => Promise<Blob>) | null) => {
     exporterRef.current = exporter
     setCanExport(Boolean(exporter))
+    setExportError(null)
   }, [])
   const handleExport = useCallback(async () => {
     const exporter = exporterRef.current
