@@ -70,6 +70,8 @@ button { color: inherit; }
 .stage-tools { display: flex; gap: 8px; }
 .stage-tool { height: 39px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; color: #c7cbc8; background: rgba(14,16,17,.46); box-shadow: 0 8px 30px rgba(0,0,0,.14); backdrop-filter: blur(16px); cursor: pointer; font-size: 10px; font-weight: 600; }
 .stage-tool:hover { color: white; border-color: rgba(255,255,255,.18); background: rgba(14,16,17,.68); }
+.stage-tool:disabled { color: #686d6a; cursor: wait; opacity: .66; }
+.stage-tool:disabled:hover { border-color: rgba(255,255,255,.1); background: rgba(14,16,17,.46); }
 .stage-tool svg { width: 13px; flex: 0 0 auto; }
 .stage-tool[aria-pressed="true"] { color: #12150f; border-color: rgba(209,255,140,.5); background: var(--accent); }
 .stage-tool em { padding: 0 5px; border-radius: 20px; color: #f3f4f3; background: rgba(0,0,0,.32); font-family: 'DM Mono', monospace; font-size: 8px; font-style: normal; line-height: 15px; }
@@ -80,6 +82,7 @@ button { color: inherit; }
 .animation-toggle[aria-pressed="true"]:hover { color: white; background: rgba(14,16,17,.68); }
 .render-mode-toggle[data-mode="solid"] { color: #e2e5e2; }
 .render-mode-toggle[data-mode="wireframe"] { color: var(--accent); }
+.export-glb:not(:disabled) svg { color: var(--accent); }
 
 .pin-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .pin-marker { position: absolute; top: 0; left: 0; width: 24px; height: 24px; display: grid; place-items: center; visibility: hidden; border: 1px solid rgba(209,255,140,.55); border-radius: 999px; color: #12150f; background: var(--accent); box-shadow: 0 2px 12px rgba(0,0,0,.45), 0 0 0 4px rgba(209,255,140,.14); cursor: pointer; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; pointer-events: auto; }

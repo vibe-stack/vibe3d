@@ -6,9 +6,12 @@ import {
   InstancedMesh,
   Mesh,
   MeshBasicMaterial,
+  PerspectiveCamera,
+  Scene,
+  Vector3,
 } from 'three/webgpu'
 import type { ModelPreview } from '../src/catalog.ts'
-import { modelStatsFor } from '../src/stage.tsx'
+import { frameModel, modelStatsFor } from '../src/stage.tsx'
 
 function geometry(vertices: number, name = ''): BufferGeometry {
   const result = new BufferGeometry()
@@ -58,5 +61,29 @@ describe('recorder model stats', () => {
     root.add(near, far)
 
     expect(modelStatsFor(preview(root))).toEqual({ vertices: 12, activeLod: 'LOD 0 / LOD 2' })
+  })
+})
+
+describe('recorder model framing', () => {
+  test('centers an offset model in the camera without moving the model', () => {
+    const root = new Group()
+    const mesh = new Mesh(geometry(8), new MeshBasicMaterial())
+    mesh.geometry.setAttribute('position', new Float32BufferAttribute([
+      8, -2, -1, 12, -2, -1, 8, 4, -1, 12, 4, 3,
+    ], 3))
+    root.add(mesh)
+    const scene = new Scene()
+    scene.add(root)
+    const camera = new PerspectiveCamera(40, 16 / 9, 0.1, 20)
+    camera.position.set(0, 2, 8)
+    camera.lookAt(0, 0, 0)
+    const model = { scene, root, camera } as ModelPreview
+
+    const target = frameModel(model)
+
+    expect(target?.toArray()).toEqual([10, 1, 1])
+    expect(root.position.toArray()).toEqual([0, 0, 0])
+    expect(camera.getWorldDirection(new Vector3()).dot(target!.clone().sub(camera.position).normalize())).toBeCloseTo(1)
+    expect(camera.far).toBeGreaterThan(20)
   })
 })

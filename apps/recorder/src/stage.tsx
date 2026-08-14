@@ -40,6 +40,7 @@ interface StageProps {
   onLoadingChange(loading: boolean): void
   onError(message: string | null): void
   onStatsChange(stats: ModelStats | null): void
+  onExporterChange(exporter: (() => Promise<Blob>) | null): void
 }
 
 export type RenderMode = 'full' | 'solid' | 'wireframe'
@@ -60,6 +61,7 @@ const BLOOM_STRENGTH = 2
 const BLOOM_RADIUS = 0.35
 const BLOOM_THRESHOLD = 0.1
 const TERRAIN_EXPOSURE = 1.05
+const FRAME_PADDING = 1.15
 
 interface StudioLighting {
   target?: Vector3
@@ -192,6 +194,33 @@ export function modelStatsFor(preview: ModelPreview): ModelStats {
   return { vertices, activeLod: formatActiveLods(activeLods) }
 }
 
+/**
+ * Aim the authored camera at the model's actual world-space bounds and dolly
+ * far enough back to fit them. Models keep their authored transforms; only the
+ * recorder camera moves, so a preview fix cannot leak into a GLB export.
+ */
+export function frameModel(preview: ModelPreview, padding = FRAME_PADDING): Vector3 | null {
+  preview.scene.updateMatrixWorld(true)
+  const bounds = new Box3().setFromObject(preview.root)
+  if (bounds.isEmpty()) return null
+
+  const center = bounds.getCenter(new Vector3())
+  const radius = Math.max(bounds.getSize(new Vector3()).length() * 0.5, 0.01)
+  const verticalFov = preview.camera.fov * Math.PI / 180
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov * 0.5) * preview.camera.aspect)
+  const limitingHalfFov = Math.max(Math.min(verticalFov, horizontalFov) * 0.5, 0.01)
+  const distance = radius * Math.max(padding, 1) / Math.sin(limitingHalfFov)
+  const viewDirection = preview.camera.getWorldDirection(new Vector3()).normalize()
+
+  preview.camera.position.copy(center).addScaledVector(viewDirection, -distance)
+  preview.camera.near = Math.max(0.01, distance - radius * 1.5)
+  preview.camera.far = Math.max(preview.camera.far, distance + radius * 4)
+  preview.camera.lookAt(center)
+  preview.camera.updateProjectionMatrix()
+  preview.camera.updateMatrixWorld(true)
+  return center
+}
+
 function liftTerrainBackdrop(preview: ModelPreview): void {
   const backdrop = preview.scene.background instanceof Color
     ? preview.scene.background.clone()
@@ -308,6 +337,7 @@ export function Stage({
   onLoadingChange,
   onError,
   onStatsChange,
+  onExporterChange,
 }: StageProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<ModelPreview | undefined>(undefined)
@@ -369,6 +399,7 @@ export function Stage({
     onLoadingChange(true)
     onError(null)
     onStatsChange(null)
+    onExporterChange(null)
     setWebGpuReady(false)
 
     const resize = () => {
@@ -463,6 +494,7 @@ export function Stage({
       })
       previewRef.current = preview
       authoredOverrideMaterialRef.current = preview.scene.overrideMaterial
+      const frameTarget = frameModel(preview)
       renderer.toneMapping = terrain ? AgXToneMapping : ACESFilmicToneMapping
       renderer.toneMappingExposure = terrain ? TERRAIN_EXPOSURE : 1
       studioLighting = addStudioLighting(preview, terrain)
@@ -473,10 +505,16 @@ export function Stage({
       controls.enableDamping = true
       controls.dampingFactor = 0.07
       controls.screenSpacePanning = true
-      if (studioLighting.target) controls.target.copy(studioLighting.target)
+      if (studioLighting.target ?? frameTarget) controls.target.copy(studioLighting.target ?? frameTarget!)
       controls.minDistance = terrain ? 1 : 0.4
       controls.maxDistance = terrain ? 300 : 180
       controls.update()
+
+      onExporterChange(async () => {
+        if (!preview) throw new Error('The model preview is no longer available')
+        const { exportStaticGlb } = await import('../../../src/asset-forge/generator/glb.ts')
+        return exportStaticGlb(preview.root, { textureSize: 512 })
+      })
 
       const scenePass = pass(preview.scene, preview.camera)
       scenePass.setMRT(mrt({ output, emissive }))
@@ -541,9 +579,10 @@ export function Stage({
       preview?.dispose()
       previewRef.current = undefined
       authoredOverrideMaterialRef.current = null
+      onExporterChange(null)
       renderer?.dispose()
     }
-  }, [item, onError, onLoadingChange, onStatsChange])
+  }, [item, onError, onExporterChange, onLoadingChange, onStatsChange])
 
   return (
     <div className="stage" ref={hostRef} data-ready={webGpuReady} data-annotating={annotating}>

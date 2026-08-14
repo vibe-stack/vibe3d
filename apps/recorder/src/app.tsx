@@ -3,6 +3,7 @@ import {
   ChevronRight,
   Clock,
   Crosshair,
+  Download,
   Grid3X3,
   LayoutGrid,
   Palette,
@@ -14,7 +15,7 @@ import {
   Sparkles,
   Triangle,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnnotatePanel } from './annotate-panel.tsx'
 import {
   newPinId,
@@ -89,6 +90,17 @@ function defaultControlValues(item: CatalogItem): Record<string, number> {
   return Object.fromEntries(item.controls.map((control) => [control.id, control.default]))
 }
 
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+}
+
 export function App() {
   const cleanPreview = new URLSearchParams(window.location.search).has('clean')
   const [selected, setSelected] = useState(initialItem)
@@ -103,6 +115,10 @@ export function App() {
   const [activePinId, setActivePinId] = useState<string | null>(null)
   const [modelStats, setModelStats] = useState<ModelStats | null>(null)
   const [controlValues, setControlValues] = useState<Record<string, Record<string, number>>>({})
+  const [canExport, setCanExport] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const exporterRef = useRef<(() => Promise<Blob>) | null>(null)
 
   const selectedControlValues = useMemo(
     () => controlValues[selected.id] ?? defaultControlValues(selected),
@@ -153,6 +169,27 @@ export function App() {
   const handleLoadingChange = useCallback((value: boolean) => setLoading(value), [])
   const handleError = useCallback((message: string | null) => setError(message), [])
   const handleStatsChange = useCallback((stats: ModelStats | null) => setModelStats(stats), [])
+  const handleExporterChange = useCallback((exporter: (() => Promise<Blob>) | null) => {
+    exporterRef.current = exporter
+    setCanExport(Boolean(exporter))
+  }, [])
+  const handleExport = useCallback(async () => {
+    const exporter = exporterRef.current
+    if (!exporter || exporting) return
+    setExporting(true)
+    setExportError(null)
+    try {
+      // Paint the busy state before the synchronous texture baking begins.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const blob = await exporter()
+      downloadBlob(blob, `${selected.id}.glb`)
+    } catch (exportFailure) {
+      console.error(`Unable to export ${selected.id}`, exportFailure)
+      setExportError('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }, [exporting, selected.id])
   const cycleRenderMode = useCallback(() => {
     setRenderMode((current) => {
       const index = renderModes.indexOf(current)
@@ -245,6 +282,7 @@ export function App() {
         onLoadingChange={handleLoadingChange}
         onError={handleError}
         onStatsChange={handleStatsChange}
+        onExporterChange={handleExporterChange}
       />
       <div className="stage-shade" aria-hidden="true" />
 
@@ -315,6 +353,17 @@ export function App() {
 
       <div className="stage-controls">
         <div className="stage-tools">
+          <button
+            className="stage-tool export-glb"
+            type="button"
+            disabled={!canExport || exporting}
+            onClick={handleExport}
+            title={exportError ?? 'Export the current model as a portable binary glTF'}
+          >
+            <Download aria-hidden="true" />
+            <span>{exporting ? 'Baking…' : exportError ?? 'Export GLB'}</span>
+          </button>
+
           <button
             className="stage-tool render-mode-toggle"
             type="button"
