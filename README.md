@@ -57,6 +57,17 @@ The local workspace keeps the canonical skill at
 `.agents/skills/vibe-model`. The published package bundles the same files, so
 the install does not depend on this repository layout.
 
+For source-first WebGPU terrain with game-ready compiled topology caches:
+
+```bash
+bunx vibe-terrain
+```
+
+The terrain recipe remains authoritative. The optional compiled representation
+stores reusable connectivity, domain coordinates, LODs, adjacency, and
+collision—not a final GLB—and falls back to source generation when its
+fingerprint does not match.
+
 ## Workspace
 
 ```text
@@ -64,7 +75,9 @@ apps/docs/                 Vite, React, TypeScript, and Tailwind docs site
 packages/cli/              vibe3d command-line interface
 packages/registry/         registry loading, dependency resolution, installer
 packages/schema/           models.json, registry, and lock schemas
+packages/terrain/          compiled-topology contracts, validation, and cache
 packages/vibe-model/       distributable model-authoring skill installer
+packages/vibe-terrain/     distributable terrain-authoring skill installer
 registries/scifi-kit/      first-party registry builder and npm package
 assets/prototypes/         canonical Sci-Fi Kit model sources
 src/asset-forge/generator/ shared primitives, materials, batching, and GLB

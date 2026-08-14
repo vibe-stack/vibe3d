@@ -32,6 +32,38 @@ export const registryFileSchema = z.object({
   hash: z.string().min(1).optional(),
 }).strict()
 
+export const registryArtifactSchema = z.object({
+  path: z.string().min(1),
+  target: z.string().min(1),
+  mediaType: z.string().min(1),
+  encoding: z.literal('base64'),
+  content: z.string(),
+  hash: z.string().regex(/^[a-f0-9]{64}$/),
+  byteLength: z.number().int().nonnegative(),
+}).strict()
+
+export const sourceRepresentationSchema = z.object({
+  entry: z.string().min(1),
+  capabilities: z.array(z.string()).default([]),
+}).strict()
+
+export const compiledTopologyRepresentationSchema = z.object({
+  id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+  kind: z.literal('compiled-topology'),
+  artifact: z.string().min(1),
+  format: z.literal('vibe3d-topology@1'),
+  topologyKey: z.string().min(1),
+  recipeHash: z.string().min(1),
+  compilerHash: z.string().min(1),
+  profile: z.string().min(1),
+  capabilities: z.array(z.string()).default([]),
+}).strict()
+
+export const modelRepresentationsSchema = z.object({
+  source: sourceRepresentationSchema,
+  compiled: z.array(compiledTopologyRepresentationSchema).default([]),
+}).strict()
+
 export const modelControlSchema = z.object({
   type: z.enum(['number', 'boolean', 'select', 'color']),
   label: z.string().min(1),
@@ -56,7 +88,7 @@ export const modelMetadataSchema = z.object({
   sockets: z.array(z.string()).default([]),
 }).strict()
 
-export const registryItemSchema = z.object({
+const registryItemShape = {
   name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
   type: z.enum([
     'vibe3d:model',
@@ -71,25 +103,81 @@ export const registryItemSchema = z.object({
   registryDependencies: z.array(registryAddressSchema).default([]),
   files: z.array(registryFileSchema).default([]),
   meta: modelMetadataSchema.optional(),
+}
+
+export const registryItemV1Schema = z.object(registryItemShape).strict()
+
+export const registryItemV2Schema = z.object({
+  ...registryItemShape,
+  artifacts: z.array(registryArtifactSchema).default([]),
+  representations: modelRepresentationsSchema.optional(),
+}).strict().superRefine((item, context) => {
+  if (item.representations && item.type !== 'vibe3d:model') {
+    context.addIssue({
+      code: 'custom',
+      path: ['representations'],
+      message: 'Only vibe3d:model items can declare model representations',
+    })
+  }
+  const artifacts = new Map(item.artifacts.map((artifact) => [artifact.path, artifact]))
+  for (const [index, compiled] of (item.representations?.compiled ?? []).entries()) {
+    const artifact = artifacts.get(compiled.artifact)
+    if (!artifact) {
+      context.addIssue({
+        code: 'custom',
+        path: ['representations', 'compiled', index, 'artifact'],
+        message: `Compiled representation references missing artifact: ${compiled.artifact}`,
+      })
+    } else if (artifact.mediaType !== 'application/vnd.vibe3d.compiled-topology+json;version=1') {
+      context.addIssue({
+        code: 'custom',
+        path: ['representations', 'compiled', index, 'artifact'],
+        message: `Compiled topology artifact has incompatible media type: ${artifact.mediaType}`,
+      })
+    }
+  }
+})
+
+export const registryItemSchema = z.union([registryItemV1Schema, registryItemV2Schema])
+
+const registryCompatibilitySchema = z.object({
+  vibe3d: z.string().min(1),
+  engine: z.literal('three'),
+  three: z.string().min(1),
+  capabilities: z.array(z.string()).default([]),
 }).strict()
 
-export const registrySchema = z.object({
+const registryShape = {
   $schema: z.string().url().optional(),
-  schemaVersion: z.literal(1),
   namespace: z.string().regex(/^@[a-z0-9][a-z0-9-]*$/),
   name: z.string().min(1),
   description: z.string().min(1),
   homepage: z.string().url().optional(),
   license: z.literal('MIT'),
   defaultItem: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
-  compatibility: z.object({
-    vibe3d: z.string().min(1),
-    engine: z.literal('three'),
-    three: z.string().min(1),
-    capabilities: z.array(z.string()).default([]),
-  }).strict(),
-  items: z.array(registryItemSchema),
-}).strict().superRefine((registry, context) => {
+  compatibility: registryCompatibilitySchema,
+}
+
+export const registryV1Schema = z.object({
+  ...registryShape,
+  schemaVersion: z.literal(1),
+  items: z.array(registryItemV1Schema),
+}).strict()
+
+export const registryV2Schema = z.object({
+  ...registryShape,
+  schemaVersion: z.literal(2),
+  items: z.array(registryItemV2Schema),
+}).strict()
+
+function refineRegistry(registry: {
+  namespace: string
+  defaultItem: string
+  items: Array<{
+    name: string
+    registryDependencies: string[]
+  }>
+}, context: z.RefinementCtx): void {
   const names = new Set<string>()
   for (const [index, item] of registry.items.entries()) {
     if (names.has(item.name)) {
@@ -120,14 +208,25 @@ export const registrySchema = z.object({
       }
     }
   }
-})
+}
+
+export const registrySchema = z.discriminatedUnion('schemaVersion', [
+  registryV1Schema,
+  registryV2Schema,
+]).superRefine(refineRegistry)
 
 export const installedFileSchema = z.object({
   path: z.string(),
   sourceHash: z.string(),
 }).strict()
 
-export const installedItemSchema = z.object({
+export const installedArtifactSchema = z.object({
+  path: z.string(),
+  sourceHash: z.string(),
+  mediaType: z.string().min(1),
+}).strict()
+
+export const installedItemV1Schema = z.object({
   address: registryAddressSchema,
   source: z.string(),
   version: z.string(),
@@ -136,14 +235,33 @@ export const installedItemSchema = z.object({
   dependencies: z.array(z.string()),
 }).strict()
 
-export const modelsLockSchema = z.object({
-  schemaVersion: z.literal(1),
-  items: z.record(z.string(), installedItemSchema),
+export const installedItemV2Schema = installedItemV1Schema.extend({
+  artifacts: z.array(installedArtifactSchema),
 }).strict()
+
+export const modelsLockV1Schema = z.object({
+  schemaVersion: z.literal(1),
+  items: z.record(z.string(), installedItemV1Schema),
+}).strict()
+
+export const modelsLockV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  items: z.record(z.string(), installedItemV2Schema),
+}).strict()
+
+export const modelsLockSchema = z.discriminatedUnion('schemaVersion', [
+  modelsLockV1Schema,
+  modelsLockV2Schema,
+])
 
 export type ModelsConfig = z.infer<typeof modelsConfigSchema>
 export type ModelsLock = z.infer<typeof modelsLockSchema>
 export type Registry = z.infer<typeof registrySchema>
+export type RegistryV1 = z.infer<typeof registryV1Schema>
+export type RegistryV2 = z.infer<typeof registryV2Schema>
 export type RegistryFile = z.infer<typeof registryFileSchema>
 export type RegistryItem = z.infer<typeof registryItemSchema>
+export type RegistryItemV1 = z.infer<typeof registryItemV1Schema>
+export type RegistryItemV2 = z.infer<typeof registryItemV2Schema>
+export type RegistryArtifact = z.infer<typeof registryArtifactSchema>
 export type RegistrySource = z.infer<typeof registrySourceSchema>

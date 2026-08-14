@@ -3,12 +3,24 @@ export interface ModelPreview {
   root: import('three/webgpu').Group
   camera: import('three/webgpu').PerspectiveCamera
   update(deltaSeconds: number): void
+  configure?(patch: Record<string, number>): void
   dispose(): void
   [action: string]: unknown
 }
 
 export interface ModelModule {
-  createPreview(options: { aspect: number; time?: number }): ModelPreview
+  createPreview(options: { aspect: number; time?: number; [key: string]: unknown }): ModelPreview | Promise<ModelPreview>
+}
+
+export interface ModelControl {
+  id: string
+  label: string
+  description: string
+  default: number
+  min: number
+  max: number
+  step: number
+  format: 'percent' | 'integer'
 }
 
 import timeline from './model-timeline.json'
@@ -20,12 +32,79 @@ export interface CatalogItem {
   animated: boolean
   /** ISO date of the commit that introduced this model, or null if unknown. */
   addedAt: string | null
+  controls: ModelControl[]
   load: () => Promise<ModelModule>
 }
 
-const modules = import.meta.glob<ModelModule>(
-  '../../../assets/prototypes/*/model.ts',
-)
+const glacialGraniteControls: ModelControl[] = [
+  {
+    id: 'snow',
+    label: 'Snow cover',
+    description: 'Settles only on upward-facing, broken-up surfaces.',
+    default: 0,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'moss',
+    label: 'Moss',
+    description: 'Follows moisture, shelter, and upward-facing pockets.',
+    default: 0.06,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'lichen',
+    label: 'Pale lichen',
+    description: 'Sparse colonies on exposed granite faces.',
+    default: 0.16,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'wetness',
+    label: 'Wetness',
+    description: 'Darkens low and sheltered stone and tightens roughness.',
+    default: 0.12,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'detailStrength',
+    label: 'Relief detail',
+    description: 'Blends between reduced geometry and the baked scan relief.',
+    default: 0.72,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: 'percent',
+  },
+  {
+    id: 'surfaceSeed',
+    label: 'Surface variation',
+    description: 'Changes pigment and biome breakup without rebuilding geometry.',
+    default: 1,
+    min: 1,
+    max: 64,
+    step: 1,
+    format: 'integer',
+  },
+]
+
+const modules: Record<string, () => Promise<ModelModule>> = {
+  ...import.meta.glob<ModelModule>('../../../assets/prototypes/*/model.ts'),
+  ...import.meta.glob<ModelModule>('../../../assets/terrain/*/model.ts'),
+  // Compound evaluation scenes live beside their asset and are browsable too.
+  ...import.meta.glob<ModelModule>('../../../assets/terrain/*/*-scene.ts'),
+}
 
 const animatedIds = new Set([
   'amber-specimen-tank',
@@ -135,6 +214,7 @@ const title = (id: string): string => id
   .join(' ')
 
 function categoryFor(id: string): string {
+  if (/granite|boulder|terrain|sandstone|canyon|cliff/.test(id)) return 'Terrain'
   if (id.startsWith('medical-') || id.includes('microscope')) return 'Medical'
   if (id.startsWith('military-') || id.includes('checkpoint')) return 'Military'
   if (/wall|building|floor|roof|ceiling|room|shell|facade|door|window|foundation|threshold/.test(id)) return 'Architecture'
@@ -146,7 +226,10 @@ const introducedAt = timeline as Record<string, string | null>
 
 export const catalog: CatalogItem[] = Object.entries(modules)
   .map(([path, load]) => {
-    const id = path.match(/prototypes\/([^/]+)\/model\.ts$/)?.[1]
+    const scene = path.match(/terrain\/([^/]+)\/([^/]+)-scene\.ts$/)
+    const id = scene
+      ? `${scene[1]}-${scene[2]}-scene`
+      : path.match(/(?:prototypes|terrain)\/([^/]+)\/model\.ts$/)?.[1]
     if (!id) throw new Error(`Unable to identify model at ${path}`)
     return {
       id,
@@ -154,6 +237,9 @@ export const catalog: CatalogItem[] = Object.entries(modules)
       category: categoryFor(id),
       animated: animatedIds.has(id),
       addedAt: introducedAt[id] ?? null,
+      // The compound cliff scene forwards the same patch to every granite
+      // instance it holds, so it takes the same panel as the single boulder.
+      controls: /^glacial-granite-boulder(-cliff-scene)?$/.test(id) ? glacialGraniteControls : [],
       load,
     }
   })

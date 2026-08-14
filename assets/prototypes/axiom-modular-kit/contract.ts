@@ -56,6 +56,7 @@ export interface KitModuleSpec extends KitEnvelope {
 
 // Repository-relative so metadata remains portable across worktrees and exports.
 const REF = 'docs/assets/reusable/architecture'
+const CLINIC_REF = 'docs/assets/hero/olympus/clinic'
 
 export const MODULE_SPECS = {
   'building-threshold': { label: 'Building Threshold', family: 'connector', width: 2, depth: 0.5, height: 0.2, reference: `${REF}/modular-building-connectors/building-threshold.png` },
@@ -86,6 +87,11 @@ export const MODULE_SPECS = {
   'l-wing-shell': { label: 'L-Wing Shell', family: 'prefab', width: 13, depth: 9, height: 3.5, reference: `${REF}/building-prefab-assemblies/small-building-shell.png`, notes: 'L-shaped plan ["AAB","..B"] with a re-entrant corner.' },
   'courtyard-compound-shell': { label: 'Courtyard Compound Shell', family: 'prefab', width: 13, depth: 13, height: 3.5, reference: `${REF}/building-prefab-assemblies/small-building-shell.png`, notes: 'Ring plan ["AAA","A.A","AAA"] enclosing an open courtyard.' },
   'storefront-facade-shell': { label: 'Storefront Facade Shell', family: 'prefab', width: 6, depth: 1, height: 4, reference: `${REF}/building-prefab-assemblies/storefront-facade-shell.png` },
+  // Olympus civic pod. One elevation, one fit-out, and the finished landmark:
+  // the clinic is nothing but four of the first wrapped around one of the second.
+  'clinic-facade-module': { label: 'Clinic Facade Module', family: 'connector', width: 4.76, depth: 0.8, height: 3.4, reference: `${CLINIC_REF}/lifeline-clinic.png`, notes: 'One 4 m elevation of the Olympus clinic pod plus a corner column at each end. Column centres are the 4 m module pitch and each pedestal is half-on the envelope edge, so the placement width is 4.76 m.' },
+  'treatment-rooms': { label: 'Treatment Rooms', family: 'prefab', width: 5, depth: 5, height: 3, reference: `${CLINIC_REF}/treatment-rooms.png`, notes: 'The clinic pod fit-out on its own: lined shell interior, berth, wall stores, and cove lighting, in the same world coordinates the assembly drops it into.' },
+  'lifeline-clinic': { label: 'Lifeline Clinic', family: 'prefab', width: 5, depth: 6.5, height: 4.2, reference: `${CLINIC_REF}/lifeline-clinic.png`, notes: 'The 5 x 5 m pod sits at the back of the envelope; the front 1.5 m is the deployed boarding ramp, and the roof beacon owns the last 0.93 m of height.' },
   'utility-enclosure': { label: 'Utility Enclosure', family: 'prefab', width: 4, depth: 3, height: 3, reference: `${REF}/building-prefab-assemblies/utility-enclosure.png` },
 } as const satisfies Record<string, KitModuleSpec>
 

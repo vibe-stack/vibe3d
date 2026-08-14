@@ -66,7 +66,8 @@ button { color: inherit; }
 .item-card:hover > svg, .item-card[aria-pressed="true"] > svg { opacity: 1; transform: translateX(0); }
 .empty-state { margin: 35px 15px; color: #777d79; font-size: 11px; line-height: 1.6; text-align: center; }
 
-.stage-tools { position: absolute; z-index: 5; top: 18px; right: 18px; display: flex; gap: 8px; }
+.stage-controls { position: absolute; z-index: 5; top: 18px; right: 18px; display: grid; justify-items: end; gap: 8px; }
+.stage-tools { display: flex; gap: 8px; }
 .stage-tool { height: 39px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; color: #c7cbc8; background: rgba(14,16,17,.46); box-shadow: 0 8px 30px rgba(0,0,0,.14); backdrop-filter: blur(16px); cursor: pointer; font-size: 10px; font-weight: 600; }
 .stage-tool:hover { color: white; border-color: rgba(255,255,255,.18); background: rgba(14,16,17,.68); }
 .stage-tool svg { width: 13px; flex: 0 0 auto; }
@@ -77,6 +78,8 @@ button { color: inherit; }
    with the accent the pressed state paints the button. */
 .animation-toggle[aria-pressed="true"] { color: #c7cbc8; border-color: rgba(255,255,255,.1); background: rgba(14,16,17,.46); }
 .animation-toggle[aria-pressed="true"]:hover { color: white; background: rgba(14,16,17,.68); }
+.render-mode-toggle[data-mode="solid"] { color: #e2e5e2; }
+.render-mode-toggle[data-mode="wireframe"] { color: var(--accent); }
 
 .pin-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .pin-marker { position: absolute; top: 0; left: 0; width: 24px; height: 24px; display: grid; place-items: center; visibility: hidden; border: 1px solid rgba(209,255,140,.55); border-radius: 999px; color: #12150f; background: var(--accent); box-shadow: 0 2px 12px rgba(0,0,0,.45), 0 0 0 4px rgba(209,255,140,.14); cursor: pointer; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; pointer-events: auto; }
@@ -116,6 +119,24 @@ button { color: inherit; }
 
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
+.model-controls { width: 278px; overflow: hidden; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; color: #d9ddda; background: rgba(14,16,17,.72); box-shadow: 0 18px 55px rgba(0,0,0,.24); backdrop-filter: blur(20px) saturate(120%); }
+.model-controls > header { height: 43px; padding: 0 12px 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.model-controls > header > span { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 650; }
+.model-controls > header svg { width: 13px; }
+.model-controls > header > span svg { color: var(--accent); }
+.model-controls > header button { height: 26px; padding: 0 7px; display: flex; align-items: center; gap: 5px; border: 0; border-radius: 7px; color: #777e79; background: transparent; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 7px; text-transform: uppercase; letter-spacing: .07em; }
+.model-controls > header button:hover { color: #dce0dd; background: rgba(255,255,255,.055); }
+.model-control-list { max-height: min(440px, calc(100dvh - 140px)); padding: 7px 13px 12px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #3e4441 transparent; }
+.model-control { padding: 9px 1px 8px; display: grid; gap: 7px; }
+.model-control + .model-control { border-top: 1px solid rgba(255,255,255,.06); }
+.model-control > span { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.model-control strong { font-size: 9px; font-weight: 600; }
+.model-control output { color: var(--accent); font-family: 'DM Mono', monospace; font-size: 8px; }
+.model-control small { color: #6f7671; font-size: 7px; line-height: 1.45; }
+.model-control input[type="range"] { width: 100%; height: 3px; margin: 2px 0; appearance: none; border-radius: 99px; outline: none; background: #383d39; cursor: pointer; accent-color: var(--accent); }
+.model-control input[type="range"]::-webkit-slider-thumb { width: 13px; height: 13px; appearance: none; border: 2px solid #161a17; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px rgba(209,255,140,.25); }
+.model-control input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px solid #161a17; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px rgba(209,255,140,.25); }
+
 .object-caption { position: absolute; z-index: 3; right: 22px; bottom: 22px; max-width: min(420px, calc(100vw - 380px)); text-align: right; pointer-events: none; }
 .object-caption > span { color: var(--accent); font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: .16em; }
 .object-caption h1 { margin: 7px 0 9px; font-size: clamp(24px, 3vw, 44px); line-height: .98; letter-spacing: -.055em; font-weight: 500; }
@@ -128,14 +149,22 @@ button { color: inherit; }
 .error-state { position: absolute; z-index: 7; top: 50%; left: calc(50% + 155px); max-width: 320px; padding: 18px; display: grid; gap: 5px; transform: translate(-50%, -50%); border: 1px solid rgba(255,130,110,.22); border-radius: 12px; background: rgba(24,15,14,.8); text-align: center; }
 .error-state strong { font-size: 12px; }.error-state span { color: #aa8c87; font-size: 9px; line-height: 1.5; }
 .mobile-deck { display: none; }
+.clean-preview .stage-shade,
+.clean-preview .library-panel,
+.clean-preview .stage-controls,
+.clean-preview .object-caption,
+.clean-preview .mobile-deck { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 720px) {
   .library-panel { display: none; }
   .stage-shade { background: linear-gradient(0deg, rgba(7,8,9,.8), transparent 48%), linear-gradient(180deg, rgba(7,8,9,.32), transparent 18%); }
-  .stage-tools { top: 14px; right: 14px; }
+  .stage-controls { top: 14px; right: 14px; }
   .stage-tool { height: 37px; padding: 0 12px; }
   .annotate-panel { top: 61px; right: 14px; bottom: auto; left: 14px; width: auto; max-height: min(52dvh, 420px); }
+  .model-controls { width: min(252px, calc(100vw - 28px)); }
+  .model-control-list { max-height: min(315px, calc(100dvh - 245px)); }
+  .model-control small { display: none; }
   .object-caption { top: 16px; right: auto; bottom: auto; left: 16px; max-width: calc(100vw - 175px); text-align: left; }
   .object-caption h1 { max-width: 230px; margin-top: 5px; overflow: hidden; font-size: 19px; text-overflow: ellipsis; white-space: nowrap; }
   .object-caption p { display: none; }

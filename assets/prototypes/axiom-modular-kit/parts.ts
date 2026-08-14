@@ -30,6 +30,8 @@ import {
 export interface KitMaterials {
   /** Light composite infill cassettes. */
   readonly shell: MeshPhysicalMaterial
+  /** SHELL-050: the bright civic/clean-room grade of the same composite. */
+  readonly porcelain: MeshPhysicalMaterial
   /** Dark painted structural frame: posts, beams, plinth, wall cores. */
   readonly graphite: MeshPhysicalMaterial
   /** Deep recesses, vents, reveals, glass. */
@@ -42,6 +44,8 @@ export interface KitMaterials {
   readonly accent: MeshPhysicalMaterial
   readonly amber: MeshPhysicalMaterial
   readonly cyan: MeshPhysicalMaterial
+  /** COBALT-500: the civic/medical identity signal. Dominant where it appears. */
+  readonly cobalt: MeshPhysicalMaterial
 }
 
 export interface KitMaterialSet {
@@ -52,6 +56,7 @@ export interface KitMaterialSet {
 export function createKitMaterials(seed = 4100): KitMaterialSet {
   const library = new MaterialLibrary()
   const shell = library.acquire({ recipeId: 'MAT-04', palette: 'SHELL-200', condition: 'clean', seed: seed + 1 })
+  const porcelain = library.acquire({ recipeId: 'MAT-04', palette: 'SHELL-050', condition: 'clean', seed: seed + 10 })
   const graphite = library.acquire({ recipeId: 'MAT-03', palette: 'GRAPHITE-800', condition: 'clean', seed: seed + 2 })
   const ink = library.acquire({ recipeId: 'MAT-03', palette: 'INK-950', condition: 'clean', seed: seed + 3 })
   const steel = library.acquire({ recipeId: 'MAT-02', palette: 'STEEL', condition: 'clean', seed: seed + 4 })
@@ -59,10 +64,15 @@ export function createKitMaterials(seed = 4100): KitMaterialSet {
   const accent = library.acquire({ recipeId: 'MAT-04', palette: 'ACCENT-500', condition: 'clean', seed: seed + 8 })
   const amber = library.acquire({ recipeId: 'MAT-09', palette: 'AMBER-400', condition: 'active', seed: seed + 6 })
   const cyan = library.acquire({ recipeId: 'MAT-09', palette: 'CYAN-400', condition: 'active', seed: seed + 7 })
+  const cobalt = library.acquire({ recipeId: 'MAT-09', palette: 'COBALT-500', condition: 'active', seed: seed + 9 })
   return {
     materials: {
       // Painted, coated metal: restrained specular, no mirror response.
       shell: tuneMaterial(shell, 0x94958f, 0.66, 0.04),
+      // A clean-room grade of the same painted composite, four steps brighter.
+      // It has to stay off pure white or the key blows the whole elevation flat
+      // and the routed cassette borders stop reading.
+      porcelain: tuneMaterial(porcelain, 0xdcdfdb, 0.5, 0.03, { clearcoat: 0.2, clearcoatRoughness: 0.4 }),
       // Two steps darker than the cassettes it carries. Coated metal, so the
       // separation has to survive a strong key without going specular.
       graphite: tuneMaterial(graphite, 0x242b32, 0.58, 0.22),
@@ -74,8 +84,11 @@ export function createKitMaterials(seed = 4100): KitMaterialSet {
       accent: tuneMaterial(accent, 0x27486d, 0.58, 0.18),
       amber: tuneMaterial(amber, 0xd98a1c, 0.3, 0.05, { emissive: 0.85 }),
       cyan: tuneMaterial(cyan, 0x2fbcd4, 0.3, 0.05, { emissive: 0.8 }),
+      // Runs hotter than cyan: it is the dominant signal wherever it is used, so
+      // it has to stay legible against a pale shell rather than sit on gunmetal.
+      cobalt: tuneMaterial(cobalt, 0x2a52e0, 0.28, 0.05, { emissive: 0.72 }),
     },
-    handles: [shell, graphite, ink, steel, deck, accent, amber, cyan],
+    handles: [shell, porcelain, graphite, ink, steel, deck, accent, amber, cyan, cobalt],
   }
 }
 
@@ -140,6 +153,12 @@ export interface FacePieceOptions {
   bevel?: number
   /** Roll about the face normal, for diagonal knuckles and gussets. */
   roll?: number
+  /**
+   * Rings cut clean through the piece, in coordinates centred on it. An applied
+   * frame has to be a frame: a solid plate laid over a well simply hides it, and
+   * the recess it was supposed to create renders as a black slab.
+   */
+  holes?: Vec2[][]
 }
 
 /** A box authored in wall-local (u, y, w). `size` is [along u, up, through w]. */
@@ -151,6 +170,7 @@ export function facePrism(
     chamfer: options.chamfer,
     fillet: options.fillet ?? 0.02,
     bevel: options.bevel ?? 0.016,
+    holes: options.holes,
     rotation: [0, face.yaw, options.roll ?? 0],
   }))
 }

@@ -1459,6 +1459,42 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     },
   },
   {
+    id: 'clinic-facade-module',
+    label: 'Clinic Facade Module',
+    category: 'Architecture / Modular Pieces',
+    description: 'One 4 m Olympus clinic elevation: pale cassette courses, a vented base band, the cobalt cross badge, and a corner column at each end.',
+    tags: ['architecture', 'modular', 'wall', 'facade', 'olympus', 'medical'],
+    exportName: 'clinic-facade-module.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/prototypes/clinic-facade-module/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.7)
+    },
+  },
+  {
+    id: 'treatment-rooms',
+    label: 'Treatment Rooms',
+    category: 'Architecture / Prefabs',
+    description: 'The clinic pod fit-out: lined shell interior, examination berth, wall stores, corner lamp column, and cobalt cove lighting.',
+    tags: ['architecture', 'prefab', 'interior', 'medical', 'olympus'],
+    exportName: 'treatment-rooms.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/prototypes/treatment-rooms/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.5)
+    },
+  },
+  {
+    id: 'lifeline-clinic',
+    label: 'Lifeline Clinic',
+    category: 'Architecture / Prefabs',
+    description: 'Olympus civic pod assembled from four clinic facade modules around one treatment-room fit-out, with a portal, boarding ramp, and roof beacon.',
+    tags: ['architecture', 'prefab', 'hero', 'medical', 'olympus', 'landmark'],
+    exportName: 'lifeline-clinic.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/prototypes/lifeline-clinic/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.8)
+    },
+  },
+  {
     id: 'compact-outpost-shell',
     label: 'Compact Outpost Shell',
     category: 'Architecture / Prefabs',

@@ -1,0 +1,134 @@
+id: glacial-granite-boulder
+title: Fractured granite outcrop
+# NOTE: the id is retained because the compiled artifacts, recorder catalog and
+# registry key off it. The formation is no longer a glacial erratic: an erratic is
+# abraded and rounded by definition, which fought the intended cliff-rock read.
+# Renaming the id and directory is a follow-up.
+formation: outcrop
+geology:
+  material: granite
+  structure: three-joint-sets-with-spalled-faces
+  processes: [joint-fracture, frost-shattering, spalling, exfoliation]
+biome:
+  primary: alpine
+  overlays:
+  # Snow, moss and lichen are physical layers, not albedo tints. Each owns a
+  # coverage field, a shading normal, a roughness and an occlusion contribution,
+  # and each suppresses the stone's own fine normal in proportion to how much of
+  # it it buries. A tint alone leaves the specular response and the relief
+  # belonging to bare rock, which is what reads as paint.
+  model: coverage-plus-normal-plus-roughness-plus-occlusion
+  # The whole overlay tier is built around a fragment budget, because the first
+  # version of it ran the interactive material at a few frames per second.
+  # Measured on this mesh at 1280x960, per fragment:
+  #   mx_worley_noise_vec2 (3D)  ~4.0 ms   - searches 27 cells; unaffordable
+  #   mx_noise_vec3              ~1.2 ms   - one lattice, three components
+  #   varying (any wavelength)    0        - paid once per vertex
+  # So the live material spends exactly two per-fragment samples at LOD0 and
+  # nothing at all beyond it, and every other field rides the vertex stage.
+  fragmentSamplesLod0: [micro-vector-noise-56cpm, lichen-field-7cpm]
+  fragmentSamplesLod1Plus: 0
+  # Sharing is what makes the budget work: moss shoots and snow crust never
+  # occupy the same fragment, because snow buries moss, so they read their
+  # millimetre band from one sample. The lichen interior reads from it too.
+  sharedMicroSample: [moss-shoots, snow-crust, snow-edge-dither, lichen-areolae]
+  varyingLimitCyclesPerMetre: 9
+  # LOD0 is 7816 triangles over 11.4 m2, so an edge is ~5.4 cm and a varying
+  # cannot carry anything finer than ~11 cm. Enforced in graniteWorldFields,
+  # because a field that is quietly averaged away does not look broken, it looks
+  # flat, and there is nothing in the render to point at.
+  cellularFieldsAreNeverVaryings: true
+  # Localisation is the strongest single realism cue: colonies are patchy and
+  # leave large clean areas between them.
+  regionGated: true
+  # Every boundary is dithered with the millimetre sample rather than widened.
+  # Widening a coverage ramp composites half-strength overlay across a large
+  # area, which is a tint; dithering keeps the surface locally either/or and
+  # fades only how much of it is covered - which is what a real colony edge
+  # does, and it reads soft at distance without going washy up close.
+  edgesAreDitheredNotFeathered: true
+  layers:
+    snow:
+      carrier: depth-field-competing-with-stone-relief
+      accumulates: [upward-faces, concavity-gated-by-upward, drift-region]
+      edgeFrom: relief-competition-plus-micro-dither
+      alsoDrives: [drift-normal, meltwater-ring, crystal-sparkle-roughness, lifted-occlusion]
+      # The drift normal is a vertex-stage gradient, so it varies linearly across
+      # a triangle rather than within one. That is the honest limit of a free
+      # band on this mesh; a fine drift surface would cost another sample.
+      driftNormalLimitation: vertex-stage-linear
+    moss:
+      carrier: clumped-mat-with-centimetre-shoot-relief
+      # The band that identifies a mat is shoot-scale shadow. Without it the
+      # layer's only variation is pigment, which is green noise. Same argument
+      # as the rock's 0.25 mm detail tile, applied one layer up.
+      shootWavelengthMillimetres: 18
+      habitat: [shelter, upward, wetness]
+      edgeFrom: clump-cutout-plus-shoot-dither
+    lichen:
+      # Thalli grown outward from Worley cell centres is the faithful model and
+      # it costs 4 ms per call. A narrow threshold on a smooth field buys the one
+      # property that separates a crust from a stain - the hard margin - for a
+      # single scalar sample. What it gives up is radial growth from a centre, so
+      # outlines are irregular rather than disc-like. Baking the cell structure
+      # into a tile, as the granite detail already is, would buy that back for a
+      # texture fetch; it is the obvious next move if lichen needs to be better.
+      carrier: thresholded-noise-with-crinkled-margin
+      structure: [hard-margin, pale-growth-rim, areolate-interior, dieback-patches]
+      # A crust grows into its substrate: it thins over exposed grain and over
+      # convex arrises. Coverage that ignores what is underneath reads as a decal
+      # however good the outline is.
+      substrateCoupled: true
+      habitat: [exposed-faces, not-shelter, not-wet, loses-to-moss]
+  wetness:
+    carrier: [shelter, drainage, run-off-on-vertical-faces]
+    # The drainage pattern sets the order surfaces wet in and is subtracted out
+    # by full wetness, so the knob runs from damp-where-water-runs to soaked
+    # rather than darkening one stencil harder.
+    saturatesAtFull: true
+    # Multiplicative darkening, not a mix towards grey: the mineral variation has
+    # to stay legible under the film or the surface reads as repainted, not wet.
+    albedoResponse: multiply-0.38-cool-biased
+    # Standing water is smooth whatever lies beneath it, so the gloss is applied
+    # after per-crystal roughness rather than averaged with it, and it pools by
+    # relief so crests stay satin while hollows go specular.
+    roughnessResponse: post-grain-film-gloss-0.11
+
+runtime:
+  sharedResourceKey: topologyKey
+  bakePacking: [object-normal-rgb-plus-ao-alpha-rgba8, height-plus-curvature-rg8]
+  renderBuffers: compact-per-lod-position-normal-uv-with-u16-indices
+  variationParameters: [surfaceSeed, snow, wetness, lichen, moss, detailStrength, transform]
+cache:
+  topologyStores: [reduced-connectivity, normalized-cell-domain, bake-uv-atlas, lod-indices, collision-indices]
+  # Object-space rather than tangent-space normals: the asset is rigid, and this
+  # removes any need for the baker and the runtime to agree on a tangent basis.
+  surfaceStores: [object-normal, signed-height, ambient-occlusion, curvature]
+  excludes: [dense-reference-mesh, scalar-sdf-volume, scene-objects, glb]
+verification:
+  # Measured, not asserted. reductionError is what the coarse grid discarded;
+  # recoveredRelief is what the bake puts back.
+  reductionErrorCm: 3.21
+  recoveredReliefCm: 9.96
+  bakeCoverage: 0.33
+  bakeHitRate: 0.9998
+  # Integrity is measured pre-unwrap, since the UV seam split intentionally
+  # fragments the shipped index buffer.
+  manifold: true
+  components: 1
+  strayTriangles: 0
+  # Residual open edges: ~2 tiny gaps at cells where two surface sheets pass
+  # through one cell, which one-vertex-per-cell dual contouring cannot represent.
+  boundaryEdges: 8
+references:
+  descriptions:
+    - Angular jointed granite block reading as cliff rock, not transported cobble.
+    - Three joint sets cut stepped faces; spalled notches leave hard concave rims.
+    - Ridge spines and frost-shattered chip scars carry the surface character.
+    - Coarse granite with dark biotite, pale abraded arrises, sheltered wetness.
+  images: []
+acceptance:
+  testedSeeds: 1
+  # Raise to 3 once compile time per seed (~75s) is budgeted in CI.
+  requiredReads: [angular fracture, hard arrises, stepped joint faces, stable ground contact]
+  forbiddenReads: [melted blob, mudball, uniform noise, rounded cobble, weightless balance]

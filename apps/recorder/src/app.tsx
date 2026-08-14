@@ -1,4 +1,19 @@
-import { Box, ChevronRight, Clock, Crosshair, LayoutGrid, Pause, Play, Search, Sparkles } from 'lucide-react'
+import {
+  Box,
+  ChevronRight,
+  Clock,
+  Crosshair,
+  Grid3X3,
+  LayoutGrid,
+  Palette,
+  Pause,
+  Play,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  Triangle,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnnotatePanel } from './annotate-panel.tsx'
 import {
@@ -18,7 +33,17 @@ import {
   releaseGroups,
   type CatalogItem,
 } from './catalog.ts'
-import { Stage } from './stage.tsx'
+import { Stage, type ModelStats, type RenderMode } from './stage.tsx'
+
+const renderModes: RenderMode[] = ['full', 'solid', 'wireframe']
+
+const renderModeLabels: Record<RenderMode, string> = {
+  full: 'Full',
+  solid: 'Solid',
+  wireframe: 'Wireframe',
+}
+
+const vertexFormatter = new Intl.NumberFormat()
 
 type SortMode = 'category' | 'latest'
 
@@ -60,16 +85,29 @@ function ItemCard({ item, active, index, onSelect }: ItemCardProps) {
   )
 }
 
+function defaultControlValues(item: CatalogItem): Record<string, number> {
+  return Object.fromEntries(item.controls.map((control) => [control.id, control.default]))
+}
+
 export function App() {
+  const cleanPreview = new URLSearchParams(window.location.search).has('clean')
   const [selected, setSelected] = useState(initialItem)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('category')
   const [isAnimating, setIsAnimating] = useState(selected.animated)
+  const [renderMode, setRenderMode] = useState<RenderMode>('full')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [annotating, setAnnotating] = useState(false)
   const [pinStore, setPinStore] = useState<PinStore>(readStore)
   const [activePinId, setActivePinId] = useState<string | null>(null)
+  const [modelStats, setModelStats] = useState<ModelStats | null>(null)
+  const [controlValues, setControlValues] = useState<Record<string, Record<string, number>>>({})
+
+  const selectedControlValues = useMemo(
+    () => controlValues[selected.id] ?? defaultControlValues(selected),
+    [controlValues, selected],
+  )
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -114,6 +152,32 @@ export function App() {
 
   const handleLoadingChange = useCallback((value: boolean) => setLoading(value), [])
   const handleError = useCallback((message: string | null) => setError(message), [])
+  const handleStatsChange = useCallback((stats: ModelStats | null) => setModelStats(stats), [])
+  const cycleRenderMode = useCallback(() => {
+    setRenderMode((current) => {
+      const index = renderModes.indexOf(current)
+      return renderModes[(index + 1) % renderModes.length]
+    })
+  }, [])
+
+  const nextRenderMode = renderModes[(renderModes.indexOf(renderMode) + 1) % renderModes.length]
+
+  const updateControl = useCallback((id: string, value: number) => {
+    setControlValues((current) => ({
+      ...current,
+      [selected.id]: {
+        ...(current[selected.id] ?? defaultControlValues(selected)),
+        [id]: value,
+      },
+    }))
+  }, [selected])
+
+  const resetControls = useCallback(() => {
+    setControlValues((current) => ({
+      ...current,
+      [selected.id]: defaultControlValues(selected),
+    }))
+  }, [selected])
 
   const handleAnnotate = useCallback((hit: PinHit) => {
     const pin: Pin = { id: newPinId(), note: '', hit }
@@ -167,7 +231,7 @@ export function App() {
   }, [selected.animated])
 
   return (
-    <main className="recorder-shell">
+    <main className={`recorder-shell${cleanPreview ? ' clean-preview' : ''}`}>
       <Stage
         item={selected}
         isAnimating={isAnimating}
@@ -176,8 +240,11 @@ export function App() {
         activePinId={activePinId}
         onAnnotate={handleAnnotate}
         onSelectPin={setActivePinId}
+        renderMode={renderMode}
+        modelOptions={selectedControlValues}
         onLoadingChange={handleLoadingChange}
         onError={handleError}
+        onStatsChange={handleStatsChange}
       />
       <div className="stage-shade" aria-hidden="true" />
 
@@ -246,27 +313,78 @@ export function App() {
         </div>
       </aside>
 
-      <div className="stage-tools">
-        <button
-          className="stage-tool"
-          type="button"
-          aria-pressed={annotating}
-          onClick={() => setAnnotating((value) => !value)}
-        >
-          <Crosshair aria-hidden="true" />
-          <span>Annotate</span>
-          {pins.length > 0 && <em>{pins.length}</em>}
-        </button>
-        {selected.animated && (
+      <div className="stage-controls">
+        <div className="stage-tools">
           <button
-            className="stage-tool animation-toggle"
+            className="stage-tool render-mode-toggle"
             type="button"
-            aria-pressed={isAnimating}
-            onClick={() => setIsAnimating((value) => !value)}
+            data-mode={renderMode}
+            aria-label={`Render mode: ${renderModeLabels[renderMode]}. Switch to ${renderModeLabels[nextRenderMode]}.`}
+            title={`Render mode: ${renderModeLabels[renderMode]}`}
+            onClick={cycleRenderMode}
           >
-            {isAnimating ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-            <span>{isAnimating ? 'Pause motion' : 'Play motion'}</span>
+            {renderMode === 'full' && <Palette aria-hidden="true" />}
+            {renderMode === 'solid' && <Box aria-hidden="true" />}
+            {renderMode === 'wireframe' && <Grid3X3 aria-hidden="true" />}
+            <span>{renderModeLabels[renderMode]}</span>
           </button>
+
+          <button
+            className="stage-tool"
+            type="button"
+            aria-pressed={annotating}
+            onClick={() => setAnnotating((value) => !value)}
+          >
+            <Crosshair aria-hidden="true" />
+            <span>Annotate</span>
+            {pins.length > 0 && <em>{pins.length}</em>}
+          </button>
+
+          {selected.animated && (
+            <button
+              className="stage-tool animation-toggle"
+              type="button"
+              aria-pressed={isAnimating}
+              onClick={() => setIsAnimating((value) => !value)}
+            >
+              {isAnimating ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+              <span>{isAnimating ? 'Pause motion' : 'Play motion'}</span>
+            </button>
+          )}
+        </div>
+
+        {!annotating && selected.controls.length > 0 && (
+          <section className="model-controls" aria-label={`${selected.name} parameters`}>
+            <header>
+              <span><SlidersHorizontal aria-hidden="true" /> Surface state</span>
+              <button type="button" onClick={resetControls} title="Reset surface controls">
+                <RotateCcw aria-hidden="true" />
+                <span>Reset</span>
+              </button>
+            </header>
+            <div className="model-control-list">
+              {selected.controls.map((control) => {
+                const value = selectedControlValues[control.id] ?? control.default
+                const output = control.format === 'percent'
+                  ? `${Math.round(value * 100)}%`
+                  : String(Math.round(value))
+                return (
+                  <label className="model-control" key={control.id} title={control.description}>
+                    <span><strong>{control.label}</strong><output>{output}</output></span>
+                    <input
+                      type="range"
+                      min={control.min}
+                      max={control.max}
+                      step={control.step}
+                      value={value}
+                      onChange={(event) => updateControl(control.id, Number(event.target.value))}
+                    />
+                    <small>{control.description}</small>
+                  </label>
+                )
+              })}
+            </div>
+          </section>
         )}
       </div>
 
@@ -288,8 +406,12 @@ export function App() {
         <span>{selected.category}</span>
         <h1>{selected.name}</h1>
         <p>
-          <Sparkles aria-hidden="true" />
-          {annotating ? 'Click the model to pin a defect' : 'Drag to orbit · Scroll to zoom'}
+          {annotating ? <Sparkles aria-hidden="true" /> : <Triangle aria-hidden="true" />}
+          {annotating
+            ? 'Click the model to pin a defect'
+            : modelStats ? `${vertexFormatter.format(modelStats.vertices)} vertices` : 'Counting vertices'}
+          {!annotating && modelStats?.activeLod && ` · ${modelStats.activeLod}`}
+          {!annotating && ' · Drag to orbit · Scroll to zoom'}
         </p>
       </div>
 
