@@ -23,6 +23,13 @@ const navigation: ReadonlyArray<{
       ['Publishing a kit', '/docs/registries'],
     ],
   },
+  {
+    label: 'Terrain',
+    items: [
+      ['Terrain runtime', '/docs/terrain'],
+      ['Authoring skill', '/docs/terrain-authoring'],
+    ],
+  },
 ]
 
 export function Logo() {
@@ -38,6 +45,7 @@ export function Header() {
         <nav className="top-nav" aria-label="Main navigation">
           <NavLink to="/docs">Docs</NavLink>
           <NavLink to="/models">Models</NavLink>
+          <NavLink to="/docs/terrain">Terrain</NavLink>
           <NavLink to="/kits/scifi-kit">Sci-Fi Kit</NavLink>
         </nav>
         <div className="header-actions">

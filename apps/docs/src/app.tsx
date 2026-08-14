@@ -70,6 +70,18 @@ const docsCopy = {
     body: <>The conformance checks validate safe paths, dependency closure, metadata, engine compatibility, and the model lifecycle before release. Namespaces keep independent libraries from colliding.</>,
     code: 'bunx vibe3d registry validate ./registry.json\nnpm publish\n\n# consumer\nbunx vibe3d add @your-kit/your-model',
   },
+  terrain: {
+    title: 'Procedural terrain with a deterministic fast path.',
+    intro: '@vibe3djs/terrain keeps the procedural recipe authoritative while compiled topology and surface-bake artifacts make production startup predictable.',
+    body: <>Terrain assets can validate a cache fingerprint, decode reusable connectivity, LODs, adjacency, collision data, and material channels, then fall back to source generation when that cache is absent or stale. The cached representation is not a final rendered mesh: applications still own runtime geometry, materials, and disposal.</>,
+    code: 'import { createTerrainAsset, decodeCompiledTopology } from "@vibe3djs/terrain"\nimport { createWebGpuTopologyBuffers } from "@vibe3djs/terrain/three-webgpu"\n\nconst topology = decodeCompiledTopology(bytes)\nconst buffers = createWebGpuTopologyBuffers(topology)',
+  },
+  terrainAuthoring: {
+    title: 'Install the terrain authoring workflow.',
+    intro: 'The vibe-terrain package installs the project-local workflow for deterministic WebGPU terrain, compiled topology, multi-seed validation, and biome-aware materials.',
+    body: <>Author the field and runtime source together, preview the single asset early, compile topology and surface caches only after the shape is accepted, and keep source fallback working. The installed workflow documents the cache contract, catalogue metadata, preview loop, and runtime ownership rules beside the project that uses them.</>,
+    code: 'bunx vibe-terrain\n\n# the workflow is installed into the current project\n# commit it beside the terrain source it governs',
+  },
 } as const
 
 function DocPage({ page }: { page: keyof typeof docsCopy }) {
@@ -100,5 +112,5 @@ function DocumentationShell() {
 }
 
 export function App() {
-  return <Routes><Route path="/" element={<Home />} /><Route element={<DocumentationShell />}><Route path="/docs" element={<DocPage page="docs" />} /><Route path="/docs/installation" element={<DocPage page="installation" />} /><Route path="/docs/configuration" element={<DocPage page="configuration" />} /><Route path="/docs/materials" element={<DocPage page="materials" />} /><Route path="/docs/models" element={<DocPage page="models" />} /><Route path="/docs/registries" element={<DocPage page="registries" />} /><Route path="/models" element={<ModelIndex />} /><Route path="/models/:modelId" element={<ModelPage />} /><Route path="/kits/scifi-kit" element={<KitPage />} /></Route><Route path="*" element={<Navigate to="/" replace />} /></Routes>
+  return <Routes><Route path="/" element={<Home />} /><Route element={<DocumentationShell />}><Route path="/docs" element={<DocPage page="docs" />} /><Route path="/docs/installation" element={<DocPage page="installation" />} /><Route path="/docs/configuration" element={<DocPage page="configuration" />} /><Route path="/docs/materials" element={<DocPage page="materials" />} /><Route path="/docs/models" element={<DocPage page="models" />} /><Route path="/docs/registries" element={<DocPage page="registries" />} /><Route path="/docs/terrain" element={<DocPage page="terrain" />} /><Route path="/docs/terrain-authoring" element={<DocPage page="terrainAuthoring" />} /><Route path="/models" element={<ModelIndex />} /><Route path="/models/:modelId" element={<ModelPage />} /><Route path="/kits/scifi-kit" element={<KitPage />} /></Route><Route path="*" element={<Navigate to="/" replace />} /></Routes>
 }

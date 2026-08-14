@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ACESFilmicToneMapping,
+  AgXToneMapping,
   AmbientLight,
+  Box3,
   Color,
   DirectionalLight,
   Group,
@@ -64,28 +66,39 @@ export function ModelPreview({ model }: ModelPreviewProps) {
       if (stopped) return
 
       const module = await model.load()
-      preview = module.createPreview({ aspect: Math.max(host.clientWidth, 1) / Math.max(host.clientHeight, 1) })
-      preview.scene.background = new Color(0x4b5660)
-      const studioLights = new Group()
-      studioLights.name = 'vibe3d-docs-studio-lighting'
-      studioLights.add(new AmbientLight(0xe7edf4, 1.15))
-      const sky = new HemisphereLight(0xe8f3ff, 0x51473d, 2.2)
-      studioLights.add(sky)
-      const key = new DirectionalLight(0xfff5e8, 3.8)
-      key.position.set(6, 9, 7)
-      studioLights.add(key)
-      const fill = new DirectionalLight(0xc8e2ff, 2.15)
-      fill.position.set(-7, 4, 5)
-      studioLights.add(fill)
-      const rim = new DirectionalLight(0xb8ffd9, 2.4)
-      rim.position.set(3, 6, -8)
-      studioLights.add(rim)
-      preview.scene.add(studioLights)
+      preview = await module.createPreview({ aspect: Math.max(host.clientWidth, 1) / Math.max(host.clientHeight, 1) })
+      const terrain = model.kind === 'terrain'
+      renderer.toneMapping = terrain ? AgXToneMapping : ACESFilmicToneMapping
+      renderer.toneMappingExposure = terrain ? 1.05 : 1.32
+      if (!terrain) {
+        preview.scene.background = new Color(0x4b5660)
+        const studioLights = new Group()
+        studioLights.name = 'vibe3d-docs-studio-lighting'
+        studioLights.add(new AmbientLight(0xe7edf4, 1.15))
+        const sky = new HemisphereLight(0xe8f3ff, 0x51473d, 2.2)
+        studioLights.add(sky)
+        const key = new DirectionalLight(0xfff5e8, 3.8)
+        key.position.set(6, 9, 7)
+        studioLights.add(key)
+        const fill = new DirectionalLight(0xc8e2ff, 2.15)
+        fill.position.set(-7, 4, 5)
+        studioLights.add(fill)
+        const rim = new DirectionalLight(0xb8ffd9, 2.4)
+        rim.position.set(3, 6, -8)
+        studioLights.add(rim)
+        preview.scene.add(studioLights)
+      }
       previewRef.current = preview
       controls = new OrbitControls(preview.camera, canvas)
       controls.enableDamping = true
       controls.dampingFactor = 0.075
-      controls.target.set(0, Math.max(0.75, preview.camera.position.y * 0.28), 0)
+      if (terrain) {
+        preview.root.updateMatrixWorld(true)
+        new Box3().setFromObject(preview.root).getCenter(controls.target)
+        controls.maxDistance = 300
+      } else {
+        controls.target.set(0, Math.max(0.75, preview.camera.position.y * 0.28), 0)
+      }
       controls.update()
       resize()
       renderer.setAnimationLoop((time) => {
