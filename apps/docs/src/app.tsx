@@ -89,6 +89,71 @@ function DocPage({ page }: { page: keyof typeof docsCopy }) {
   return <article className="prose"><PageIntro eyebrow="Vibe3D documentation" title={copy.title}><p>{copy.intro}</p></PageIntro><section id="how-it-works"><h2>How it works</h2><p>{copy.body}</p><CodeBlock>{copy.code}</CodeBlock></section><section id="next"><h2>Keep going</h2><p>Browse the model library, inspect a live preview, then install only the source your scene needs.</p><Link className="text-link" to="/models">Explore the model library <ArrowRight /></Link></section></article>
 }
 
+function ModelAuthoringPage() {
+  return <article className="prose">
+    <PageIntro eyebrow="Vibe Model · Authoring skill" title="Build a model inside an empty Three.js project.">
+      <p><code>vibe-model</code> installs a project-local workflow for Codex. It is not a model generator or a Three.js runtime dependency: Codex reads the installed instructions, authors normal TypeScript in your repository, and uses the preview loop your project provides.</p>
+    </PageIntro>
+
+    <section id="how-it-works">
+      <h2>Start from an empty directory</h2>
+      <p>Create a small Vite project, add Three.js, then install the skill into <code>.agents/skills/vibe-model</code>.</p>
+      <CodeBlock>{`mkdir cargo-viewer
+cd cargo-viewer
+bun create vite . --template vanilla-ts
+bun install
+bun add three
+bunx vibe-model`}</CodeBlock>
+      <p>The last command copies the skill and its reference files into the current project. It does not modify <code>package.json</code>, create a model, or add a preview command. Commit the <code>.agents/skills/vibe-model</code> directory when collaborators and agents should share the same workflow.</p>
+    </section>
+
+    <section id="prompt" className="reference-section">
+      <h2>Ask Codex for the asset</h2>
+      <p>Give Codex the object, intended scale, interaction requirements, and any reference images. Name the installed skill so the request uses its preview-first hard-surface workflow.</p>
+      <CodeBlock>{`Use vibe-model to build a weathered sci-fi cargo crate.
+Put the source at src/models/cargo-crate/model.ts.
+Export createModel, keep the root stable, and expose a lid anchor.
+Use the attached front and three-quarter reference images.
+Wire a deterministic preview into this Vite app.`}</CodeBlock>
+      <p>The accepted source remains ordinary Three.js code. The expected entry point is <code>createModel</code>, returning either a <code>Group</code> or a controller with a stable <code>root</code>, optional <code>update</code>, semantic parts, actions, and an idempotent <code>dispose</code>.</p>
+    </section>
+
+    <section id="preview" className="reference-section">
+      <h2>Preview in the empty project</h2>
+      <p>For a plain Vite project, let Codex connect the model to <code>src/main.ts</code>, then use the application itself as the visual loop.</p>
+      <CodeBlock>{`bun run dev
+
+# typical model import inside src/main.ts
+import { createModel } from "./models/cargo-crate/model"
+
+const model = createModel()
+scene.add("root" in model ? model.root : model)`}</CodeBlock>
+      <p>Capture and inspect the same camera angle after each material or geometry change. Keep lights, floors, cameras, and other preview furniture outside the installed model root.</p>
+    </section>
+
+    <section id="capture" className="reference-section">
+      <h2>About the deterministic capture command</h2>
+      <p>The Vibe3D monorepo provides <code>bun run vibe:model preview</code> through its internal authoring runner. The <code>vibe-model</code> installer currently copies only the skill, so that command is not automatically available in a new external project. In a plain project, use its Vite preview unless you have separately added a compatible capture runner.</p>
+      <CodeBlock>{`# Available in the Vibe3D authoring workspace
+bun run vibe:model preview \
+  --module assets/prototypes/cargo-crate/model.ts \
+  --export createModel \
+  --asset cargo-crate \
+  --reference references/cargo-crate.png`}</CodeBlock>
+    </section>
+
+    <section id="next">
+      <h2>Project or global installation</h2>
+      <p>Prefer the project-local install so the workflow travels with the code. Use a global install only when you deliberately want one personal copy across projects.</p>
+      <CodeBlock>{`bunx vibe-model doctor
+bunx vibe-model --global
+
+# replace an existing project-local copy
+bunx vibe-model --force`}</CodeBlock>
+    </section>
+  </article>
+}
+
 function ModelIndex() {
   const [params, setParams] = useSearchParams()
   const query = params.get('q') ?? ''
@@ -112,5 +177,5 @@ function DocumentationShell() {
 }
 
 export function App() {
-  return <Routes><Route path="/" element={<Home />} /><Route element={<DocumentationShell />}><Route path="/docs" element={<DocPage page="docs" />} /><Route path="/docs/installation" element={<DocPage page="installation" />} /><Route path="/docs/configuration" element={<DocPage page="configuration" />} /><Route path="/docs/materials" element={<DocPage page="materials" />} /><Route path="/docs/models" element={<DocPage page="models" />} /><Route path="/docs/registries" element={<DocPage page="registries" />} /><Route path="/docs/terrain" element={<DocPage page="terrain" />} /><Route path="/docs/terrain-authoring" element={<DocPage page="terrainAuthoring" />} /><Route path="/models" element={<ModelIndex />} /><Route path="/models/:modelId" element={<ModelPage />} /><Route path="/kits/scifi-kit" element={<KitPage />} /></Route><Route path="*" element={<Navigate to="/" replace />} /></Routes>
+  return <Routes><Route path="/" element={<Home />} /><Route element={<DocumentationShell />}><Route path="/docs" element={<DocPage page="docs" />} /><Route path="/docs/installation" element={<DocPage page="installation" />} /><Route path="/docs/configuration" element={<DocPage page="configuration" />} /><Route path="/docs/materials" element={<DocPage page="materials" />} /><Route path="/docs/models" element={<DocPage page="models" />} /><Route path="/docs/registries" element={<DocPage page="registries" />} /><Route path="/docs/model-authoring" element={<ModelAuthoringPage />} /><Route path="/docs/terrain" element={<DocPage page="terrain" />} /><Route path="/docs/terrain-authoring" element={<DocPage page="terrainAuthoring" />} /><Route path="/models" element={<ModelIndex />} /><Route path="/models/:modelId" element={<ModelPage />} /><Route path="/kits/scifi-kit" element={<KitPage />} /></Route><Route path="*" element={<Navigate to="/" replace />} /></Routes>
 }

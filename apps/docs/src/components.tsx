@@ -24,10 +24,16 @@ const navigation: ReadonlyArray<{
     ],
   },
   {
+    label: 'Authoring',
+    items: [
+      ['Model authoring skill', '/docs/model-authoring'],
+      ['Terrain authoring skill', '/docs/terrain-authoring'],
+    ],
+  },
+  {
     label: 'Terrain',
     items: [
-      ['Terrain runtime', '/docs/terrain'],
-      ['Authoring skill', '/docs/terrain-authoring'],
+      ['Runtime and caches', '/docs/terrain'],
     ],
   },
 ]
