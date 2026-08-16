@@ -145,6 +145,7 @@ async function main(): Promise<void> {
     await buildCoreItem(),
     await buildSupportItem('axiom-modular-kit'),
     await buildSupportItem('axiom-cargo-kit'),
+    await buildSupportItem('axiom-console-kit'),
     await buildSupportItem('axiom-wall-kit'),
   ]
   for (const modelId of modelIds) items.push(await buildModelItem(modelId))
