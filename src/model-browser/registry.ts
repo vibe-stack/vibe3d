@@ -1653,6 +1653,42 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     },
   },
   {
+    id: 'f1-tool-cabinet',
+    label: 'F1 Tool Cabinet',
+    category: 'Vehicles / Motorsport',
+    description: 'Rolling drawer chest on casters: rounded cabinet body, work-surface top, and a stack of pull-handled drawer faces.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-tool-cabinet.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-tool-cabinet/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.55)
+    },
+  },
+  {
+    id: 'f1-fire-extinguisher',
+    label: 'F1 Fire Extinguisher',
+    category: 'Vehicles / Motorsport',
+    description: 'Fire extinguisher: domed lathe-revolved body, valve and carry handle, and a curved hose to a nozzle.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-fire-extinguisher.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-fire-extinguisher/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.4)
+    },
+  },
+  {
+    id: 'f1-hose-reel',
+    label: 'F1 Hose Reel',
+    category: 'Vehicles / Motorsport',
+    description: 'Air-hose reel: wound drum on an A-frame stand with a lead hose sweeping down to the floor.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-hose-reel.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-hose-reel/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.4)
+    },
+  },
+  {
     id: 'f1-tyre-stack',
     label: 'F1 Tyre Stack',
     category: 'Vehicles / Motorsport',
