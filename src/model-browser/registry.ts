@@ -1578,6 +1578,80 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
       return adaptStaticPreview(createPreview({ aspect }), 1.5)
     },
   },
+  {
+    id: 'f1-wheel-assembly',
+    label: 'F1 Wheel Assembly',
+    category: 'Vehicles / Motorsport',
+    description: 'Loose pit-lane tyre: lathe tyre and rim barrel, procedural sidewall marking, aero cover disc, spoke fins, and a centre locking nut, dressed on both faces.',
+    tags: ['prop', 'vehicles', 'motorsport', 'wheel'],
+    exportName: 'f1-wheel-assembly.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-wheel-assembly/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.15)
+    },
+  },
+  {
+    id: 'f1-pit-jack',
+    label: 'F1 Pit Jack',
+    category: 'Vehicles / Motorsport',
+    description: 'Low lever jack with an oval-section lift arm, T-bar pad, and up-swept handle; the lever angle drives an honest vertical rise for matching a lifted car.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane', 'interactive'],
+    exportName: 'f1-pit-jack.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-pit-jack/model.ts')
+      const preview = createPreview({ aspect })
+      return {
+        scene: preview.scene,
+        root: preview.root,
+        camera: preview.camera,
+        initialView: { focusY: 0.15, fov: preview.camera.fov },
+        action: {
+          label: 'Toggle lift',
+          shortcut: 'Space',
+          run() {
+            preview.toggleLift()
+          },
+        },
+        update: preview.update,
+        resize(nextAspect) {
+          preview.camera.aspect = nextAspect
+          preview.camera.updateProjectionMatrix()
+        },
+        dispose: preview.dispose,
+      }
+    },
+  },
+  {
+    id: 'f1-pit-wheel-gun',
+    label: 'F1 Pit Wheel Gun',
+    category: 'Vehicles / Motorsport',
+    description: 'Chunky impact wrench with a lofted rounded-rect body, curved pistol grip, and a spinning hex socket that seats on a hub with a status LED.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane', 'interactive'],
+    exportName: 'f1-pit-wheel-gun.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-pit-wheel-gun/model.ts')
+      const preview = createPreview({ aspect })
+      return {
+        scene: preview.scene,
+        root: preview.root,
+        camera: preview.camera,
+        initialView: { focusY: 0.05, fov: preview.camera.fov },
+        action: {
+          label: 'Toggle run',
+          shortcut: 'Space',
+          run() {
+            preview.toggleRun()
+          },
+        },
+        update: preview.update,
+        resize(nextAspect) {
+          preview.camera.aspect = nextAspect
+          preview.camera.updateProjectionMatrix()
+        },
+        dispose: preview.dispose,
+      }
+    },
+  },
 ]
 
 function createGaugePreview(
