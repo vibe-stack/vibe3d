@@ -1689,6 +1689,42 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     },
   },
   {
+    id: 'f1-lollipop-board',
+    label: 'F1 Lollipop Board',
+    category: 'Vehicles / Motorsport',
+    description: 'Pit-lane stop/go paddle on a pole — the board a mechanic holds at the front of the car; paddle colour is a repaintable material slot.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-lollipop-board.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-lollipop-board/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.1)
+    },
+  },
+  {
+    id: 'f1-pit-board',
+    label: 'F1 Pit Board',
+    category: 'Vehicles / Motorsport',
+    description: 'Numbered pit signal board on a pole, with a configurable count of indicator rows for per-team texturing.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-pit-board.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-pit-board/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.0)
+    },
+  },
+  {
+    id: 'f1-pit-gantry',
+    label: 'F1 Pit Gantry',
+    category: 'Vehicles / Motorsport',
+    description: 'Overhead post-and-beam pit gantry with a top beam and banner, sized by span and height — no team livery baked in.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-pit-gantry.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-pit-gantry/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.6)
+    },
+  },
+  {
     id: 'f1-tyre-stack',
     label: 'F1 Tyre Stack',
     category: 'Vehicles / Motorsport',
