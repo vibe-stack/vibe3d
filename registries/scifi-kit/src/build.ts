@@ -131,6 +131,7 @@ async function buildModelItem(modelId: string): Promise<RegistryItem> {
 async function main(): Promise<void> {
   const entries = await readdir(prototypesRoot, { withFileTypes: true })
   const modelIds: string[] = []
+  const supportIds: string[] = []
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
     try {
@@ -138,15 +139,19 @@ async function main(): Promise<void> {
       modelIds.push(entry.name)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      // A prototype directory with no `model.ts` is a shared kit rather than a
+      // model. Discovering those instead of naming them keeps this file out of
+      // every batch's diff: a hand-maintained list means each new kit edits the
+      // same line, so two batches in flight always conflict here even though
+      // their kits have nothing to do with each other.
+      supportIds.push(entry.name)
     }
   }
   modelIds.sort()
+  supportIds.sort()
   const items = [
     await buildCoreItem(),
-    await buildSupportItem('axiom-modular-kit'),
-    await buildSupportItem('axiom-cargo-kit'),
-    await buildSupportItem('axiom-console-kit'),
-    await buildSupportItem('axiom-wall-kit'),
+    ...await Promise.all(supportIds.map((itemId) => buildSupportItem(itemId))),
   ]
   for (const modelId of modelIds) items.push(await buildModelItem(modelId))
   items.push({
