@@ -1,5 +1,3 @@
-import { Group } from 'three/webgpu'
-
 import { cylinder } from '../../../src/asset-forge/generator/index.ts'
 import { AXIS_X, box, boltRun, type CargoPreview } from '../axiom-cargo-kit/index.ts'
 import {

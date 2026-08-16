@@ -159,6 +159,27 @@ export function createDoorModel(spec: DoorBuild): DoorModel {
   let blend = 0
   let elapsed = 0
   const cycle = built.cycleSeconds ?? 1.4
+
+  /**
+   * Carries the state token on the articulated groups as well as on the root.
+   *
+   * The wave's node names end in their state, and every animated model already
+   * in the library keeps its moving parts in step — a crate's lid becomes
+   * `..._LID_OPEN`. Renaming only the root leaves an exported open door full of
+   * parts still claiming to be `_CLOSED`, which is worse than not naming them at
+   * all, because a consumer reading part names has no way to know they are stale.
+   *
+   * Only a trailing `_CLOSED` or `_OPEN` is rewritten. The damaged door's leaf is
+   * `_JAMMED` and stays that way: it is not a state this controller drives, and
+   * overwriting it would claim the door closes.
+   */
+  const retagAssemblies = (next: DoorState): void => {
+    const token = next.toUpperCase()
+    for (const assembly of built.assemblies ?? []) {
+      assembly.name = assembly.name.replace(/_(CLOSED|OPEN)$/, `_${token}`)
+    }
+  }
+
   built.apply?.(0)
 
   return {
@@ -171,6 +192,7 @@ export function createDoorModel(spec: DoorBuild): DoorModel {
     setState: (next: DoorState) => {
       state = next
       root.name = `AXR_ARCH_${tag}_ROOT_${next.toUpperCase()}`
+      retagAssemblies(next)
       blend = next === 'open' ? 1 : 0
       built.apply?.(blend)
       return state
@@ -182,6 +204,10 @@ export function createDoorModel(spec: DoorBuild): DoorModel {
       if (Math.abs(target - blend) > 1e-4) {
         blend += Math.sign(target - blend) * Math.min(Math.abs(target - blend), step / cycle)
         built.apply?.(blend)
+        // A part that has started moving is no longer closed, so the name flips
+        // on the first frame of travel rather than only at the far end.
+        if (blend > 0.02 && state === 'open') retagAssemblies('open')
+        else if (blend < 0.98 && state === 'closed') retagAssemblies('closed')
       }
       built.tick?.(elapsed)
     },
