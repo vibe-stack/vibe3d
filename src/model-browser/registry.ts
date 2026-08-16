@@ -1652,6 +1652,30 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
       }
     },
   },
+  {
+    id: 'f1-tyre-stack',
+    label: 'F1 Tyre Stack',
+    category: 'Vehicles / Motorsport',
+    description: 'Blanketed stack of F1 Wheel Assembly tyres in a coloured warmer sleeve with a dangling power cable.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-tyre-stack.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-tyre-stack/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.6)
+    },
+  },
+  {
+    id: 'f1-gun-rack',
+    label: 'F1 Gun Rack',
+    category: 'Vehicles / Motorsport',
+    description: 'Tubular A-frame rack holding F1 Pit Wheel Gun instances, sockets down.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-gun-rack.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-gun-rack/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.6)
+    },
+  },
 ]
 
 function createGaugePreview(

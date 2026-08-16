@@ -167,14 +167,19 @@ export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemb
     band: options.band ?? defaults.band,
   }
 
-  const rubber = (options.materials?.rubber ??
-    new MeshStandardMaterial({ color: 0x0a0a0d, roughness: 0.95, metalness: 0.0 })) as Material
-  const metal = (options.materials?.metal ??
-    new MeshStandardMaterial({ color: 0xc8ccd2, roughness: 0.35, metalness: 0.8 })) as Material
-  const cover = (options.materials?.cover ??
-    new MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.4, metalness: 0.2 })) as Material
-  const accent = (options.materials?.accent ??
-    new MeshStandardMaterial({ color: 0xc6ff2a, roughness: 0.5, metalness: 0.1 })) as Material
+  // Materials we create ourselves are owned and must be disposed; materials passed in via `options` are
+  // owned by the caller and are left alone.
+  const ownedMaterials: Material[] = []
+  const ownMaterial = <M extends Material>(m: M): M => { ownedMaterials.push(m); return m }
+
+  const rubber = options.materials?.rubber ??
+    ownMaterial(new MeshStandardMaterial({ color: 0x0a0a0d, roughness: 0.95, metalness: 0.0 }))
+  const metal = options.materials?.metal ??
+    ownMaterial(new MeshStandardMaterial({ color: 0xc8ccd2, roughness: 0.35, metalness: 0.8 }))
+  const cover = options.materials?.cover ??
+    ownMaterial(new MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.4, metalness: 0.2 }))
+  const accent = options.materials?.accent ??
+    ownMaterial(new MeshStandardMaterial({ color: 0xc6ff2a, roughness: 0.5, metalness: 0.1 }))
   const materialSlots: Record<'rubber' | 'metal' | 'cover' | 'accent', Material> = { rubber, metal, cover, accent }
 
   const root = new Group()
@@ -269,6 +274,7 @@ export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemb
     update: () => {},
     dispose() {
       clearGenerated()
+      for (const m of ownedMaterials) m.dispose()
       root.removeFromParent()
     },
   }
