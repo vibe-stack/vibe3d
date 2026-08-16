@@ -144,7 +144,15 @@ async function main(): Promise<void> {
       // every batch's diff: a hand-maintained list means each new kit edits the
       // same line, so two batches in flight always conflict here even though
       // their kits have nothing to do with each other.
-      supportIds.push(entry.name)
+      //
+      // It has to carry sources to count. Absence of `model.ts` is also true of
+      // a directory that is simply empty — one left behind by an abandoned
+      // model, say — and registering that published a support item with zero
+      // files, which the schema accepts and an install would silently resolve
+      // to nothing.
+      if ((await collectTypeScriptFiles(join(prototypesRoot, entry.name))).length > 0) {
+        supportIds.push(entry.name)
+      }
     }
   }
   modelIds.sort()
