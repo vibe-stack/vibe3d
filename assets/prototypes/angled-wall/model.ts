@@ -8,7 +8,9 @@ import { coping, endReturn, footing } from '../axiom-wall-kit/straight.ts'
  * The kit already has 90-degree corners; what it has no way to express is a plan
  * that turns by less than a right angle — a street that bends, a compound that
  * follows a contour, a frontage cut back from a junction. This module is that
- * turn: two 2 m runs at 135 degrees, sharing one post at the vertex.
+ * turn: two 2 m runs meeting at a 135-degree interior corner, sharing one post
+ * at the vertex. That corner is a 45-degree deflection from straight, which is
+ * the figure {@link TURN} holds and the one the geometry is built from.
  *
  * The vertex post is the whole design problem. Two cassette runs mitred directly
  * into each other leave a feather edge at the inside of the angle and a visible
@@ -18,10 +20,18 @@ import { coping, endReturn, footing } from '../axiom-wall-kit/straight.ts'
  */
 
 const LEG = 2
-const ANGLE = Math.PI / 4
+/**
+ * Deflection from a straight run, not the corner's interior angle.
+ *
+ * The two are complements and it is easy to read one as the other: a 45-degree
+ * turn produces the 135-degree interior corner the brief asks for. Each leg is
+ * splayed by half the turn, so `TURN / 2` is what the leg yaws by and
+ * `Math.PI - TURN` is the angle a plan would dimension.
+ */
+const TURN = Math.PI / 4
 const ENVELOPE = {
-  width: (LEG + 0.4) * 2 * Math.cos(ANGLE / 2),
-  depth: (LEG + 0.4) * Math.sin(ANGLE / 2) + WALL.thickness + 0.3,
+  width: (LEG + 0.4) * 2 * Math.cos(TURN / 2),
+  depth: (LEG + 0.4) * Math.sin(TURN / 2) + WALL.thickness + 0.3,
   height: WALL.top + 0.12,
 }
 
@@ -35,7 +45,7 @@ export function createModel(): WallModel {
       // turn either way, so the module is symmetric about +Z and the vertex post
       // is the only part either leg has to agree with.
       for (const side of [-1, 1] as const) {
-        const yaw = side * ANGLE / 2
+        const yaw = side * (TURN / 2)
         const face = wallFace([0, 0, -WALL.thickness * 0.5], yaw)
         const u0 = side < 0 ? -(LEG + 0.24) : 0.24
         const u1 = side < 0 ? -0.24 : LEG + 0.24

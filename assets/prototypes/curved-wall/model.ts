@@ -49,10 +49,11 @@ export function createModel(): WallModel {
         footing(wall, m, face, -CHORD / 2 - 0.06, CHORD / 2 + 0.06)
         section(wall, face, -CHORD / 2, CHORD / 2)
         coping(wall, m, face, -CHORD / 2 - 0.06, CHORD / 2 + 0.06)
-        // A post at every facet joint, and at both ends of the arc.
+        // A post at every facet's trailing end — which gives one post at each
+        // joint between facets, plus one closing the far end of the arc — and a
+        // single leading post opening the near end.
         if (index === 0) endReturn(wall, m, face, -CHORD / 2, -1)
-        if (index === FACETS - 1) endReturn(wall, m, face, CHORD / 2, 1)
-        else endReturn(wall, m, face, CHORD / 2, 1)
+        endReturn(wall, m, face, CHORD / 2, 1)
       }
     },
   })
