@@ -88,6 +88,21 @@ export function streetLamp(
   return tuneMaterial(handle, shade(TOKEN_VALUE[token], darken), 0.22, 0.03, { emissive })
 }
 
+/**
+ * Planting green.
+ *
+ * The cargo palette has no foliage tier — it was authored for a depot, where
+ * nothing is alive — so a street tree built from it comes out the colour of
+ * sacking. FIELD-500 is the colour system's own vegetation token; this binds it
+ * at a leaf's roughness with no clearcoat, because a leaf is the least
+ * specular surface on a street.
+ */
+export function foliage(bundle: CargoMaterialBundle, seed = 7_900, shade_ = -0.18): MeshPhysicalMaterial {
+  const handle = library.acquire({ recipeId: 'MAT-16', palette: 'FIELD-500', condition: 'worked', seed })
+  bundle.handles.push(handle)
+  return tuneMaterial(handle, shade(TOKEN.FIELD_500, shade_), 0.88, 0.02)
+}
+
 /** The kit's chamfered block, used for everything that is not a tube. */
 export function slab(
   parent: Group,
