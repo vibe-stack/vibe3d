@@ -34,6 +34,7 @@ export function createModel(): WindowModel {
     build: ({ m, bundle, part }) => {
       const frame = part('frame')
       const drawer = part('drawer')
+      drawer.name = drawer.name.replace(/_DEFAULT$/, '_CLOSED')
       const cyan = signalLamp(bundle, 'CYAN-400', 3_070)
 
       buildBay(frame, m, cyan)

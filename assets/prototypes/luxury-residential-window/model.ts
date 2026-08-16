@@ -39,6 +39,7 @@ export function createModel(): WindowModel {
     build: ({ m, bundle, part }) => {
       const frame = part('frame')
       const blind = part('blind')
+      blind.name = blind.name.replace(/_DEFAULT$/, '_CLOSED')
       const amber = signalLamp(bundle, 'AMBER-400', 3_180, 0.5)
 
       bayPlate(frame, m, { half: WIDE_HALF })

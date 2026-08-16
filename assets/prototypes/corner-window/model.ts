@@ -38,7 +38,16 @@ export function createModel(): WindowModel {
     id: 'corner-window',
     condition: 0.3,
     bays: 2,
-    envelope: { width: WINDOW_KIT.bayPitch, depth: WINDOW_KIT.bayPitch, height: WINDOW_KIT.height },
+    // Not the single-bay 0.20 m depth. Two returns splayed 45 degrees each way
+    // occupy a real footprint: 1.5 m of bay along each leg projects to about
+    // 1.06 m in X and the same in Z, and the plate, cill and coping add to both.
+    // Publishing the flat 0.20 m here would put the mount sockets a metre inside
+    // the geometry they are meant to bound.
+    envelope: {
+      width: WINDOW_KIT.bayPitch * Math.SQRT2 + WINDOW_KIT.depth,
+      depth: WINDOW_KIT.bayPitch / Math.SQRT2 + WINDOW_KIT.depth + 0.18,
+      height: WINDOW_KIT.height,
+    },
     build: ({ m, bundle, part }) => {
       const amber = signalLamp(bundle, 'AMBER-400', 2_960)
 
@@ -94,8 +103,8 @@ export function createModel(): WindowModel {
 
       return {
         sockets: {
-          mount_left: [0, WINDOW_KIT.centreY, WINDOW_KIT.bayPitch],
-          mount_right: [WINDOW_KIT.bayPitch, WINDOW_KIT.centreY, 0],
+          mount_left: [-HALF * Math.SQRT2, WINDOW_KIT.centreY, -HALF * Math.SQRT2],
+          mount_right: [HALF * Math.SQRT2, WINDOW_KIT.centreY, -HALF * Math.SQRT2],
           window_head: [0, WINDOW_KIT.centreY + APERTURE_HALF[1], 0],
           window_cill: [0, WINDOW_KIT.centreY - APERTURE_HALF[1] - 0.075, 0],
           mount_corner_post: [0, WINDOW_KIT.centreY, 0],

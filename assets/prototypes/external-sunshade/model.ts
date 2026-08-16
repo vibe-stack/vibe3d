@@ -39,6 +39,7 @@ export function createModel(): WindowModel {
     build: ({ m, bundle, part }) => {
       const frame = part('frame')
       const blades = part('blades')
+      blades.name = blades.name.replace(/_DEFAULT$/, '_CLOSED')
       const amber = signalLamp(bundle, 'AMBER-400', 3_400)
 
       buildBay(frame, m, amber)

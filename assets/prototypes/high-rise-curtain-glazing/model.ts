@@ -11,6 +11,7 @@ import {
   plateBorder,
   plateFixings,
   signalLamp,
+  tiledWidth,
   type WindowModel,
   type WindowPreviewOptions,
 } from '../axiom-window-kit/index.ts'
@@ -18,7 +19,8 @@ import {
 /** Two bays wide, two storeys tall, on the brief's tiling grid. */
 const COLUMNS = 2
 const ROWS = 2
-const WIDTH = WINDOW_KIT.bayPitch * COLUMNS
+// Two bays: an even count, so the run terminates on the 1 m grid at 3 m.
+const WIDTH = tiledWidth(COLUMNS)
 const STOREY = WINDOW_KIT.height
 const HEIGHT = STOREY * ROWS
 

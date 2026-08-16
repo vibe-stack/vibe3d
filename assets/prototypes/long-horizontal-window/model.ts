@@ -14,22 +14,27 @@ import {
   plateFixings,
   plateStrips,
   signalLamp,
+  tiledWidth,
   type WindowModel,
   type WindowPreviewOptions,
 } from '../axiom-window-kit/index.ts'
 
-/** Three bays on the brief's 1 m tiling grid. */
-const BAYS = 3
-const WIDTH = WINDOW_KIT.bayPitch * BAYS
+/**
+ * Four bays. An even count, because a run of 1.5 m bays only terminates on the
+ * production rules' 1 m grid when the count is even — three bays would be 4.5 m
+ * and would push everything placed after it half a metre off the grid.
+ */
+const BAYS = 4
+const WIDTH = tiledWidth(BAYS)
 
 /**
  * Axiom Relay long horizontal window — the ribbon light.
  *
  * The brief says long and curtain variants tile on the grid, and this is the
- * module that takes that literally: it is three window-frame bays sharing one
- * plate, not one bay stretched to 4.5 m. That distinction is the whole point of
- * a bay pitch — a stretched bay has a 3 m aperture with the same 50 mm reveal,
- * which reads as a slot cut in a panel; three tiled bays keep the reveal, the
+ * module that takes that literally: it is four window-frame bays sharing one
+ * plate, not one bay stretched to 6 m. That distinction is the whole point of a
+ * bay pitch — a stretched bay has a 6 m aperture with the same 50 mm reveal,
+ * which reads as a slot cut in a panel; four tiled bays keep the reveal, the
  * lamps, and the mullions at the size a hand and an eye expect them.
  *
  * Only the outer bays carry the plate's stepped border. The mullions between
@@ -80,8 +85,8 @@ export function createModel(): WindowModel {
         sockets: {
           mount_left: [-WIDTH * 0.5, WINDOW_KIT.centreY, 0],
           mount_right: [WIDTH * 0.5, WINDOW_KIT.centreY, 0],
-          window_bay_left: [-WINDOW_KIT.bayPitch, WINDOW_KIT.centreY, PLATE_FRONT],
-          window_bay_right: [WINDOW_KIT.bayPitch, WINDOW_KIT.centreY, PLATE_FRONT],
+          window_bay_left: [-WINDOW_KIT.bayPitch * 1.5, WINDOW_KIT.centreY, PLATE_FRONT],
+          window_bay_right: [WINDOW_KIT.bayPitch * 1.5, WINDOW_KIT.centreY, PLATE_FRONT],
         },
         tick: (elapsed) => {
           amber.emissiveIntensity = 0.7 + Math.sin(elapsed * 1.3) * 0.1
@@ -92,6 +97,6 @@ export function createModel(): WindowModel {
 }
 
 export function createPreview(options: WindowPreviewOptions = {}): CargoPreview {
-  return createWindowPreview(createModel(), { distance: 8.6, yaw: -0.44, pitch: 0.15, ...options })
+  return createWindowPreview(createModel(), { distance: 10.8, yaw: -0.42, pitch: 0.14, ...options })
 }
 
