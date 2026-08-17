@@ -98,11 +98,12 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
     const length = config.modules * MOD
     // FIA kerb: ~350 mm wide, 80 mm high, 60 mm front chamfer down to the asphalt.
     const profile: Array<readonly [number, number]> = [
-      [0.18, 0.00],
-      [0.18, 0.08],
-      [-0.08, 0.08],
-      [-0.16, 0.04],
-      [-0.20, 0.00],
+      [0.14, 0.00],
+      [0.16, 0.05],
+      [0.10, 0.13],
+      [-0.04, 0.13],
+      [-0.14, 0.07],
+      [-0.18, 0.00],
     ]
     const body = uvAlongX(loftAlongX(profile, length, { closed: true, stations: 8 }), length, 0.38)
     emit('shell', body, 'kerb')
@@ -114,7 +115,7 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
     for (let i = 0; i < count; i++) {
       const bar = bevelBox(0.09, 0.018, 0.36, 0.004)
       bar.rotateY(Math.PI / 4)
-      bar.translate(-length / 2 + i * pitch, 0.078, 0.0)
+      bar.translate(-length / 2 + i * pitch, 0.128, 0.0)
       ;(i % 2 === 0 ? red : white).push(bar)
     }
     if (red.length) emit('paint', mergeParts(red, 'red-stripes'), 'red-stripes')
@@ -146,11 +147,12 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), {
+  return createF1Preview(createModel({ modules: 5 }), {
     aspect,
-    target: [0, 0.08, 0.0],
-    distance: 2.6,
+    target: [0.2, 0.08, 0.0],
+    distance: 1.55,
     fov: 28,
-    pitch: 0.55,
+    yaw: -1.35,
+    pitch: 0.28,
   })
 }

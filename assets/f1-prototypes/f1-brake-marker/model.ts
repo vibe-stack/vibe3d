@@ -11,7 +11,6 @@ import {
 } from 'three/webgpu'
 
 import {
-  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -55,6 +54,11 @@ function sevenSeg(digit: string, cx: number, cy: number, cz: number): BufferGeom
   const H = 0.72
   const T = 0.1
   const D = 0.06
+  if (digit === '1') {
+    const bar = bevelBox(0.16, H, D, 0.012)
+    bar.translate(cx, cy, cz)
+    return [bar]
+  }
   const segs = SEG[digit]
   if (!segs) return []
   const parts: BufferGeometry[] = []
@@ -105,7 +109,7 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
   const faceMat = options.materials?.face ?? kit.shell
   const beaconMat = own(new MeshBasicMaterial({
     name: 'f1-kit / brake-marker beacon',
-    color: TOKEN.RED_500,
+    color: 0xff2424,
     toneMapped: false,
   }))
 
@@ -203,8 +207,9 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
     target: [0, 1.55, 0.12],
-    distance: 3.6,
-    fov: 28,
-    pitch: 0.12,
+    distance: 3.4,
+    fov: 26,
+    yaw: -0.28,
+    pitch: 0.08,
   })
 }

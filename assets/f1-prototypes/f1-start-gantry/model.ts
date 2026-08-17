@@ -8,13 +8,11 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  MeshBasicMaterial,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
 import {
-  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -57,16 +55,7 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
-  const extras: Material[] = []
-  const own = (material: Material): Material => {
-    extras.push(material)
-    return material
-  }
-  const lampOn = own(new MeshBasicMaterial({
-    name: 'f1-kit / gantry-lamp',
-    color: TOKEN.RED_500,
-    toneMapped: false,
-  }))
+  const lampOn = kit.red
 
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ?? kit.graphite,
@@ -212,7 +201,6 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     update: () => {},
     dispose() {
       releaseGenerated()
-      for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },

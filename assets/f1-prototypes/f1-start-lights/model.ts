@@ -4,21 +4,19 @@
 //
 // Datums: five modules at 0.42 m pitch, each housing 0.28 × 1.05 × 0.22 m, lamps Ø 0.09 m.
 // Hung on a 6.4 m span / 5.6 m high overhead (the FIA "standard height above the track" gantry).
-// ON lamps are MeshBasicMaterial + toneMapped:false so they stay TOKEN.RED_500 under ACES.
+// ON lamps use kit.red so they match Armco/brake-marker red under ACES (unlit MeshBasic washed peach).
 
 import {
   BufferGeometry,
   CylinderGeometry,
   Group,
   Mesh,
-  MeshBasicMaterial,
   MeshStandardMaterial,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
 import {
-  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -57,7 +55,7 @@ const PITCH = 0.42
 const MODULE_W = 0.28
 const MODULE_H = 1.05
 const MODULE_D = 0.22
-const LAMP_R = 0.09
+const LAMP_R = 0.1
 const HEIGHT = 5.6
 
 export function createModel(options: F1StartLightsOptions = {}): F1StartLightsInstance {
@@ -73,11 +71,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     return material
   }
 
-  const lampOn = options.materials?.lamp ?? own(new MeshBasicMaterial({
-    name: 'f1-kit / start-lamp on',
-    color: TOKEN.RED_500,
-    toneMapped: false,
-  }))
+  const lampOn = options.materials?.lamp ?? kit.red
   const lampOff = own(new MeshStandardMaterial({
     name: 'f1-kit / start-lamp off',
     color: 0x1a0808,
