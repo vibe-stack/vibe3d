@@ -8,6 +8,7 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
+  PointLight,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -22,6 +23,7 @@ import {
   member,
   mergeParts,
   LAYER_CLEARANCE,
+  createLampMaterial,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'post' | 'beam' | 'banner'
@@ -60,7 +62,9 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
-  const lampOn = kit.red
+  const extras: Material[] = []
+  const lampOn = createLampMaterial({ on: true, name: 'f1-kit / gantry-lamp' })
+  extras.push(lampOn)
 
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ?? kit.graphite,
@@ -190,6 +194,13 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     }
     emit('banner', mergeParts(housings, 'housings'), banner, 'housings', kit.graphite)
     emit('banner', mergeParts(lamps, 'lights'), banner, 'lights', lampOn)
+    for (let c = 0; c < 5; c++) {
+      const x = (c - 2) * LIGHT_PITCH
+      const glow = new PointLight(0xeb514e, 12, 2.8, 2)
+      glow.name = `glow-${c}`
+      glow.position.set(x, bannerY, lampZ + 0.1)
+      banner.add(glow)
+    }
   }
   rebuild()
 
@@ -210,6 +221,7 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     update: () => {},
     dispose() {
       releaseGenerated()
+      for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -223,5 +235,6 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     distance: 8.8,
     fov: 28,
     pitch: 0.1,
+    ground: true,
   })
 }

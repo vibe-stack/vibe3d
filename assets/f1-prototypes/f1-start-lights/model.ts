@@ -10,7 +10,7 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  MeshStandardMaterial,
+  PointLight,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -19,6 +19,7 @@ import {
   acquireF1Materials,
   bevelBox,
   createF1Preview,
+  createLampMaterial,
   disposeF1Materials,
   loftRoundedBox,
   member,
@@ -73,13 +74,11 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     return material
   }
 
-  const lampOn = options.materials?.lamp ?? kit.red
-  const lampOff = own(new MeshStandardMaterial({
-    name: 'f1-kit / start-lamp off',
-    color: 0x1a0808,
-    roughness: 0.18,
-    metalness: 0.28,
+  const lampOn = options.materials?.lamp ?? own(createLampMaterial({
+    on: true,
+    name: 'f1-kit / start-lamp on',
   }))
+  const lampOff = own(createLampMaterial({ on: false, name: 'f1-kit / start-lamp off' }))
 
   const materialSlots: Record<Slot, Material> = {
     housing: options.materials?.housing ?? kit.graphite,
@@ -179,6 +178,12 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
         lamp.translate(x, PANEL_Y + (1.5 - r) * rowPitch, lampZ)
         emit('lamp', lamp, panel, `lamp-${c}-${r}`, on ? lampOn : lampOff)
       }
+      if (on) {
+        const glow = new PointLight(0xeb514e, 14, 3.2, 2)
+        glow.name = `glow-${c}`
+        glow.position.set(x, PANEL_Y, lampZ + 0.12)
+        panel.add(glow)
+      }
     }
   }
   rebuild()
@@ -213,5 +218,6 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     distance: 4.8,
     fov: 28,
     pitch: 0.06,
+    ground: true,
   })
 }

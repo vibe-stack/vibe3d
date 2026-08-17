@@ -1,5 +1,5 @@
-// f1-marshal-post — a trackside observers' hut: white cabin, track window, numbered board,
-// a planted yellow flag, and a pad-mounted extinguisher. No crew figures.
+// f1-marshal-post — trackside observers' hut: painted GRP cabin, corrugated roof, recessed
+// track window, numbered board, planted yellow flag, pad-mounted extinguisher. No crew figures.
 //
 // Datums from a typical FIA marshal post (Silverstone-style hut, ~2.2 m wide):
 // hut 2.2 × 2.05 × 1.8 m, roof overhang 0.18 m, window 1.15 × 0.72 m on the track face.
@@ -8,6 +8,8 @@ import {
   BufferGeometry,
   Group,
   Mesh,
+  MeshPhysicalMaterial,
+  PlaneGeometry,
   type Material,
 } from 'three/webgpu'
 
@@ -18,9 +20,14 @@ import {
   createF1Preview,
   disposeF1Materials,
   loftAlongX,
+  marshalPlateTexture,
   mergeParts,
+  paintedShellTexture,
   revolve,
+  roofSheetTexture,
   tubeSection,
+  uvAlongX,
+  LAYER_CLEARANCE,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'hut' | 'crew' | 'flag'
@@ -50,8 +57,51 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
   const config: F1MarshalPostConfig = {}
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  const extras: Material[] = []
+  const own = (material: Material): Material => {
+    extras.push(material)
+    return material
+  }
+
+  const paintMap = paintedShellTexture(128)
+  const roofMap = roofSheetTexture(128)
+  const plateMap = marshalPlateTexture('12')
+  const paint = options.materials?.hut ?? own(new MeshPhysicalMaterial({
+    name: 'f1-kit / marshal paint',
+    map: paintMap,
+    color: 0xffffff,
+    roughness: 0.42,
+    metalness: 0.06,
+    clearcoat: 0.28,
+    clearcoatRoughness: 0.45,
+  }))
+  const roofMat = own(new MeshPhysicalMaterial({
+    name: 'f1-kit / marshal roof',
+    map: roofMap,
+    color: 0xc8d0d4,
+    roughness: 0.38,
+    metalness: 0.62,
+    clearcoat: 0.08,
+  }))
+  const glassMat = own(new MeshPhysicalMaterial({
+    name: 'f1-kit / marshal glass',
+    color: 0x0a1218,
+    roughness: 0.06,
+    metalness: 0.12,
+    transparent: true,
+    opacity: 0.72,
+    transmission: 0.35,
+    thickness: 0.02,
+  }))
+  const plateMat = own(new MeshPhysicalMaterial({
+    name: 'f1-kit / marshal plate',
+    map: plateMap,
+    roughness: 0.55,
+    metalness: 0.08,
+  }))
+
   const materialSlots: Record<Slot, Material> = {
-    hut: options.materials?.hut ?? kit.shell,
+    hut: paint,
     crew: options.materials?.crew ?? kit.orange,
     flag: options.materials?.flag ?? kit.amber,
   }
@@ -90,92 +140,104 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
 
   const rebuild = (): void => {
     releaseGenerated()
-    const hutParts: BufferGeometry[] = []
-    const darkParts: BufferGeometry[] = []
-    const frameParts: BufferGeometry[] = []
+    const wallT = 0.08
+    const y0 = 0.14
+    const midY = y0 + HUT_H / 2
+    const paintParts: BufferGeometry[] = []
 
     const pad = bevelBox(2.8, 0.08, 2.4, 0.01)
     pad.translate(0, 0.04, 0.1)
-    hutParts.push(pad)
+    emit('hut', pad, hut, 'pad', kit.slate)
 
     const floor = bevelBox(HUT_W, 0.06, HUT_D, 0.008)
     floor.translate(0, 0.11, 0)
-    hutParts.push(floor)
+    emit('hut', floor, hut, 'floor', kit.graphite)
 
-    const wallT = 0.08
     const rear = bevelBox(HUT_W, HUT_H, wallT, 0.01)
-    rear.translate(0, 0.14 + HUT_H / 2, -HUT_D / 2 + wallT / 2)
-    hutParts.push(rear)
+    rear.translate(0, midY, -HUT_D / 2 + wallT / 2)
+    paintParts.push(rear)
     for (const sx of [-1, 1] as const) {
       const side = bevelBox(wallT, HUT_H, HUT_D, 0.01)
-      side.translate(sx * (HUT_W / 2 - wallT / 2), 0.14 + HUT_H / 2, 0)
-      hutParts.push(side)
+      side.translate(sx * (HUT_W / 2 - wallT / 2), midY, 0)
+      paintParts.push(side)
     }
     const winW = 1.15
     const jambW = (HUT_W - winW) / 2
     for (const sx of [-1, 1] as const) {
       const jamb = bevelBox(jambW, HUT_H, wallT, 0.01)
-      jamb.translate(sx * (winW / 2 + jambW / 2), 0.14 + HUT_H / 2, HUT_D / 2 - wallT / 2)
-      hutParts.push(jamb)
+      jamb.translate(sx * (winW / 2 + jambW / 2), midY, HUT_D / 2 - wallT / 2)
+      paintParts.push(jamb)
     }
     const sill = bevelBox(winW, 0.55, wallT, 0.008)
-    sill.translate(0, 0.14 + 0.275, HUT_D / 2 - wallT / 2)
-    hutParts.push(sill)
+    sill.translate(0, y0 + 0.275, HUT_D / 2 - wallT / 2)
+    paintParts.push(sill)
     const lintel = bevelBox(winW, 0.78, wallT, 0.008)
-    lintel.translate(0, 0.14 + HUT_H - 0.39, HUT_D / 2 - wallT / 2)
-    hutParts.push(lintel)
+    lintel.translate(0, y0 + HUT_H - 0.39, HUT_D / 2 - wallT / 2)
+    paintParts.push(lintel)
 
     const door = bevelBox(0.62, 1.55, 0.04, 0.006)
-    door.translate(HUT_W / 2 + 0.01, 0.14 + 0.78, -0.15)
-    hutParts.push(door)
+    door.translate(HUT_W / 2 + 0.01, y0 + 0.78, -0.15)
+    paintParts.push(door)
+    const kick = bevelBox(0.58, 0.22, 0.02, 0.004)
+    kick.translate(HUT_W / 2 + 0.03, y0 + 0.22, -0.15)
+    emit('hut', kick, hut, 'kick', kit.graphite)
     const knob = bevelDisc(0.03, 0.03, 0.004, 10)
     knob.rotateY(Math.PI / 2)
-    knob.translate(HUT_W / 2 + 0.04, 0.14 + 0.85, -0.02)
-    hutParts.push(knob)
+    knob.translate(HUT_W / 2 + 0.04, y0 + 0.85, -0.02)
+    emit('hut', knob, hut, 'knob', kit.steel)
+
+    emit('hut', mergeParts(paintParts, 'cabin'), hut, 'cabin', paint)
 
     const roofOver = 0.18
-    const roofProfile: Array<readonly [number, number]> = [
-      [HUT_D / 2 + roofOver, HUT_H + 0.08],
-      [0, HUT_H + 0.38],
-      [-HUT_D / 2 - roofOver, HUT_H + 0.14],
-      [-HUT_D / 2 - roofOver, HUT_H + 0.06],
-      [0, HUT_H + 0.28],
-      [HUT_D / 2 + roofOver, HUT_H],
-    ]
-    const roof = loftAlongX(roofProfile, HUT_W + roofOver * 2, { closed: true })
-    roof.translate(0, 0.14, 0)
-    hutParts.push(roof)
-
-    const plate = bevelBox(0.48, 0.36, 0.05, 0.006)
-    plate.translate(-0.72, 1.62, HUT_D / 2 + 0.05)
-    hutParts.push(plate)
-    const glyph = (ox: number, cells: number[]): void => {
-      for (let gy = 0; gy < 5; gy++) {
-        for (let gx = 0; gx < 3; gx++) {
-          if (!cells[gy * 3 + gx]) continue
-          const bit = bevelBox(0.04, 0.04, 0.02, 0.002)
-          bit.translate(-0.72 + ox + gx * 0.05, 1.74 - gy * 0.05, HUT_D / 2 + 0.08)
-          hutParts.push(bit)
-        }
-      }
+    const z0 = -HUT_D / 2 - roofOver
+    const z1 = HUT_D / 2 + roofOver
+    const corrugations = 16
+    const outer: Array<readonly [number, number]> = []
+    const inner: Array<readonly [number, number]> = []
+    for (let i = 0; i <= corrugations; i++) {
+      const t = i / corrugations
+      const z = z0 + (z1 - z0) * t
+      const gable = t < 0.5
+        ? HUT_H + 0.08 + t * 2 * 0.3
+        : HUT_H + 0.38 - (t - 0.5) * 2 * 0.24
+      const wave = (i % 2 === 0 ? 0 : 0.045)
+      outer.push([z, gable + wave])
+      inner.push([z, gable + wave - 0.035])
     }
-    glyph(-0.12, [0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1])
-    glyph(0.06, [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1])
+    const roofProfile = [...outer, ...inner.reverse()]
+    const roof = loftAlongX(roofProfile, HUT_W + roofOver * 2, { closed: true, stations: 4 })
+    roof.translate(0, y0, 0)
+    uvAlongX(roof, HUT_W + roofOver * 2, HUT_D + roofOver * 2)
+    emit('hut', roof, hut, 'roof', roofMat)
+    const ridge = bevelBox(HUT_W + roofOver * 2, 0.04, 0.08, 0.006)
+    ridge.translate(0, y0 + HUT_H + 0.4, 0)
+    emit('hut', ridge, hut, 'ridge', kit.steel)
+    const gutter = bevelBox(HUT_W + roofOver * 2, 0.04, 0.06, 0.004)
+    gutter.translate(0, y0 + HUT_H + 0.02, HUT_D / 2 + roofOver)
+    emit('hut', gutter, hut, 'gutter', kit.graphite)
 
-    emit('hut', mergeParts(hutParts, 'hut'), hut, 'hut')
-
-    const glass = bevelBox(winW - 0.12, 0.62, 0.016, 0.003)
-    glass.translate(0, 0.14 + 0.55 + 0.34, HUT_D / 2 - 0.02)
-    darkParts.push(glass)
-    emit('hut', mergeParts(darkParts, 'glass'), hut, 'window', kit.ink)
+    const plate = bevelBox(0.52, 0.38, 0.04, 0.006)
+    plate.translate(-0.72, 1.62, HUT_D / 2 + 0.04)
+    emit('hut', plate, hut, 'plate-back', kit.graphite)
+    const face = new PlaneGeometry(0.46, 0.32)
+    face.translate(-0.72, 1.62, HUT_D / 2 + 0.04 + LAYER_CLEARANCE + 0.02)
+    emit('hut', face, hut, 'plate', plateMat)
 
     const zFace = HUT_D / 2 + 0.02
-    const winY = 0.14 + 0.55 + 0.34
-    frameParts.push(bevelBox(winW - 0.04, 0.04, 0.03, 0.004).translate(0, winY + 0.33, zFace))
-    frameParts.push(bevelBox(winW - 0.04, 0.04, 0.03, 0.004).translate(0, winY - 0.33, zFace))
-    frameParts.push(bevelBox(0.04, 0.66, 0.03, 0.004).translate(-(winW / 2 - 0.1), winY, zFace))
-    frameParts.push(bevelBox(0.04, 0.66, 0.03, 0.004).translate(winW / 2 - 0.1, winY, zFace))
-    frameParts.push(bevelBox(0.03, 0.66, 0.03, 0.004).translate(0, winY, zFace))
+    const winY = y0 + 0.55 + 0.34
+    const glass = bevelBox(winW - 0.16, 0.58, 0.018, 0.003)
+    glass.translate(0, winY, HUT_D / 2 - wallT - LAYER_CLEARANCE)
+    emit('hut', glass, hut, 'window', glassMat)
+    const cavity = bevelBox(winW - 0.2, 0.54, 0.08, 0.004)
+    cavity.translate(0, winY, HUT_D / 2 - wallT - 0.08)
+    emit('hut', cavity, hut, 'cavity', kit.ink)
+
+    const frameParts: BufferGeometry[] = []
+    frameParts.push(bevelBox(winW - 0.04, 0.045, 0.035, 0.004).translate(0, winY + 0.33, zFace))
+    frameParts.push(bevelBox(winW - 0.04, 0.045, 0.035, 0.004).translate(0, winY - 0.33, zFace))
+    frameParts.push(bevelBox(0.045, 0.66, 0.035, 0.004).translate(-(winW / 2 - 0.1), winY, zFace))
+    frameParts.push(bevelBox(0.045, 0.66, 0.035, 0.004).translate(winW / 2 - 0.1, winY, zFace))
+    frameParts.push(bevelBox(0.035, 0.66, 0.035, 0.004).translate(0, winY, zFace))
     emit('hut', mergeParts(frameParts, 'frame'), hut, 'window-frame', kit.graphite)
 
     const flagParts: BufferGeometry[] = []
@@ -209,6 +271,10 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     update: () => {},
     dispose() {
       releaseGenerated()
+      paintMap.dispose()
+      roofMap.dispose()
+      plateMap.dispose()
+      for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -222,5 +288,6 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     distance: 6.2,
     fov: 30,
     pitch: 0.16,
+    ground: true,
   })
 }

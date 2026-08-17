@@ -3,7 +3,10 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  Mesh,
+  MeshStandardMaterial,
   PerspectiveCamera,
+  PlaneGeometry,
   Scene,
 } from 'three/webgpu'
 
@@ -32,6 +35,8 @@ export interface F1PreviewOptions {
   /** Elevation in radians above the horizon. */
   readonly pitch?: number
   readonly fov?: number
+  /** Dark receive card so lamp PointLights/SpotLights pool on the ground. */
+  readonly ground?: boolean
 }
 
 export interface F1PreviewModel {
@@ -69,6 +74,29 @@ export function createF1Preview(model: F1PreviewModel, options: F1PreviewOptions
   rim.position.set(4.5, 6, -7)
   scene.add(rim)
 
+  const extras: Array<{ dispose: () => void }> = []
+  if (options.ground) {
+    const groundGeo = new PlaneGeometry(28, 28)
+    groundGeo.rotateX(-Math.PI / 2)
+    const groundMat = new MeshStandardMaterial({
+      name: 'f1-kit / preview ground',
+      color: 0x080a0c,
+      roughness: 0.96,
+      metalness: 0,
+    })
+    const ground = new Mesh(groundGeo, groundMat)
+    ground.name = 'f1-kit / preview ground'
+    ground.receiveShadow = true
+    scene.add(ground)
+    extras.push({
+      dispose: () => {
+        scene.remove(ground)
+        groundGeo.dispose()
+        groundMat.dispose()
+      },
+    })
+  }
+
   const target = options.target ?? [0, 0, 0]
   const distance = options.distance ?? 3.4
   const yaw = options.yaw ?? DEFAULT_YAW
@@ -92,6 +120,7 @@ export function createF1Preview(model: F1PreviewModel, options: F1PreviewOptions
     camera,
     update: (deltaSeconds: number) => model.update?.(deltaSeconds),
     dispose: () => {
+      for (const extra of extras) extra.dispose()
       scene.remove(model.root)
       model.dispose()
     },

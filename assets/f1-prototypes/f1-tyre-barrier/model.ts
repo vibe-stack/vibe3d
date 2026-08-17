@@ -1,5 +1,5 @@
-// f1-tyre-barrier — a tyre wall built by instancing the kit f1-tyre, staggered like a real
-// catch-fence tyre stack, with through-bolts and front wrap bands.
+// f1-tyre-barrier — a catch-fence tyre wall of kit f1-tyres laid on their sidewalls and stacked
+// like a real FIA barrier (not standing on the tread), with through-bolts and front wrap bands.
 
 import {
   BufferGeometry,
@@ -43,9 +43,12 @@ export interface F1TyreBarrierInstance {
   dispose(): void
 }
 
-const defaults: F1TyreBarrierConfig = { columns: 5, rows: 3, depth: 2 }
+const defaults: F1TyreBarrierConfig = { columns: 5, rows: 5, depth: 2 }
 const R = 0.36
 const W = 0.33
+const PITCH_X = R * 2 * 0.96
+const PITCH_Y = W * 0.94
+const PITCH_Z = R * 2 * 0.92
 
 export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierInstance {
   const config: F1TyreBarrierConfig = {
@@ -86,8 +89,9 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     materialSlots.tyre = prototype.materials.rubber
 
     const pose = new Matrix4()
+    const twist = new Matrix4()
     const composed = new Matrix4()
-    const halfX = ((columns - 1) * R * 2) / 2
+    const halfX = ((columns - 1) * PITCH_X) / 2
     prototype.root.traverse((object) => {
       const mesh = object as Mesh
       if (!mesh.isMesh) return
@@ -100,10 +104,12 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
         for (let r = 0; r < rows; r++) {
           const stagger = (r % 2) * R
           for (let c = 0; c < columns; c++) {
-            const x = -halfX + c * R * 2 + stagger
-            const y = R + r * R * 2 * 0.9
-            const z = (d - (depth - 1) / 2) * W
-            pose.makeRotationY(d * 0.12 + r * 0.04)
+            const x = -halfX + c * PITCH_X + stagger
+            const y = W / 2 + r * PITCH_Y
+            const z = (d - (depth - 1) / 2) * PITCH_Z
+            pose.makeRotationX(Math.PI / 2)
+            twist.makeRotationY(d * 0.06 + c * 0.02)
+            pose.multiply(twist)
             pose.setPosition(x, y, z)
             composed.copy(pose).multiply(mesh.matrixWorld)
             instanced.setMatrixAt(i, composed)
@@ -116,17 +122,19 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     })
 
     const hardware: BufferGeometry[] = []
-    const wallH = rows * R * 2 * 0.9
-    const wallW = columns * R * 2
-    const frontZ = ((depth - 1) / 2) * W + W * 0.55
-    for (let c = 0; c < columns; c++) {
-      const x = -halfX + c * R * 2
-      hardware.push(tubeSection(0.016, wallH + 0.1, [x, wallH / 2, 0], [0, 1, 0], 8))
-      hardware.push(tubeSection(0.014, depth * W + 0.12, [x, R, 0], [0, 0, 1], 8))
+    const wallH = rows * PITCH_Y
+    const wallW = columns * PITCH_X + R
+    const frontZ = ((depth - 1) / 2) * PITCH_Z + R + 0.04
+    for (let d = 0; d < depth; d++) {
+      const z = (d - (depth - 1) / 2) * PITCH_Z
+      for (let c = 0; c < columns; c++) {
+        const x = -halfX + c * PITCH_X
+        hardware.push(tubeSection(0.016, wallH + 0.08, [x, wallH / 2, z], [0, 1, 0], 8))
+      }
     }
     for (let r = 0; r < rows; r++) {
-      const y = R + r * R * 2 * 0.9
-      const band = bevelBox(wallW * 0.92, 0.045, 0.035, 0.006)
+      const y = W / 2 + r * PITCH_Y
+      const band = bevelBox(wallW * 0.9, 0.04, 0.032, 0.006)
       band.translate(0, y, frontZ)
       hardware.push(band)
     }
@@ -167,12 +175,12 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ columns: 4, rows: 3, depth: 2 }), {
+  return createF1Preview(createModel({ columns: 4, rows: 5, depth: 2 }), {
     aspect,
-    target: [0, 0.95, 0.1],
-    distance: 7.4,
+    target: [0, 0.75, 0.15],
+    distance: 5.8,
     fov: 30,
-    yaw: -0.55,
-    pitch: 0.22,
+    yaw: -0.62,
+    pitch: 0.38,
   })
 }

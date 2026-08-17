@@ -9,7 +9,7 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  MeshBasicMaterial,
+  SpotLight,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -26,6 +26,7 @@ import {
   member,
   mergeParts,
   AXIS_Y,
+  createLampMaterial,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'mast' | 'can' | 'lens'
@@ -61,10 +62,11 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     extras.push(material)
     return material
   }
-  const lensMat = options.materials?.lens ?? own(new MeshBasicMaterial({
-    name: 'f1-kit / flood lens',
+  const lensMat = options.materials?.lens ?? own(createLampMaterial({
+    on: true,
     color: TOKEN.SHELL_050,
-    toneMapped: false,
+    name: 'f1-kit / flood lens',
+    intensity: 8,
   }))
 
   const materialSlots: Record<Slot, Material> = {
@@ -169,6 +171,17 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     emit('can', mergeParts(cans, 'cans'), head, 'cans')
     emit('can', mergeParts(doors, 'barn-doors'), head, 'barn-doors')
     emit('lens', mergeParts(lenses, 'lenses'), head, 'lenses')
+    for (const sx of [-0.88, 0.88] as const) {
+      for (const sy of [-0.28, 0.28] as const) {
+        const cy = height - 0.22 + sy
+        const spot = new SpotLight(0xfff3e0, 48, 22, Math.PI / 5, 0.4, 1.6)
+        spot.name = `spot-${sx}-${sy}`
+        spot.position.set(sx, cy, 0.72)
+        spot.target.position.set(sx, cy - 4.5, 6)
+        head.add(spot)
+        head.add(spot.target)
+      }
+    }
   }
   rebuild()
 
@@ -203,5 +216,6 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     distance: 4.6,
     fov: 30,
     pitch: 0.15,
+    ground: true,
   })
 }
