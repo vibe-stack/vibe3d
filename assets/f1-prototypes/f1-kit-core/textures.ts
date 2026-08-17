@@ -35,17 +35,17 @@ export function paintedShellTexture(size = 128): DataTexture {
     for (let x = 0; x < n; x++) {
       const u = x / n
       const v = y / n
-      const grain = hash(x * 0.37, y * 0.41) * 0.08
-      const dirt = hash(x * 0.09, y * 0.11) * 0.12
+      const grain = hash(x * 0.17, y * 0.19) * 0.04
+      const dirt = hash(x * 0.04, y * 0.05) * 0.05
       const edge = Math.min(u, v, 1 - u, 1 - v)
-      const stain = (1 - Math.min(1, edge * 8)) * 0.16
-      const panel = Math.abs(Math.sin(u * Math.PI * 4)) < 0.04 ? 0.07 : 0
+      const stain = (1 - Math.min(1, edge * 6)) * 0.07
+      const panel = Math.abs(Math.sin(u * Math.PI * 3)) < 0.015 ? 0.04 : 0
       const k = 1 - grain - dirt - stain - panel
       put(
         data, n, x, y,
-        Math.round(217 * k + 40),
-        Math.round(230 * k + 36),
-        Math.round(233 * k + 32),
+        Math.round(210 + 20 * k),
+        Math.round(220 + 18 * k),
+        Math.round(224 + 16 * k),
       )
     }
   }

@@ -66,7 +66,7 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     on: true,
     color: TOKEN.SHELL_050,
     name: 'f1-kit / flood lens',
-    intensity: 8,
+    intensity: 3.2,
   }))
 
   const materialSlots: Record<Slot, Material> = {
@@ -174,7 +174,7 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     for (const sx of [-0.88, 0.88] as const) {
       for (const sy of [-0.28, 0.28] as const) {
         const cy = height - 0.22 + sy
-        const spot = new SpotLight(0xfff3e0, 48, 22, Math.PI / 5, 0.4, 1.6)
+        const spot = new SpotLight(0xfff3e0, 18, 14, Math.PI / 4, 0.45, 1.8)
         spot.name = `spot-${sx}-${sy}`
         spot.position.set(sx, cy, 0.72)
         spot.target.position.set(sx, cy - 4.5, 6)

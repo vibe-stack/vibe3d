@@ -179,7 +179,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
         emit('lamp', lamp, panel, `lamp-${c}-${r}`, on ? lampOn : lampOff)
       }
       if (on) {
-        const glow = new PointLight(0xeb514e, 14, 3.2, 2)
+        const glow = new PointLight(0xeb514e, 3.2, 2.4, 2)
         glow.name = `glow-${c}`
         glow.position.set(x, PANEL_Y, lampZ + 0.12)
         panel.add(glow)

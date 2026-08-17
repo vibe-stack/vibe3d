@@ -35,8 +35,9 @@ export function createLampMaterial(options: F1LampMaterialOptions): MeshPhysical
     name,
     color: 0x120404,
     emissive: color,
-    emissiveIntensity: options.intensity ?? 5.2,
+    emissiveIntensity: options.intensity ?? 2.4,
     roughness: 0.18,
     metalness: 0.04,
+    toneMapped: false,
   })
 }

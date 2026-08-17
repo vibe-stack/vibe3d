@@ -6,6 +6,7 @@
 
 import {
   BufferGeometry,
+  Float32BufferAttribute,
   Group,
   Mesh,
   MeshPhysicalMaterial,
@@ -52,6 +53,19 @@ export interface F1MarshalPostInstance {
 const HUT_W = 2.2
 const HUT_D = 1.8
 const HUT_H = 2.05
+
+
+function uvPlanar(geometry: BufferGeometry): BufferGeometry {
+  const pos = geometry.getAttribute('position')
+  if (!pos) return geometry
+  const uvs = new Float32Array(pos.count * 2)
+  for (let i = 0; i < pos.count; i++) {
+    uvs[i * 2] = pos.getX(i) * 0.4 + 0.5
+    uvs[i * 2 + 1] = pos.getY(i) * 0.4
+  }
+  geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
+  return geometry
+}
 
 export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostInstance {
   const config: F1MarshalPostConfig = {}
@@ -186,7 +200,7 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     knob.translate(HUT_W / 2 + 0.04, y0 + 0.85, -0.02)
     emit('hut', knob, hut, 'knob', kit.steel)
 
-    emit('hut', mergeParts(paintParts, 'cabin'), hut, 'cabin', paint)
+    emit('hut', uvPlanar(mergeParts(paintParts, 'cabin')), hut, 'cabin', paint)
 
     const roofOver = 0.18
     const z0 = -HUT_D / 2 - roofOver

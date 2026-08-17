@@ -196,7 +196,7 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     emit('banner', mergeParts(lamps, 'lights'), banner, 'lights', lampOn)
     for (let c = 0; c < 5; c++) {
       const x = (c - 2) * LIGHT_PITCH
-      const glow = new PointLight(0xeb514e, 12, 2.8, 2)
+      const glow = new PointLight(0xeb514e, 2.8, 2.2, 2)
       glow.name = `glow-${c}`
       glow.position.set(x, bannerY, lampZ + 0.1)
       banner.add(glow)
