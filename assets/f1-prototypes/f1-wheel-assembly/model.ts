@@ -396,8 +396,12 @@ export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemb
       bag.mat(new MeshStandardMaterial({ color: 0xc8ccd2, roughness: 0.28, metalness: 0.9 })),
     cover: options.materials?.cover ??
       bag.mat(new MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.4, metalness: 0.2 })),
+    // The rim pinstripe stays a dark machined tone by default. The kit's lime livery accent reads as a
+    // second saturated marking here, and on a tyre the only saturated colour that means anything is the
+    // compound grading — a lime ring on a white-walled hard makes it look like two compounds at once.
+    // Still a real slot: a consumer wanting a team edge can tint it.
     accent: options.materials?.accent ??
-      bag.mat(new MeshStandardMaterial({ color: 0xc6ff2a, roughness: 0.5, metalness: 0.1 })),
+      bag.mat(new MeshStandardMaterial({ color: 0x4a4f57, roughness: 0.38, metalness: 0.7 })),
     band: options.materials?.band ??
       bag.mat(new MeshStandardMaterial({ color: config.band, roughness: 0.6, metalness: 0.0 })),
   }
