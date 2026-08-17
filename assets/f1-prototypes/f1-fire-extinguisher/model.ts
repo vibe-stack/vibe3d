@@ -77,8 +77,8 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
   cylinder.castShadow = true
   cylinder.receiveShadow = true
 
-  const neck = meshOf('hardware', bag.geo(new CylinderGeometry(0.045, 0.05, 0.06, 16)), bodyGroup)
-  neck.position.y = 0.65
+  const neck = meshOf('hardware', bag.geo(new CylinderGeometry(0.045, 0.05, 0.085, 16)), bodyGroup)
+  neck.position.y = 0.652 // the neck bites up into the valve rather than meeting its underside coplanar
   neck.castShadow = true
 
   const valve = meshOf('hardware', bag.geo(new BoxGeometry(0.13, 0.08, 0.09)), bodyGroup)
@@ -109,7 +109,7 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
   hoseMesh.castShadow = true
 
   const nozzle = meshOf('hardware', bag.geo(new CylinderGeometry(0.02, 0.03, 0.12, 10)), hoseGroup)
-  nozzle.position.set(0.1, 0.14, 0.05)
+  nozzle.position.set(0.1, 0.185, 0.05) // meet the hose terminus instead of hanging 0.06 below it
   nozzle.rotation.x = 0.5
   nozzle.castShadow = true
 

@@ -128,7 +128,7 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
   crossbar.castShadow = true
   lever.add(crossbar)
   const padTop = meshOf('rubber', bag.geo(new BoxGeometry(0.06, 0.015, 0.22)))
-  padTop.position.set(JACK_PAD_X, JACK_PAD_Y + 0.022, 0)
+  padTop.position.set(JACK_PAD_X, JACK_PAD_Y + 0.016, 0) // seat the pad into the crossbar, not flush on it
   lever.add(padTop)
 
   // Handle — a long bar up-and-back with an accent grip at the end.

@@ -10,6 +10,14 @@ import { BufferGeometry, Material, Mesh, MeshStandardMaterial, Box3, Vector3 } f
 import { createModel as createWheel } from './f1-wheel-assembly/model.ts'
 import { createModel as createStack } from './f1-tyre-stack/model.ts'
 import { createModel as createReel } from './f1-hose-reel/model.ts'
+import { createModel as createPitBoard } from './f1-pit-board/model.ts'
+import { createModel as createGantry } from './f1-pit-gantry/model.ts'
+import { createModel as createLollipop } from './f1-lollipop-board/model.ts'
+import { createModel as createWheelGun } from './f1-pit-wheel-gun/model.ts'
+import { createModel as createPitJack } from './f1-pit-jack/model.ts'
+import { createModel as createCabinet } from './f1-tool-cabinet/model.ts'
+import { createModel as createExtinguisher } from './f1-fire-extinguisher/model.ts'
+import { createModel as createGunRack } from './f1-gun-rack/model.ts'
 
 // --- dispose instrumentation -------------------------------------------------------------------------
 
@@ -61,6 +69,14 @@ const factories = {
   'f1-wheel-assembly': () => createWheel(),
   'f1-tyre-stack': () => createStack({ count: 3 }),
   'f1-hose-reel': () => createReel({ wraps: 3, layers: 2 }),
+  'f1-pit-board': () => createPitBoard(),
+  'f1-pit-gantry': () => createGantry(),
+  'f1-lollipop-board': () => createLollipop(),
+  'f1-pit-wheel-gun': () => createWheelGun(),
+  'f1-pit-jack': () => createPitJack(),
+  'f1-tool-cabinet': () => createCabinet(),
+  'f1-fire-extinguisher': () => createExtinguisher(),
+  'f1-gun-rack': () => createGunRack(),
 } as const
 
 describe.each(Object.keys(factories) as Array<keyof typeof factories>)('%s ownership', (id) => {
@@ -110,8 +126,13 @@ describe.each(Object.keys(factories) as Array<keyof typeof factories>)('%s owner
       expect(resourcesOf(model.root).geometries.length).toBe(baseline)
     }
 
-    // Everything built for generation 1 must already be released by the time generation 4 exists.
-    for (const geometry of firstGeneration) expect(countOf(geometry)).toBe(1)
+    // Anything from generation 1 that a rebuild replaced must already be released; anything still live
+    // must not have been disposed. Some props (the gun, the jack) configure a transform rather than
+    // regenerating geometry, so their generation-1 set is legitimately still the live set.
+    const live = new Set(resourcesOf(model.root).geometries)
+    for (const geometry of firstGeneration) {
+      expect(countOf(geometry)).toBe(live.has(geometry) ? 0 : 1)
+    }
     model.dispose()
   })
 })

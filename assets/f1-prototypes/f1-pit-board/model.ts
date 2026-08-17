@@ -1,55 +1,147 @@
-// f1-pit-board — a numbered pit signal board on a pole: a dark board plate with a stack of light
-// indicator rows. The original scene baked numbers/symbols into the rows via textures; here the rows are
-// plain plates on their own material slot so a host can texture, recolour, or leave them blank per team.
-// `rowCount` (default 3) controls how many rows are laid out, evenly spaced down the board face.
-// Ported from a private racing project's pit-signal board prop.
+// f1-pit-board — the numbered board a team hangs over the pit wall: a framed tray carrying rows of
+// removable number cards, on a handle long enough to hold out over the wall.
+//
+// The cards are what make this a pit board rather than a sign, so they are real geometry — separate
+// plates standing proud of a recessed tray, slotted behind full-width retaining rails, with a visible
+// gap between each card. Painted stripes flush with the panel read as signage at any distance.
+//
+// Cards carry no numerals: glyphs at this texel density need a texture, and the headless preview runner
+// has no canvas, so a texture path here would silently render as its fallback. The `card` material slot
+// is the intended place for a host to apply its own numbers.
 
 import {
-  BoxGeometry,
+  BufferGeometry,
   CylinderGeometry,
   DirectionalLight,
+  ExtrudeGeometry,
   Group,
   HemisphereLight,
+  MathUtils,
   Mesh,
   MeshStandardMaterial,
   PerspectiveCamera,
   Scene,
+  Shape,
   type Material,
 } from 'three/webgpu'
+import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
 
+type Slot = 'pole' | 'board' | 'card' | 'rail'
+
 export interface F1PitBoardConfig {
-  /** Number of indicator rows stacked on the board face. */
+  /** Rows of number cards down the board face. */
   rowCount: number
+  /** Cards per row. Three is the usual position / gap / lap layout. */
+  cardsPerRow: number
 }
 
 export interface F1PitBoardOptions extends Partial<F1PitBoardConfig> {
-  materials?: Partial<Record<'pole' | 'board' | 'row', Material>>
+  materials?: Partial<Record<Slot, Material>>
 }
 
 export interface F1PitBoardInstance {
   readonly root: Group
   readonly parts: { pole: Group; board: Group; rows: Group }
-  readonly materials: Readonly<Record<'pole' | 'board' | 'row', Material>>
+  readonly materials: Readonly<Record<Slot, Material>>
   getConfig(): Readonly<F1PitBoardConfig>
   configure(patch: Partial<F1PitBoardConfig>): void
-  setMaterial(slot: 'pole' | 'board' | 'row', material: Material): void
+  setMaterial(slot: Slot, material: Material): void
   update(deltaSeconds: number): void
   dispose(): void
 }
 
-const defaults: F1PitBoardConfig = { rowCount: 3 }
+const defaults: F1PitBoardConfig = { rowCount: 4, cardsPerRow: 3 }
+
+// --- Panel geometry, world units --------------------------------------------------------------------
+const BOARD_W = 0.70
+const BOARD_H = 1.00
+const BOARD_Y = 1.70   // centre height of the panel
+const BOARD_T = 0.035  // backing thickness — a hand-held board, not a slab
+const FRAME_W = 0.030  // perimeter frame rail width
+const FRAME_PROUD = 0.020
+
+// ---------------------------------------------------------------------------------------------------
+// Local geometry helpers, deliberately private to this file rather than shared through f1-kit-core:
+// every `.ts` under f1-kit-core ships to kit consumers as permanent public surface.
+// ---------------------------------------------------------------------------------------------------
+
+/** Strip a geometry to the exact shape `mergeGeometries` needs: non-indexed, position/normal/uv only. */
+function mergeReady(geometry: BufferGeometry): BufferGeometry {
+  const flat = geometry.index ? geometry.toNonIndexed() : geometry
+  if (flat !== geometry) geometry.dispose()
+  if (!flat.getAttribute('normal')) flat.computeVertexNormals()
+  if (!flat.getAttribute('uv')) {
+    const count = flat.getAttribute('position').count
+    flat.setAttribute('uv', new Float32Array(count * 2) as unknown as never)
+  }
+  for (const name of Object.keys(flat.attributes)) {
+    if (name !== 'position' && name !== 'normal' && name !== 'uv') flat.deleteAttribute(name)
+  }
+  flat.clearGroups()
+  return flat
+}
+
+/** Merge parts into one geometry (rule 9). Disposes every input; throws rather than returning null. */
+function mergeParts(parts: BufferGeometry[], label: string): BufferGeometry {
+  const ready = parts.map(mergeReady)
+  if (ready.length === 1) return ready[0]!
+  const merged = mergeGeometries(ready, false)
+  for (const part of ready) part.dispose()
+  if (!merged) throw new Error(`f1-pit-board: failed to merge "${label}" (${ready.length} parts)`)
+  return merged
+}
+
+/** A chamfered block: `width` x `height` x `depth`, centred on the origin, depth along +Z (rules 1, 6, 7). */
+function bevelBox(width: number, height: number, depth: number, bevel: number): BufferGeometry {
+  const b = Math.max(0, Math.min(bevel, Math.min(width, height, depth) * 0.3))
+  const shape = new Shape()
+  const hw = Math.max(1e-4, width / 2 - b)
+  const hh = Math.max(1e-4, height / 2 - b)
+  shape.moveTo(-hw, -hh)
+  shape.lineTo(hw, -hh)
+  shape.lineTo(hw, hh)
+  shape.lineTo(-hw, hh)
+  shape.closePath()
+  const geo = new ExtrudeGeometry(shape, {
+    depth: Math.max(1e-4, depth - 2 * b),
+    bevelEnabled: b > 0,
+    bevelThickness: b,
+    bevelSize: b,
+    bevelOffset: 0,
+    bevelSegments: 1,
+    steps: 1,
+    curveSegments: 1,
+  })
+  geo.translate(0, 0, -(depth / 2 - b))
+  // ExtrudeGeometry output is non-indexed, so toCreasedNormals returns the same object and nothing leaks.
+  const creased = toCreasedNormals(geo, MathUtils.degToRad(50))
+  if (creased !== geo) geo.dispose()
+  return creased
+}
 
 export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance {
-  const config: F1PitBoardConfig = { rowCount: Math.max(1, Math.round(options.rowCount ?? defaults.rowCount)) }
+  const config: F1PitBoardConfig = {
+    rowCount: Math.min(6, Math.max(1, Math.round(options.rowCount ?? defaults.rowCount))),
+    cardsPerRow: Math.min(5, Math.max(1, Math.round(options.cardsPerRow ?? defaults.cardsPerRow))),
+  }
 
+  // Materials the model creates itself go in the bag and live for the model's lifetime. Materials handed
+  // in through `options` belong to the caller, never enter the bag, and are never disposed here (rule 16).
   const bag = new ResourceBag()
-  const poleMat = (options.materials?.pole ?? bag.mat(new MeshStandardMaterial({ color: 0x2a2e33, metalness: 0.5, roughness: 0.5 }))) as Material
-  const boardMat = (options.materials?.board ?? bag.mat(new MeshStandardMaterial({ color: 0x111417, metalness: 0.1, roughness: 0.8 }))) as Material
-  const rowMat = (options.materials?.row ?? bag.mat(new MeshStandardMaterial({ color: 0xffffff, metalness: 0.1, roughness: 0.7 }))) as Material
-  const materialSlots: Record<'pole' | 'board' | 'row', Material> = { pole: poleMat, board: boardMat, row: rowMat }
+  const materialSlots: Record<Slot, Material> = {
+    pole: options.materials?.pole ??
+      bag.mat(new MeshStandardMaterial({ color: 0x2a2e33, metalness: 0.5, roughness: 0.5 })),
+    board: options.materials?.board ??
+      bag.mat(new MeshStandardMaterial({ color: 0x111417, metalness: 0.1, roughness: 0.8 })),
+    card: options.materials?.card ??
+      bag.mat(new MeshStandardMaterial({ color: 0xf2f2f2, metalness: 0.05, roughness: 0.75 })),
+    rail: options.materials?.rail ??
+      bag.mat(new MeshStandardMaterial({ color: 0x3c4248, metalness: 0.65, roughness: 0.45 })),
+  }
 
+  // Runtime anchors: created once, never replaced (rules 10, 14).
   const root = new Group()
   root.name = 'f1-pit-board'
   const pole = new Group(); pole.name = 'pole'
@@ -57,44 +149,111 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
   const rows = new Group(); rows.name = 'rows'
   root.add(pole, board, rows)
 
-  // Track every mesh that uses a given material slot, so setMaterial can reassign all of them at once.
-  const meshesBySlot: Record<'pole' | 'board' | 'row', Mesh[]> = { pole: [], board: [], row: [] }
+  // Per-rebuild geometry ownership. Geometry is regenerated by configure(), so it is tracked here rather
+  // than in the bag — bagging it would grow the bag on every reconfigure and double-dispose the live set.
+  const generated: BufferGeometry[] = []
+  const meshesBySlot: Record<Slot, Mesh[]> = { pole: [], board: [], card: [], rail: [] }
 
-  const poleMesh = new Mesh(bag.geo(new CylinderGeometry(0.035, 0.045, 2.0, 10)), materialSlots.pole)
-  poleMesh.position.y = 1.0
-  poleMesh.castShadow = true
-  meshesBySlot.pole.push(poleMesh)
-  pole.add(poleMesh)
-
-  const boardMesh = new Mesh(bag.geo(new BoxGeometry(0.7, 1.0, 0.05)), materialSlots.board)
-  boardMesh.position.set(0, 1.7, 0)
-  boardMesh.castShadow = true
-  boardMesh.receiveShadow = true
-  meshesBySlot.board.push(boardMesh)
-  board.add(boardMesh)
-
-  // Rows are regenerated whenever rowCount changes; pole and board above are built once.
-  const clearRows = (): void => {
-    for (const object of rows.children) {
-      if (object instanceof Mesh) object.geometry.dispose()
-    }
-    rows.clear()
-    meshesBySlot.row.length = 0
+  const releaseGenerated = (): void => {
+    for (const group of [pole, board, rows]) group.clear()
+    for (const geometry of generated) geometry.dispose()
+    generated.length = 0
+    for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const rebuildRows = (): void => {
-    clearRows()
-    const top = 2.05 // matches the original 3-row layout's top row when rowCount === 3
-    const pitch = 0.3
-    for (let i = 0; i < config.rowCount; i++) {
-      const rowMesh = new Mesh(bag.geo(new BoxGeometry(0.5, 0.16, 0.02)), materialSlots.row)
-      rowMesh.position.set(0, top - i * pitch, 0.035)
-      rowMesh.castShadow = true
-      meshesBySlot.row.push(rowMesh)
-      rows.add(rowMesh)
-    }
+  /** One merged geometry per material slot, so there is exactly one mesh per slot and one draw call. */
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+    generated.push(geometry)
+    const mesh = new Mesh(geometry, materialSlots[slot])
+    mesh.name = name
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    meshesBySlot[slot].push(mesh)
+    group.add(mesh)
   }
-  rebuildRows()
+
+  const rebuild = (): void => {
+    releaseGenerated()
+    const { rowCount, cardsPerRow } = config
+
+    // --- Backing panel ------------------------------------------------------------------------------
+    const backing = bevelBox(BOARD_W, BOARD_H, BOARD_T, 0.008)
+    backing.translate(0, BOARD_Y, 0)
+    emit('board', backing, board, 'panel')
+
+    // --- Perimeter frame: the outline step that stops the panel reading as a bare slab ---------------
+    const railParts: BufferGeometry[] = []
+    for (const sy of [-1, 1] as const) {
+      const rail = bevelBox(BOARD_W, FRAME_W, BOARD_T + FRAME_PROUD, 0.005)
+      rail.translate(0, BOARD_Y + sy * (BOARD_H / 2 - FRAME_W / 2), FRAME_PROUD / 2)
+      railParts.push(rail)
+    }
+    for (const sx of [-1, 1] as const) {
+      const rail = bevelBox(FRAME_W, BOARD_H - FRAME_W * 2, BOARD_T + FRAME_PROUD, 0.005)
+      rail.translate(sx * (BOARD_W / 2 - FRAME_W / 2), BOARD_Y, FRAME_PROUD / 2)
+      railParts.push(rail)
+    }
+
+    // --- Rows of cards, each row slotted behind its own retaining rail -------------------------------
+    // The tray's usable field, inside the frame.
+    const fieldTop = BOARD_Y + BOARD_H / 2 - FRAME_W - 0.020
+    const fieldBottom = BOARD_Y - BOARD_H / 2 + FRAME_W + 0.020
+    const fieldH = fieldTop - fieldBottom
+    const fieldW = BOARD_W - FRAME_W * 2 - 0.040
+    const rowPitch = fieldH / rowCount
+    // Leave dark backing showing above, below and between the cards. Cards that fill the field turn the
+    // board into a lit window; the dark gutters are what make them read as separate slotted plates.
+    const cardH = rowPitch - 0.042
+    const cardGap = 0.028
+    const cardW = (fieldW - cardGap * (cardsPerRow - 1)) / cardsPerRow
+
+    const cardParts: BufferGeometry[] = []
+    for (let row = 0; row < rowCount; row++) {
+      // Rows are laid out from the field, so they can never fall off the board whatever rowCount is.
+      const y = fieldTop - rowPitch * (row + 0.5)
+      for (let card = 0; card < cardsPerRow; card++) {
+        const x = -fieldW / 2 + cardW / 2 + card * (cardW + cardGap)
+        const plate = bevelBox(cardW, cardH, 0.012, 0.003)
+        plate.translate(x, y, BOARD_T / 2 + 0.006)
+        cardParts.push(plate)
+      }
+
+      // Retaining rail under each row, standing proud so the cards visibly slot into a channel.
+      const channel = bevelBox(fieldW + 0.020, 0.016, 0.026, 0.004)
+      channel.translate(0, y - cardH / 2 - 0.008, BOARD_T / 2 + 0.013)
+      railParts.push(channel)
+    }
+    emit('card', mergeParts(cardParts, 'cards'), rows, 'cards')
+    emit('rail', mergeParts(railParts, 'rails'), board, 'frame')
+
+    // --- Handle: behind the panel, so it never crosses the card field --------------------------------
+    const poleParts: BufferGeometry[] = []
+    const shaftZ = -BOARD_T / 2 - 0.055
+    const shaft = new CylinderGeometry(0.021, 0.026, 1.72, 12)
+    shaft.translate(0, BOARD_Y - BOARD_H / 2 - 0.86 + 0.20, shaftZ)
+    poleParts.push(shaft)
+
+    // Swelled grip on the lower shaft, capped.
+    const grip = new CylinderGeometry(0.030, 0.030, 0.34, 12)
+    grip.translate(0, BOARD_Y - BOARD_H / 2 - 1.30, shaftZ)
+    poleParts.push(grip)
+    const cap = new CylinderGeometry(0.031, 0.026, 0.035, 12)
+    cap.translate(0, BOARD_Y - BOARD_H / 2 - 1.48, shaftZ)
+    poleParts.push(cap)
+
+    // Mounting bracket onto the panel back, plus a diagonal brace so the board is supported, not stuck on.
+    const bracket = bevelBox(0.10, 0.16, 0.055, 0.006)
+    bracket.translate(0, BOARD_Y - BOARD_H / 2 + 0.09, -BOARD_T / 2 - 0.028)
+    poleParts.push(bracket)
+
+    const brace = new CylinderGeometry(0.014, 0.014, 0.40, 10)
+    brace.rotateX(-Math.PI / 7)
+    brace.translate(0, BOARD_Y - 0.18, -BOARD_T / 2 - 0.105)
+    poleParts.push(brace)
+
+    emit('pole', mergeParts(poleParts, 'pole'), pole, 'handle')
+  }
+  rebuild()
 
   return {
     root,
@@ -102,16 +261,20 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
     materials: materialSlots,
     getConfig: () => ({ ...config }),
     configure(patch) {
-      if (patch.rowCount !== undefined) config.rowCount = Math.max(1, Math.round(patch.rowCount))
-      rebuildRows()
+      if (patch.rowCount !== undefined) config.rowCount = Math.min(6, Math.max(1, Math.round(patch.rowCount)))
+      if (patch.cardsPerRow !== undefined) {
+        config.cardsPerRow = Math.min(5, Math.max(1, Math.round(patch.cardsPerRow)))
+      }
+      rebuild()
     },
     setMaterial(slot, material) {
+      // One mesh per slot, so this is a direct reassignment with no rebuild.
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) mesh.material = material
     },
     update: () => {},
     dispose() {
-      clearRows()
+      releaseGenerated()
       bag.dispose()
       root.removeFromParent()
     },
