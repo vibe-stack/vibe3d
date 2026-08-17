@@ -1,41 +1,38 @@
 /**
- * Emissive lamp glass + the colours used when a prop actually lights the scene.
+ * Unlit lamp lenses — same contract as timing digits and the brake beacon.
  *
- * kit.red is painted equipment (extinguishers, Armco). Start/flood lamps that should glow cannot share
- * that slot — ACES turns a MeshBasic red into peach, and a non-emissive Standard disc never spills.
+ * MeshPhysicalMaterial picked up specular hot spots from the preview rig's directionals
+ * (white pinprick in the center of every disc). MeshBasic + toneMapped:false gives a
+ * uniform emissive read with no studio specular.
+ *
+ * kit.red is painted equipment (extinguishers, Armco). Start/flood lamps that glow use
+ * this helper, not the kit.red slot.
  */
 
-import { MeshPhysicalMaterial } from 'three/webgpu'
+import { MeshBasicMaterial } from 'three/webgpu'
 
 export interface F1LampMaterialOptions {
   readonly on: boolean
   /** Lit colour. Defaults to FIA start-light red. */
   readonly color?: number
   readonly name?: string
-  /** White flood lenses want a hotter emissive than a start lamp. */
+  /** White flood lenses — kept for API compat; MeshBasic uses color directly. */
   readonly intensity?: number
 }
 
-export function createLampMaterial(options: F1LampMaterialOptions): MeshPhysicalMaterial {
+export function createLampMaterial(options: F1LampMaterialOptions): MeshBasicMaterial {
   const color = options.color ?? 0xc41820
   const name = options.name ?? (options.on ? 'f1-kit / lamp on' : 'f1-kit / lamp off')
   if (!options.on) {
-    return new MeshPhysicalMaterial({
+    return new MeshBasicMaterial({
       name,
       color: 0x140808,
-      emissive: 0x000000,
-      emissiveIntensity: 0,
-      roughness: 0.2,
-      metalness: 0.22,
+      toneMapped: false,
     })
   }
-  return new MeshPhysicalMaterial({
+  return new MeshBasicMaterial({
     name,
-    color: 0x120404,
-    emissive: color,
-    emissiveIntensity: options.intensity ?? 1.35,
-    roughness: 0.18,
-    metalness: 0.04,
+    color,
     toneMapped: false,
   })
 }
