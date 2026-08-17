@@ -13,12 +13,10 @@
 import {
   BufferGeometry,
   CatmullRomCurve3,
-  CylinderGeometry,
   ExtrudeGeometry,
   Group,
   MathUtils,
   Mesh,
-  MeshStandardMaterial,
   Path,
   Shape,
   TubeGeometry,
@@ -27,12 +25,18 @@ import {
 } from 'three/webgpu'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
-import { createF1Preview } from '../f1-kit-core/preview.ts'
-import { TOKEN, shade } from '../f1-kit-core/palette.ts'
-import { bevelBox } from '../f1-kit-core/bevel.ts'
-import { mergeParts } from '../f1-kit-core/merge.ts'
-import { taperedTube } from '../f1-kit-core/sculpt.ts'
-import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
+import {
+  AXIS_X,
+  acquireF1Materials,
+  bevelBox,
+  bolt,
+  createF1Preview,
+  disposeF1Materials,
+  groundPad,
+  mergeParts,
+  taperedTube,
+  tubeSection,
+} from '../f1-kit-core/index.ts'
 
 type Slot = 'accent' | 'stand' | 'hose' | 'metal'
 
@@ -156,19 +160,13 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     layers: Math.max(1, Math.round(options.layers ?? defaults.layers)),
   }
 
-  // Materials the model creates itself go in the bag and are disposed with it. Materials handed in
-  // through `options` belong to the caller, never enter the bag, and are never disposed here (rule 16).
-  const bag = new ResourceBag()
+  const bundle = acquireF1Materials()
+  const kit = bundle.materials
   const materialSlots: Record<Slot, Material> = {
-    // Amber flanges — generic hazard-equipment colour, not team branding.
-    accent: options.materials?.accent ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.AMBER_400, roughness: 0.5, metalness: 0.3 })),
-    stand: options.materials?.stand ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.GRAPHITE_800, 0.12), roughness: 0.5, metalness: 0.6 })),
-    hose: options.materials?.hose ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.05), roughness: 0.85, metalness: 0 })),
-    metal: options.materials?.metal ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SHELL_200, -0.18), roughness: 0.3, metalness: 0.85 })),
+    accent: options.materials?.accent ?? kit.amber,
+    stand: options.materials?.stand ?? kit.graphite,
+    hose: options.materials?.hose ?? kit.ink,
+    metal: options.materials?.metal ?? kit.steel,
   }
 
   // Runtime anchors: created once, never replaced, so consumer attachments survive a rebuild (rules 10, 14).
@@ -237,25 +235,19 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     const standParts: BufferGeometry[] = []
     const metalParts: BufferGeometry[] = []
 
-    const barrel = new CylinderGeometry(R_BARREL, R_BARREL, HALF_SPAN * 2 + 0.02, 26)
-    barrel.rotateZ(Math.PI / 2)
-    barrel.translate(0, AXLE_Y, 0)
-    standParts.push(barrel)
+    standParts.push(tubeSection(R_BARREL, HALF_SPAN * 2 + 0.02, [0, AXLE_Y, 0], AXIS_X, 26))
 
     for (const sx of [-1, 1] as const) {
       // Hub boss standing proud of the flange, so the axle line reads from the side.
-      const boss = new CylinderGeometry(0.055, 0.055, 0.030, 20)
-      boss.rotateZ(Math.PI / 2)
-      boss.translate(sx * (X_FLANGE + 0.015), AXLE_Y, 0)
-      standParts.push(boss)
+      standParts.push(tubeSection(0.055, 0.030, [sx * (X_FLANGE + 0.015), AXLE_Y, 0], AXIS_X, 20))
 
       // Four hex fasteners on the outboard face of each hub.
       for (let i = 0; i < 4; i++) {
         const a = (i / 4) * Math.PI * 2 + Math.PI / 4
-        const bolt = new CylinderGeometry(0.012, 0.012, 0.016, 6)
-        bolt.rotateZ(Math.PI / 2)
-        bolt.translate(sx * (X_FLANGE + 0.022), AXLE_Y + Math.sin(a) * 0.075, Math.cos(a) * 0.075)
-        metalParts.push(bolt)
+        metalParts.push(bolt(
+          [sx * (X_FLANGE + 0.022), AXLE_Y + Math.sin(a) * 0.075, Math.cos(a) * 0.075],
+          0.012, 0.016, AXIS_X,
+        ))
       }
     }
 
@@ -271,25 +263,20 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     arm.translate(crankX, AXLE_Y + throwY / 2, 0)
     metalParts.push(arm)
 
-    const grip = new CylinderGeometry(0.018, 0.018, 0.095, 12)
-    grip.rotateZ(Math.PI / 2)
-    grip.translate(crankX + 0.062, AXLE_Y + throwY, 0)
-    standParts.push(grip)
+    standParts.push(tubeSection(0.018, 0.095, [crankX + 0.062, AXLE_Y + throwY, 0], AXIS_X, 12))
 
     for (const dx of [0.008, 0.116]) {
-      const collar = new CylinderGeometry(0.022, 0.022, 0.008, 14)
-      collar.rotateZ(Math.PI / 2)
-      collar.translate(crankX + dx, AXLE_Y + throwY, 0)
-      metalParts.push(collar)
+      metalParts.push(tubeSection(0.022, 0.008, [crankX + dx, AXLE_Y + throwY, 0], AXIS_X, 14))
     }
 
     // Guide roller pair forming the nip the lead hose passes through, at the drum's front quarter.
     // Axes run parallel to the drum axle, as a real hose guide's do.
     for (const sz of [-1, 1] as const) {
-      const roller = new CylinderGeometry(0.015, 0.015, 0.048, 14)
-      roller.rotateZ(Math.PI / 2)
-      roller.translate(0, AXLE_Y + rOuter * 0.86 + sz * 0.005, 0.205 + sz * 0.026)
-      metalParts.push(roller)
+      metalParts.push(tubeSection(
+        0.015, 0.048,
+        [0, AXLE_Y + rOuter * 0.86 + sz * 0.005, 0.205 + sz * 0.026],
+        AXIS_X, 14,
+      ))
     }
 
     // --- Stand: one bent tube, the way a real reel frame is made ------------------------------------
@@ -322,21 +309,17 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
       ], 0.017, 12))
 
       // Bearing boss where the axle passes through the upright — the axle story the frame needs.
-      const bearing = new CylinderGeometry(0.032, 0.032, 0.034, 18)
-      bearing.rotateZ(Math.PI / 2)
-      bearing.translate(sx * (upright - 0.016), AXLE_Y, 0)
-      standParts.push(bearing)
+      standParts.push(tubeSection(0.032, 0.034, [sx * (upright - 0.016), AXLE_Y, 0], AXIS_X, 18))
 
       // Axle stub spanning from the hub out to its bearing.
-      const stub = new CylinderGeometry(0.019, 0.019, upright - X_FLANGE, 14)
-      stub.rotateZ(Math.PI / 2)
-      stub.translate(sx * (X_FLANGE + (upright - X_FLANGE) / 2), AXLE_Y, 0)
-      standParts.push(stub)
+      standParts.push(tubeSection(
+        0.019, upright - X_FLANGE,
+        [sx * (X_FLANGE + (upright - X_FLANGE) / 2), AXLE_Y, 0],
+        AXIS_X, 14,
+      ))
 
       for (const sz of [-1, 1] as const) {
-        const pad = bevelBox(0.070, 0.018, 0.060, 0.004)
-        pad.translate(sx * upright, 0.011, sz * 0.255)
-        standParts.push(pad)
+        standParts.push(groundPad([0.070, 0.060], [sx * upright, 0.002, sz * 0.255], 0.018))
       }
     }
 
@@ -363,7 +346,7 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     update: () => {},
     dispose() {
       releaseGenerated()
-      bag.dispose()
+      disposeF1Materials(bundle)
       root.removeFromParent()
     },
   }

@@ -1,9 +1,10 @@
-// f1-gun-rack — a tubular A-frame rack holding idle `f1-pit-wheel-gun` instances, sockets down. Depends on
-// `f1-pit-wheel-gun` for the individual guns, matching the kit's registry-dependency pattern for props
-// composed from other props. Ported from a private racing project's pit-box garage dressing.
+// f1-gun-rack — a tubular A-frame rack holding idle `f1-pit-wheel-gun` instances, sockets down. Depends
+// on `f1-pit-wheel-gun` for the individual guns, matching the kit's registry-dependency pattern for
+// props composed from other props. One shared gun material set is owned here so recolouring the rack
+// recolours every hanging gun.
 
 import {
-  CylinderGeometry,
+  BufferGeometry,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -11,11 +12,19 @@ import {
   type Material,
 } from 'three/webgpu'
 
-import { createF1Preview } from '../f1-kit-core/preview.ts'
-import { TOKEN, shade } from '../f1-kit-core/palette.ts'
-import { taperedTube } from '../f1-kit-core/sculpt.ts'
-import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
+import {
+  AXIS_X,
+  acquireF1Materials,
+  createF1Preview,
+  disposeF1Materials,
+  groundPad,
+  mergeParts,
+  taperedTube,
+  tubeSection,
+} from '../f1-kit-core/index.ts'
 import { createModel as createGun, type F1PitWheelGunInstance } from '../f1-pit-wheel-gun/model.ts'
+
+type Slot = 'frame'
 
 export interface F1GunRackConfig {
   /** Number of guns hanging on the rack. */
@@ -25,16 +34,16 @@ export interface F1GunRackConfig {
 }
 
 export interface F1GunRackOptions extends Partial<F1GunRackConfig> {
-  materials?: Partial<Record<'frame', Material>>
+  materials?: Partial<Record<Slot, Material>>
 }
 
 export interface F1GunRackInstance {
   readonly root: Group
   readonly parts: { frame: Group; guns: Group }
-  readonly materials: Readonly<Record<'frame', Material>>
+  readonly materials: Readonly<Record<Slot, Material>>
   getConfig(): Readonly<F1GunRackConfig>
   configure(patch: Partial<F1GunRackConfig>): void
-  setMaterial(slot: 'frame', material: Material): void
+  setMaterial(slot: Slot, material: Material): void
   update(deltaSeconds: number): void
   dispose(): void
 }
@@ -50,9 +59,25 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
     accentColor: options.accentColor ?? defaults.accentColor,
   }
 
-  const bag = new ResourceBag()
-  const frame = (options.materials?.frame ?? bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, -0.2), roughness: 0.7, metalness: 0.5 }))) as Material
-  const materialSlots: Record<'frame', Material> = { frame }
+  const bundle = acquireF1Materials()
+  const kit = bundle.materials
+  const extras: Material[] = []
+  const own = (material: Material): Material => {
+    extras.push(material)
+    return material
+  }
+  const materialSlots: Record<Slot, Material> = {
+    frame: options.materials?.frame ?? kit.slate,
+  }
+  const gunAccent = own(kit.orange.clone()) as MeshStandardMaterial
+  gunAccent.color.set(config.accentColor)
+  const gunMaterials = {
+    gunmetal: kit.slate,
+    steel: kit.steel,
+    gripRubber: kit.ink,
+    accent: gunAccent,
+    led: kit.cyan,
+  }
 
   const root = new Group()
   root.name = 'f1-gun-rack'
@@ -60,25 +85,42 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
   const gunsGroup = new Group(); gunsGroup.name = 'guns'
   root.add(frameGroup, gunsGroup)
 
-  // Two A-legs + a top rail — static, built once (the frame's size isn't reconfigured, only gun count).
-  for (const sx of [-1, 1] as const) {
-    const leg = new Mesh(bag.geo(taperedTube([
-      new Vector3(sx * (W / 2 + 0.18), 0, 0.16),
-      new Vector3(sx * (W / 2), H, 0),
-      new Vector3(sx * (W / 2 + 0.18), 0, -0.16),
-    ], 0.035, 8)), frame)
-    frameGroup.add(leg)
-  }
-  const rail = new Mesh(bag.geo(new CylinderGeometry(0.035, 0.035, W, 10)), frame)
-  rail.rotation.z = Math.PI / 2
-  rail.position.y = H
-  frameGroup.add(rail)
-
-  // Shared accent material handed to every gun instance, owned here so recolouring the rack recolours
-  // every hanging gun in one place.
-  const gunAccent = bag.mat(new MeshStandardMaterial({ color: config.accentColor, metalness: 0.2, roughness: 0.5 }))
-
+  const generated: BufferGeometry[] = []
+  const meshesBySlot: Record<Slot, Mesh[]> = { frame: [] }
   let guns: F1PitWheelGunInstance[] = []
+
+  const releaseFrame = (): void => {
+    frameGroup.clear()
+    for (const geometry of generated) geometry.dispose()
+    generated.length = 0
+    meshesBySlot.frame.length = 0
+  }
+
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+    generated.push(geometry)
+    const mesh = new Mesh(geometry, materialSlots[slot])
+    mesh.name = name
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    meshesBySlot[slot].push(mesh)
+    group.add(mesh)
+  }
+
+  const buildFrame = (): void => {
+    releaseFrame()
+    const parts: BufferGeometry[] = []
+    for (const sx of [-1, 1] as const) {
+      parts.push(taperedTube([
+        new Vector3(sx * (W / 2 + 0.18), 0.02, 0.16),
+        new Vector3(sx * (W / 2), H, 0),
+        new Vector3(sx * (W / 2 + 0.18), 0.02, -0.16),
+      ], 0.035, 8))
+      parts.push(groundPad([0.12, 0.10], [sx * (W / 2 + 0.18), 0, 0.16], 0.024))
+      parts.push(groundPad([0.12, 0.10], [sx * (W / 2 + 0.18), 0, -0.16], 0.024))
+    }
+    parts.push(tubeSection(0.035, W, [0, H, 0], AXIS_X, 10))
+    emit('frame', mergeParts(parts, 'frame'), frameGroup, 'frame')
+  }
 
   const clearGuns = (): void => {
     for (const gun of guns) gun.dispose()
@@ -89,15 +131,16 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
     clearGuns()
     const { count } = config
     for (let i = 0; i < count; i++) {
-      const gun = createGun({ materials: { accent: gunAccent } })
-      const x = (i / Math.max(1, count - 1) - 0.5) * (W * 0.7)
+      const gun = createGun({ materials: gunMaterials })
+      const x = count <= 1 ? 0 : (i / (count - 1) - 0.5) * (W * 0.7)
       gun.root.position.set(x, H - 0.12, 0)
-      gun.root.rotation.z = -Math.PI / 2 // socket points down, hanging from the rail
+      gun.root.rotation.z = -Math.PI / 2
       gun.root.scale.setScalar(0.9)
       gunsGroup.add(gun.root)
       guns.push(gun)
     }
   }
+  buildFrame()
   rebuild()
 
   return {
@@ -107,19 +150,24 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
     getConfig: () => ({ ...config }),
     configure(patch) {
       if (patch.count !== undefined) config.count = Math.max(1, Math.round(patch.count))
-      if (patch.accentColor !== undefined) { config.accentColor = patch.accentColor; gunAccent.color.set(patch.accentColor) }
+      if (patch.accentColor !== undefined) {
+        config.accentColor = patch.accentColor
+        gunAccent.color.set(patch.accentColor)
+      }
       rebuild()
     },
     setMaterial(slot, material) {
       materialSlots[slot] = material
-      frameGroup.traverse((o) => { if (o instanceof Mesh) o.material = material })
+      for (const mesh of meshesBySlot[slot]) mesh.material = material
     },
     update(deltaSeconds) {
       for (const gun of guns) gun.update(deltaSeconds)
     },
     dispose() {
       clearGuns()
-      bag.dispose()
+      releaseFrame()
+      disposeF1Materials(bundle)
+      for (const material of extras) material.dispose()
       root.removeFromParent()
     },
   }

@@ -12,8 +12,10 @@ import {
   BufferGeometry,
   CylinderGeometry,
   Group,
+  InstancedMesh,
   LatheGeometry,
   MathUtils,
+  Matrix4,
   Mesh,
   MeshStandardMaterial,
   Vector2,
@@ -21,12 +23,16 @@ import {
   type Material,
 } from 'three/webgpu'
 
-import { createF1Preview } from '../f1-kit-core/preview.ts'
-import { TOKEN, shade } from '../f1-kit-core/palette.ts'
-import { bevelBox } from '../f1-kit-core/bevel.ts'
-import { creased, mergeParts } from '../f1-kit-core/merge.ts'
-import { taperedTube } from '../f1-kit-core/sculpt.ts'
-import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
+import {
+  acquireF1Materials,
+  bevelBox,
+  createF1Preview,
+  creased,
+  disposeF1Materials,
+  mergeParts,
+  taperedTube,
+  wrapStrap,
+} from '../f1-kit-core/index.ts'
 import {
   createModel as createWheel,
   type F1Compound,
@@ -130,17 +136,17 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
     accentColor: options.accentColor ?? defaults.accentColor,
   }
 
-  // Materials the model creates itself go in the bag. Materials handed in through `options` belong to the
-  // caller, never enter the bag, and are never disposed here (rule 16).
-  const bag = new ResourceBag()
+  const bundle = acquireF1Materials()
+  const kit = bundle.materials
+  const extras: Material[] = []
+  const own = (material: Material): Material => {
+    extras.push(material)
+    return material
+  }
   const materialSlots: Record<Slot, Material> = {
-    // Warmer blankets are dark quilted fabric — a light value here reads as smooth moulded plastic.
-    blanket: options.materials?.blanket ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.GRAPHITE_800, -0.35), roughness: 0.95, metalness: 0.0 })),
-    strap: options.materials?.strap ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.GRAPHITE_800, -0.1), roughness: 0.8, metalness: 0.1 })),
-    cable: options.materials?.cable ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.05), roughness: 0.9, metalness: 0.0 })),
+    blanket: options.materials?.blanket ?? kit.fabric,
+    strap: options.materials?.strap ?? kit.graphite,
+    cable: options.materials?.cable ?? kit.ink,
   }
 
   // Runtime anchors: created once, never replaced (rules 10, 14).
@@ -154,16 +160,17 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
   // Shared cover/accent materials handed to every tyre instance (one pair, not one per tyre) — owned here
   // so recolouring the stack recolours every tyre in one place. The children treat these as
   // consumer-supplied and never dispose them, so ownership stays here (rule 16).
-  const tyreCover = bag.mat(new MeshStandardMaterial({ color: config.coverColor, roughness: 0.4, metalness: 0.2 }))
-  const tyreAccent = bag.mat(new MeshStandardMaterial({ color: config.accentColor, roughness: 0.5, metalness: 0.1 }))
+  const tyreCover = own(new MeshStandardMaterial({ color: config.coverColor, roughness: 0.4, metalness: 0.2 })) as MeshStandardMaterial
+  const tyreAccent = own(new MeshStandardMaterial({ color: config.accentColor, roughness: 0.5, metalness: 0.1 })) as MeshStandardMaterial
 
-  let wheels: F1WheelAssemblyInstance[] = []
+  let prototype: F1WheelAssemblyInstance | null = null
   const generated: BufferGeometry[] = []
   const meshesBySlot: Record<Slot, Mesh[]> = { blanket: [], strap: [], cable: [] }
 
   const releaseGenerated = (): void => {
-    for (const wheel of wheels) wheel.dispose()
-    wheels = []
+    tyresGroup.clear()
+    prototype?.dispose()
+    prototype = null
     blanketGroup.clear()
     cableGroup.clear()
     for (const geometry of generated) geometry.dispose()
@@ -186,17 +193,32 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
     const { count, compound } = config
 
     // --- The tyres themselves ------------------------------------------------------------------------
-    for (let i = 0; i < count; i++) {
-      const wheel = createWheel({
-        compound,
-        treadSegments: STACK_TREAD_SEGMENTS,
-        materials: { cover: tyreCover, accent: tyreAccent },
-      })
-      wheel.root.rotation.x = Math.PI / 2 // axle Z -> vertical, so the tyre lies flat
-      wheel.root.position.y = R + i * TH
-      tyresGroup.add(wheel.root)
-      wheels.push(wheel)
-    }
+    // One wheel geometry set, drawn `count` times via InstancedMesh. GPU buffers exist once; dispose
+    // runs once on the prototype. The prototype root stays off-scene so its meshes are not extra draws.
+    prototype = createWheel({
+      compound,
+      treadSegments: STACK_TREAD_SEGMENTS,
+      materials: { cover: tyreCover, accent: tyreAccent },
+    })
+    prototype.root.updateMatrixWorld(true)
+    const pose = new Matrix4()
+    const composed = new Matrix4()
+    prototype.root.traverse((object) => {
+      const mesh = object as Mesh
+      if (!mesh.isMesh) return
+      const instanced = new InstancedMesh(mesh.geometry, mesh.material, count)
+      instanced.name = mesh.name
+      instanced.castShadow = true
+      instanced.receiveShadow = true
+      for (let i = 0; i < count; i++) {
+        pose.makeRotationX(Math.PI / 2)
+        pose.setPosition(0, R + i * TH, 0)
+        composed.copy(pose).multiply(mesh.matrixWorld)
+        instanced.setMatrixAt(i, composed)
+      }
+      instanced.instanceMatrix.needsUpdate = true
+      tyresGroup.add(instanced)
+    })
 
     // The blanket covers every course except the bottom one, so the tyres it wraps still read as tyres.
     // The wrap starts at the seam above the exposed bottom tyre and ends past the top tyre's outer face,
@@ -287,11 +309,7 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
       // Cinched over the bulge, not sunk in the valley: a strap tucked below the widest point is hidden
       // by the course above it and reads as a painted ring rather than a band round the outside.
       // Flat webbing sitting in the cinched waist, standing ~0.016 m proud of the fabric it compresses.
-      strapParts.push(latheY([
-        [rPinch - 0.004, y - 0.030], [rPinch + 0.016, y - 0.024],
-        [rPinch + 0.016, y + 0.024], [rPinch - 0.004, y + 0.030],
-        [rPinch - 0.004, y - 0.030],
-      ], 40))
+      strapParts.push(wrapStrap(rPinch - 0.004, [0, y, 0], 0.060, 0.020, 40))
 
       const buckle = bevelBox(0.060, 0.050, 0.022, 0.004)
       buckle.rotateY(Math.PI / 2) // face the buckle outward before the azimuth places it
@@ -347,7 +365,8 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
     update: () => {},
     dispose() {
       releaseGenerated()
-      bag.dispose()
+      disposeF1Materials(bundle)
+      for (const material of extras) material.dispose()
       root.removeFromParent()
     },
   }

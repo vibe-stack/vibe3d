@@ -168,6 +168,13 @@ describe('material slots', () => {
     shared.dispose()
   })
 
+  test('a single gun hangs on the rail centre', () => {
+    const rack = createGunRack({ count: 1 })
+    expect(rack.parts.guns.children).toHaveLength(1)
+    expect(rack.parts.guns.children[0]!.position.x).toBeCloseTo(0, 5)
+    rack.dispose()
+  })
+
   test('a stack owns the cover/accent materials it shares across its child wheels', () => {
     // Four children share one pair of materials. If the children disposed them, the pair would be
     // disposed four times over and the siblings would be rendering freed materials.

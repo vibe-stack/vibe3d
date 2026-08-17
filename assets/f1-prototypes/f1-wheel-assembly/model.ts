@@ -26,11 +26,18 @@ import {
   type Material,
 } from 'three/webgpu'
 
-import { createF1Preview } from '../f1-kit-core/preview.ts'
-import { COMPOUND_TOKEN, TOKEN, shade, type Compound } from '../f1-kit-core/palette.ts'
-import { arcBand, bevelBlade } from '../f1-kit-core/bevel.ts'
-import { creased, mergeParts } from '../f1-kit-core/merge.ts'
-import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
+import {
+  COMPOUND_TOKEN,
+  acquireF1Materials,
+  arcBand,
+  bevelBlade,
+  createCompoundMaterial,
+  createF1Preview,
+  creased,
+  disposeF1Materials,
+  mergeParts,
+  type Compound,
+} from '../f1-kit-core/index.ts'
 
 type Slot = 'rubber' | 'tread' | 'rim' | 'metal' | 'cover' | 'accent' | 'band'
 
@@ -245,32 +252,26 @@ export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemb
     treadSegments: Math.max(8, Math.round(options.treadSegments ?? defaults.treadSegments)),
   }
 
-  // Materials the model creates itself go in the bag and are disposed with it. Materials handed in through
-  // `options` belong to the caller, never enter the bag, and are never disposed or mutated here (rule 16).
-  const bag = new ResourceBag()
+  const bundle = acquireF1Materials()
+  const kit = bundle.materials
   const ownsBand = options.materials?.band === undefined
+  const extras: Material[] = []
+  const own = (material: Material): Material => {
+    extras.push(material)
+    return material
+  }
 
   const materialSlots: Record<Slot, Material> = {
-    rubber: options.materials?.rubber ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, -0.15), roughness: 0.98, metalness: 0.0 })),
-    tread: options.materials?.tread ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.08), roughness: 0.72, metalness: 0.0 })),
+    rubber: options.materials?.rubber ?? kit.ink,
+    tread: options.materials?.tread ?? kit.tread,
     // Forged F1 wheels are anodised satin black, not chrome — the bright metal on the wheel is confined
     // to the machined centre nut, which is what gives the hub its single hard highlight.
-    rim: options.materials?.rim ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.GRAPHITE_800, roughness: 0.42, metalness: 0.65 })),
-    metal: options.materials?.metal ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SHELL_200, -0.12), roughness: 0.28, metalness: 0.9 })),
-    cover: options.materials?.cover ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, -0.2), roughness: 0.4, metalness: 0.2 })),
-    // The rim pinstripe stays a dark machined tone by default. The kit's lime livery accent reads as a
-    // second saturated marking here, and on a tyre the only saturated colour that means anything is the
-    // compound grading — a lime ring on a white-walled hard makes it look like two compounds at once.
-    // Still a real slot: a consumer wanting a team edge can tint it.
-    accent: options.materials?.accent ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.SLATE_650, roughness: 0.38, metalness: 0.7 })),
-    band: options.materials?.band ??
-      bag.mat(new MeshStandardMaterial({ color: config.band, roughness: 0.6, metalness: 0.0 })),
+    rim: options.materials?.rim ?? kit.graphite,
+    metal: options.materials?.metal ?? kit.steel,
+    // Cover is a darker machined dish than the rim barrel; clone so setMaterial('cover') cannot retarget rim.
+    cover: options.materials?.cover ?? own(kit.graphite.clone()),
+    accent: options.materials?.accent ?? kit.slate,
+    band: options.materials?.band ?? own(createCompoundMaterial(config.compound)),
   }
 
   // Runtime anchors: created once, never replaced, so consumer attachments survive a rebuild (rules 10, 14).
@@ -508,7 +509,8 @@ export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemb
     update: () => {},
     dispose() {
       releaseGenerated()
-      bag.dispose()
+      disposeF1Materials(bundle)
+      for (const material of extras) material.dispose()
       root.removeFromParent()
     },
   }

@@ -24,12 +24,17 @@ import {
 } from 'three/webgpu'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
-import { createF1Preview } from '../f1-kit-core/preview.ts'
-import { TOKEN, shade } from '../f1-kit-core/palette.ts'
-import { bevelBox } from '../f1-kit-core/bevel.ts'
-import { mergeParts } from '../f1-kit-core/merge.ts'
-import { ovalTube } from '../f1-kit-core/primitives.ts'
-import { ResourceBag, clamp01 } from '../f1-kit-core/resourceBag.ts'
+import {
+  AXIS_X,
+  acquireF1Materials,
+  bevelBox,
+  clamp01,
+  createF1Preview,
+  disposeF1Materials,
+  mergeParts,
+  ovalTube,
+  tubeSection,
+} from '../f1-kit-core/index.ts'
 
 type Slot = 'gunmetal' | 'steel' | 'gripRubber' | 'accent' | 'led'
 
@@ -103,7 +108,7 @@ function hexSocket(acrossFlats: number, bore: number, depth: number): BufferGeom
   return creased
 }
 
-/** A cylinder laid along the tool axis (+X). */
+/** A tapered cylinder laid along the tool axis (+X). Equal-radius barrels use tubeSection. */
 function axial(rTop: number, rBottom: number, length: number, x: number, radial = 20): BufferGeometry {
   const geo = new CylinderGeometry(rTop, rBottom, length, radial)
   geo.rotateZ(Math.PI / 2)
@@ -117,25 +122,15 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
     spinning: options.spinning ?? defaults.spinning,
   }
 
-  // Materials the model creates itself go in the bag and live for the model's lifetime. Materials handed
-  // in through `options` belong to the caller, never enter the bag, and are never disposed or mutated
-  // here (rule 16) — hence `ownsLed`, which gates the running-state emissive change.
-  const bag = new ResourceBag()
+  const bundle = acquireF1Materials()
+  const kit = bundle.materials
   const ownsLed = options.materials?.led === undefined
   const materialSlots: Record<Slot, Material> = {
-    gunmetal: options.materials?.gunmetal ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, -0.2), metalness: 0.75, roughness: 0.45 })),
-    steel: options.materials?.steel ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SHELL_200, -0.12), metalness: 0.85, roughness: 0.3 })),
-    gripRubber: options.materials?.gripRubber ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.03), metalness: 0.0, roughness: 0.95 })),
-    accent: options.materials?.accent ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.ORANGE_500, metalness: 0.2, roughness: 0.5 })),
-    // Status LED — the only emissive part, unlit-bright via toneMapped:false so it glows through the tone map.
-    led: options.materials?.led ??
-      bag.mat(new MeshStandardMaterial({
-        color: shade(TOKEN.INK_950, -0.4), emissive: TOKEN.CYAN_400, emissiveIntensity: 0.25, toneMapped: false,
-      })),
+    gunmetal: options.materials?.gunmetal ?? kit.slate,
+    steel: options.materials?.steel ?? kit.steel,
+    gripRubber: options.materials?.gripRubber ?? kit.ink,
+    accent: options.materials?.accent ?? kit.orange,
+    led: options.materials?.led ?? kit.cyan,
   }
 
   // Runtime anchors: created once, never replaced (rules 10, 14). `body` slides on engage; `spinner`
@@ -177,13 +172,13 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
 
     // --- Motor barrel: the volume behind the grip that makes this read as a machine -----------------
     const gunmetalParts: BufferGeometry[] = [
-      axial(0.055, 0.055, 0.20, -0.020),   // motor housing
-      axial(0.045, 0.045, 0.10, -0.170),   // exhaust / regulator tail, behind the grip
+      tubeSection(0.055, 0.20, [-0.020, 0, 0], AXIS_X, 20),   // motor housing
+      tubeSection(0.045, 0.10, [-0.170, 0, 0], AXIS_X, 20),   // exhaust / regulator tail, behind the grip
       axial(0.052, 0.048, 0.018, -0.229),  // end plate
       axial(0.050, 0.055, 0.030, 0.093),   // shoulder into the nose
     ]
     // Regulator dial on the tail, and a hanging lug on the crown.
-    const dial = axial(0.024, 0.024, 0.016, -0.238, 14)
+    const dial = tubeSection(0.024, 0.016, [-0.238, 0, 0], AXIS_X, 14)
     gunmetalParts.push(dial)
     const lug = bevelBox(0.040, 0.028, 0.014, 0.003)
     lug.translate(-0.10, 0.062, 0)
@@ -191,7 +186,7 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
     // --- Nose: bearing housing, static, ahead of the barrel -----------------------------------------
-    const steelParts: BufferGeometry[] = [axial(0.045, 0.045, 0.050, 0.118)]
+    const steelParts: BufferGeometry[] = [tubeSection(0.045, 0.050, [0.118, 0, 0], AXIS_X, 20)]
     emit('steel', mergeParts(steelParts, 'nose'), body, 'nose')
 
     // --- Grip and trigger ----------------------------------------------------------------------------
@@ -220,7 +215,7 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
     inletCollar.translate(-0.030, -0.279, 0)
     accentParts.push(inletCollar)
     // Accent collar band near the front of the barrel.
-    accentParts.push(axial(0.0575, 0.0575, 0.022, 0.062, 24))
+    accentParts.push(tubeSection(0.0575, 0.022, [0.062, 0, 0], AXIS_X, 24))
     emit('accent', mergeParts(accentParts, 'accent'), body, 'accent')
 
     const hose = ovalTube([
@@ -240,7 +235,7 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
     const spinnerParts: BufferGeometry[] = [
       // The anvil runs back into the bearing housing rather than butting against its face — meeting it
       // flush leaves a hairline coplanar seam that z-fights and reads as two unrelated parts.
-      axial(0.022, 0.022, 0.070, 0.152, 16),
+      tubeSection(0.022, 0.070, [0.152, 0, 0], AXIS_X, 16),
       hexSocket(0.130, 0.086, 0.120),                  // socket, authored at the origin
     ]
     spinnerParts[1]!.translate(0.248, 0, 0)
@@ -279,7 +274,7 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
     },
     dispose() {
       releaseGenerated()
-      bag.dispose()
+      disposeF1Materials(bundle)
       root.removeFromParent()
     },
   }

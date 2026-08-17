@@ -12,15 +12,18 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  MeshStandardMaterial,
   type Material,
 } from 'three/webgpu'
 
-import { createF1Preview } from '../f1-kit-core/preview.ts'
-import { TOKEN, shade } from '../f1-kit-core/palette.ts'
-import { bevelBox, bevelDisc as disc, bevelRing as ring } from '../f1-kit-core/bevel.ts'
-import { mergeParts } from '../f1-kit-core/merge.ts'
-import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
+import {
+  acquireF1Materials,
+  bevelBox,
+  bevelDisc as disc,
+  bevelRing as ring,
+  createF1Preview,
+  disposeF1Materials,
+  mergeParts,
+} from '../f1-kit-core/index.ts'
 
 type Slot = 'pole' | 'paddle' | 'legend'
 
@@ -59,16 +62,12 @@ export function createModel(options: F1LollipopBoardOptions = {}): F1LollipopBoa
     height: Math.max(0.8, options.height ?? defaults.height),
   }
 
-  // Materials the model creates itself go in the bag and live for the model's lifetime. Materials handed
-  // in through `options` belong to the caller, never enter the bag, and are never disposed here (rule 16).
-  const bag = new ResourceBag()
+  const bundle = acquireF1Materials()
+  const m = bundle.materials
   const materialSlots: Record<Slot, Material> = {
-    pole: options.materials?.pole ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SHELL_200, -0.12), metalness: 0.55, roughness: 0.4 })),
-    paddle: options.materials?.paddle ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.AMBER_400, metalness: 0.0, roughness: 0.62 })),
-    legend: options.materials?.legend ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.04), metalness: 0.0, roughness: 0.7 })),
+    pole: options.materials?.pole ?? m.steel,
+    paddle: options.materials?.paddle ?? m.amber,
+    legend: options.materials?.legend ?? m.ink,
   }
 
   // Runtime anchors: created once, never replaced (rules 10, 14).
@@ -178,7 +177,7 @@ export function createModel(options: F1LollipopBoardOptions = {}): F1LollipopBoa
     update: () => {},
     dispose() {
       releaseGenerated()
-      bag.dispose()
+      disposeF1Materials(bundle)
       root.removeFromParent()
     },
   }

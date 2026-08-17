@@ -12,19 +12,21 @@ import {
   BufferGeometry,
   CylinderGeometry,
   Group,
-  Matrix4,
   Mesh,
-  MeshStandardMaterial,
-  Quaternion,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
-import { createF1Preview } from '../f1-kit-core/preview.ts'
-import { TOKEN, shade } from '../f1-kit-core/palette.ts'
-import { bevelBox } from '../f1-kit-core/bevel.ts'
-import { mergeParts } from '../f1-kit-core/merge.ts'
-import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
+import {
+  AXIS_Y,
+  acquireF1Materials,
+  bevelBox,
+  bolt,
+  createF1Preview,
+  disposeF1Materials,
+  member,
+  mergeParts,
+} from '../f1-kit-core/index.ts'
 
 type Slot = 'post' | 'banner' | 'fitting'
 
@@ -57,24 +59,6 @@ const defaults: F1PitGantryConfig = { span: 8.0, height: 4.6, bays: 10 }
 const CHORD = 0.032 // truss chord tube radius, world units
 const LACE = 0.020  // lacing tube radius
 
-// ---------------------------------------------------------------------------------------------------
-// Local geometry helpers, deliberately private to this file rather than shared through f1-kit-core:
-// every `.ts` under f1-kit-core ships to kit consumers as permanent public surface.
-// ---------------------------------------------------------------------------------------------------
-
-/** A tube between two points — the truss member primitive. */
-function strut(from: Vector3, to: Vector3, radius: number, radial = 8): BufferGeometry {
-  const delta = new Vector3().subVectors(to, from)
-  const length = delta.length()
-  const geo = new CylinderGeometry(radius, radius, Math.max(1e-4, length), radial, 1)
-  // CylinderGeometry runs along +Y; swing it onto the member's direction. BufferGeometry has no
-  // rotateOnAxis, so the swing goes through a quaternion matrix.
-  const quaternion = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), delta.clone().normalize())
-  geo.applyMatrix4(new Matrix4().makeRotationFromQuaternion(quaternion))
-  geo.translate((from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2)
-  return geo
-}
-
 /**
  * A square box-truss run between two points: four corner chords with zig-zag lacing on all four faces.
  * This is the member that gives a gantry its open, engineered read — a solid beam of the same envelope
@@ -96,7 +80,7 @@ function boxTruss(from: Vector3, to: Vector3, size: number, bays: number): Buffe
 
   const parts: BufferGeometry[] = []
   for (const corner of corners) {
-    parts.push(strut(
+    parts.push(member(
       new Vector3().addVectors(from, corner),
       new Vector3().addVectors(to, corner),
       CHORD,
@@ -112,7 +96,7 @@ function boxTruss(from: Vector3, to: Vector3, size: number, bays: number): Buffe
       const c0 = corners[face]!
       const c1 = corners[(face + 1) % 4]!
       const forward = (bay + face) % 2 === 0
-      parts.push(strut(
+      parts.push(member(
         new Vector3().addVectors(forward ? a : b, c0),
         new Vector3().addVectors(forward ? b : a, c1),
         LACE,
@@ -130,16 +114,14 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
     bays: Math.max(3, Math.round(options.bays ?? defaults.bays)),
   }
 
-  // Materials the model creates itself go in the bag and live for the model's lifetime. Materials handed
-  // in through `options` belong to the caller, never enter the bag, and are never disposed here (rule 16).
-  const bag = new ResourceBag()
+  // Shared kit materials. Overrides handed in through `options` belong to the caller and are never
+  // disposed here (rule 16).
+  const bundle = acquireF1Materials()
+  const m = bundle.materials
   const materialSlots: Record<Slot, Material> = {
-    post: options.materials?.post ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.GRAPHITE_800, metalness: 0.6, roughness: 0.5 })),
-    banner: options.materials?.banner ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.COBALT_500, -0.45), metalness: 0.0, roughness: 0.65 })),
-    fitting: options.materials?.fitting ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, 0.32), metalness: 0.75, roughness: 0.35 })),
+    post: options.materials?.post ?? m.graphite,
+    banner: options.materials?.banner ?? m.cobalt,
+    fitting: options.materials?.fitting ?? m.steel,
   }
 
   // Runtime anchors: created once, never replaced (rules 10, 14).
@@ -200,13 +182,14 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
       postParts.push(plate)
       for (let i = 0; i < 4; i++) {
         const a = (i / 4) * Math.PI * 2 + Math.PI / 4
-        const bolt = new CylinderGeometry(0.022, 0.022, 0.030, 6)
-        bolt.translate(sx * half + Math.cos(a) * 0.19, 0.062, Math.sin(a) * 0.19)
-        fittingParts.push(bolt)
+        fittingParts.push(bolt(
+          [sx * half + Math.cos(a) * 0.19, 0.062, Math.sin(a) * 0.19],
+          0.022, 0.030, AXIS_Y,
+        ))
       }
 
       // Knee brace from the column into the beam, so the corner is not a bare butt joint.
-      postParts.push(strut(
+      postParts.push(member(
         new Vector3(sx * half, beamY - 1.05, 0),
         new Vector3(sx * (half - 0.95), beamY - beamSize / 2, 0),
         CHORD,
@@ -242,7 +225,7 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
     }
     for (let i = 0; i < 4; i++) {
       const x = (i / 3 - 0.5) * bannerW * 0.9
-      fittingParts.push(strut(
+      fittingParts.push(member(
         new Vector3(x, beamY - beamSize / 2, 0),
         new Vector3(x, bannerY + bannerH / 2, 0),
         0.010,
@@ -288,7 +271,7 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
     update: () => {},
     dispose() {
       releaseGenerated()
-      bag.dispose()
+      disposeF1Materials(bundle)
       root.removeFromParent()
     },
   }

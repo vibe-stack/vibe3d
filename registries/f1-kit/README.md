@@ -14,7 +14,7 @@ source needed to make it fit your world.
 
 ## Pit lane, wave one
 
-Ten props covering a working pit box: a loose tyre/wheel assembly; the two
+Eleven props covering a working pit box: a loose tyre/wheel assembly; the two
 hand tools a pit crew swings during a stop (a lever jack and an impact wheel
 gun); garage dressing (a tool cabinet, a fire extinguisher, an air-hose
 reel); and pit-lane signage and structures (a blanketed tyre stack, a
@@ -24,15 +24,15 @@ by composing the wheel assembly and wheel gun, so recoloring either base
 prop recolors every stack or rack built from it.
 
 They share one support item rather than each carrying a private copy of the
-loft math:
+palette, hardware, and geometry helpers:
 
 ```sh
 bunx vibe3d add @f1-kit/f1-tool-cabinet
 ```
 
-- `@f1-kit/f1-kit-core` — the kit's swept-geometry vocabulary (an oval
-  aero-tube loft, a lathe-revolve helper, a tapered-tube sweep) and the
-  `ResourceBag` disposal contract every prop in the kit builds on.
+- `@f1-kit/f1-kit-core` — the wave's palette, shared material bundle, hardware
+  vocabulary (bolts, castors, straps, pads), swept-geometry helpers, and the
+  disposal contract every prop in the kit builds on.
 
 ## No real-team branding
 

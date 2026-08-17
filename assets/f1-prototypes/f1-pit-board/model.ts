@@ -14,15 +14,16 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  MeshStandardMaterial,
   type Material,
 } from 'three/webgpu'
 
-import { createF1Preview } from '../f1-kit-core/preview.ts'
-import { TOKEN, shade } from '../f1-kit-core/palette.ts'
-import { bevelBox } from '../f1-kit-core/bevel.ts'
-import { mergeParts } from '../f1-kit-core/merge.ts'
-import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
+import {
+  acquireF1Materials,
+  bevelBox,
+  createF1Preview,
+  disposeF1Materials,
+  mergeParts,
+} from '../f1-kit-core/index.ts'
 
 type Slot = 'pole' | 'board' | 'card' | 'rail'
 
@@ -69,18 +70,13 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
     cardsPerRow: Math.min(5, Math.max(1, Math.round(options.cardsPerRow ?? defaults.cardsPerRow))),
   }
 
-  // Materials the model creates itself go in the bag and live for the model's lifetime. Materials handed
-  // in through `options` belong to the caller, never enter the bag, and are never disposed here (rule 16).
-  const bag = new ResourceBag()
+  const bundle = acquireF1Materials()
+  const m = bundle.materials
   const materialSlots: Record<Slot, Material> = {
-    pole: options.materials?.pole ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.GRAPHITE_800, metalness: 0.5, roughness: 0.5 })),
-    board: options.materials?.board ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.INK_900, metalness: 0.1, roughness: 0.8 })),
-    card: options.materials?.card ??
-      bag.mat(new MeshStandardMaterial({ color: TOKEN.SHELL_050, metalness: 0.05, roughness: 0.75 })),
-    rail: options.materials?.rail ??
-      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, -0.15), metalness: 0.65, roughness: 0.45 })),
+    pole: options.materials?.pole ?? m.graphite,
+    board: options.materials?.board ?? m.ink,
+    card: options.materials?.card ?? m.shell,
+    rail: options.materials?.rail ?? m.slate,
   }
 
   // Runtime anchors: created once, never replaced (rules 10, 14).
@@ -217,7 +213,7 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
     update: () => {},
     dispose() {
       releaseGenerated()
-      bag.dispose()
+      disposeF1Materials(bundle)
       root.removeFromParent()
     },
   }

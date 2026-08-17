@@ -1,4 +1,4 @@
-export { COMPOUND_TOKEN, TOKEN, mixToken, shade } from './palette.ts'
+export { COMPOUND_TOKEN, TOKEN, shade } from './palette.ts'
 export type { Compound, Token } from './palette.ts'
 export {
   acquireF1Materials,
@@ -26,7 +26,7 @@ export {
 } from './parts.ts'
 export type { Vec3 } from './parts.ts'
 export { arcBand, bevelBlade, bevelBox, bevelDisc, bevelPrism, bevelRing } from './bevel.ts'
-export { creased, mergeParts, mergeReady } from './merge.ts'
+export { creased, mergeParts } from './merge.ts'
 export { ovalTube } from './primitives.ts'
 export { revolve, taperedTube } from './sculpt.ts'
 export { ResourceBag, clamp01 } from './resourceBag.ts'
