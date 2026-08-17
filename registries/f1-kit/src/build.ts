@@ -14,7 +14,7 @@ function titleFromId(id: string): string {
 }
 
 function categoryFromId(id: string): string {
-  if (id.includes('wheel') || id.includes('tyre')) return 'Wheels & Tyres'
+  if (id.includes('tyre')) return 'Tyres'
   if (id.includes('jack') || id.includes('gun') || id.includes('rack')) return 'Pit Tools'
   if (id.includes('board') || id.includes('gantry')) return 'Signage & Structures'
   if (id.includes('cabinet') || id.includes('extinguisher') || id.includes('reel')) return 'Garage Equipment'
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
     name: 'kit',
     type: 'vibe3d:kit',
     title: 'F1 Kit',
-    description: 'Procedural Formula-1 pit-lane props, ready to own and adapt: wheels, pit tools, garage equipment, and signage.',
+    description: 'Procedural Formula-1 pit-lane props, ready to own and adapt: tyres, pit tools, garage equipment, and signage.',
     dependencies: [],
     registryDependencies: modelIds.map((id) => `@f1-kit/${id}`),
     files: [],
@@ -138,7 +138,7 @@ async function main(): Promise<void> {
     schemaVersion: 1,
     namespace: '@f1-kit',
     name: 'F1 Kit',
-    description: 'A procedural Formula-1 pit-lane prop library for building motorsport scenes in Three.js — wheels, pit tools, garage equipment, and signage, with no real-team branding baked in.',
+    description: 'A procedural Formula-1 pit-lane prop library for building motorsport scenes in Three.js — tyres, pit tools, garage equipment, and signage, with no real-team branding baked in.',
     homepage: 'https://vibe3d.dev/kits/f1-kit',
     license: 'MIT',
     defaultItem: 'kit',

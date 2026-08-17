@@ -15,12 +15,12 @@ source needed to make it fit your world.
 ## Pit lane, wave one
 
 Eleven props covering a working pit box: a loose tyre; the two
-hand tools a pit crew swings during a stop (a lever jack and an impact wheel
+hand tools a pit crew swings during a stop (a lever jack and an impact tyre
 gun); garage dressing (a tool cabinet, a fire extinguisher, an air-hose
 reel); and pit-lane signage and structures (a blanketed tyre stack, a
-wheel-gun rack, a stop/go lollipop board, a numbered pit board, and an
+tyre-gun rack, a stop/go lollipop board, a numbered pit board, and an
 overhead gantry). Two of them — the tyre stack and the gun rack — are built
-by composing the tyre and the wheel gun, so recoloring either base
+by composing the tyre and the tyre gun, so recoloring either base
 prop recolors every stack or rack built from it.
 
 They share one support item rather than each carrying a private copy of the

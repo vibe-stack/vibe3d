@@ -1,5 +1,5 @@
 // primitives — reusable loft builders shared by the F1 kit's pit-lane props. Kept here rather than
-// duplicated per-model so every prop that sweeps a curved beam/arm (a pit jack's lift arm, a wheel gun's
+// duplicated per-model so every prop that sweeps a curved beam/arm (a pit jack's lift arm, a tyre gun's
 // pistol grip) shares identical loft math.
 
 import * as THREE from 'three/webgpu'

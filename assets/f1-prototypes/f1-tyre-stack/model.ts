@@ -3,7 +3,7 @@
 // `f1-tyre` for the individual tyres, matching the kit's registry-dependency pattern for props
 // composed from other props.
 //
-// The blanket is the whole reason this prop is not just four wheels: it has to read as fabric wrapped
+// The blanket is the whole reason this prop is not just four tyres: it has to read as fabric wrapped
 // around a stack, so it carries a scalloped profile that bulges over each tyre course and pinches at the
 // seams between them, a vertical overlap flap where the wrap closes, buckled straps at the seams, and a
 // folded hem top and bottom. The bottom course is left uncovered so the tyres it is wrapping still read.
@@ -79,7 +79,7 @@ const R = 0.36        // tyre outer radius, matching a default f1-tyre (720 mm O
 const TYRE_HALF = 0.165 // half a default tyre's width: the distance from a course's centre to its face
 
 // Buried tyres do not need the hero tread resolution — the blanket hides most of the crown, and only the
-// bottom course and the top sidewall are ever seen. This is the wheel's single LOD knob.
+// bottom course and the top sidewall are ever seen. This is the tyre's single LOD knob.
 const STACK_TREAD_SEGMENTS = 12
 
 // ---------------------------------------------------------------------------------------------------
@@ -193,7 +193,7 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
     const { count, compound } = config
 
     // --- The tyres themselves ------------------------------------------------------------------------
-    // One wheel geometry set, drawn `count` times via InstancedMesh. GPU buffers exist once; dispose
+    // One tyre geometry set, drawn `count` times via InstancedMesh. GPU buffers exist once; dispose
     // runs once on the prototype. The prototype root stays off-scene so its meshes are not extra draws.
     prototype = createTyre({
       compound,

@@ -1,10 +1,10 @@
-// f1-tyre — a loose F1 tyre/wheel: an 18-inch rim barrel inside a lathe-revolved carcass whose
+// f1-tyre — a loose F1 tyre: an 18-inch rim barrel inside a lathe-revolved carcass whose
 // crown carries four continuous circumferential grooves and a directional V pattern of bevelled tread
 // blocks, five paired Y spoke arms sunk into a dished barrel, a recessed hub socket with a centre lock
 // nut, and the compound grading arcs on the sidewall. Dressed on BOTH faces (axle along local Z) —
-// a carried tyre is seen from both sides, unlike a fitted car wheel.
+// a carried tyre is seen from both sides, unlike a fitted car tyre.
 //
-// Proportions are measured off a face-on reference of a current-spec 18" wheel: the rim seat sits at 0.635
+// Proportions are measured off a face-on reference of a current-spec 18" tyre: the rim seat sits at 0.635
 // of the tyre's outer radius (a 457 mm rim inside a 720 mm tyre), the spoke arms span 0.21..0.61 of it,
 // the hub socket 0..0.23, and the sidewall grading band 0.77..0.81.
 //
@@ -129,7 +129,7 @@ function ringOfMerged(
 function latheZ(profile: ReadonlyArray<readonly [number, number]>, segments: number): BufferGeometry {
   const points = profile.map(([r, z]) => new Vector2(Math.max(1e-4, r), z))
   const geo = new LatheGeometry(points, segments)
-  geo.rotateX(Math.PI / 2) // lathe axis Y -> Z, so the wheel rolls about local Z
+  geo.rotateX(Math.PI / 2) // lathe axis Y -> Z, so the tyre rolls about local Z
   return geo
 }
 
@@ -264,7 +264,7 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
   const materialSlots: Record<Slot, Material> = {
     rubber: options.materials?.rubber ?? kit.ink,
     tread: options.materials?.tread ?? kit.tread,
-    // Forged F1 wheels are anodised satin black, not chrome — the bright metal on the wheel is confined
+    // Forged F1 rims are anodised satin black, not chrome — the bright metal on the rim is confined
     // to the machined centre nut, which is what gives the hub its single hard highlight.
     rim: options.materials?.rim ?? kit.graphite,
     metal: options.materials?.metal ?? kit.steel,
@@ -311,7 +311,7 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
     releaseGenerated()
     const { radius: R, width: W, treadSegments } = config
     const hw = W / 2
-    // `treadSegments` is the single LOD knob: every revolve on the wheel follows it, so a consumer that
+    // `treadSegments` is the single LOD knob: every revolve on the tyre follows it, so a consumer that
     // buries this tyre in a stack pays a fraction of the hero cost from one option.
     const seg = Math.max(24, treadSegments * 2)
 
@@ -405,7 +405,7 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
 
       // Five paired Y-arms, not a fan of thin fins: a thick stem off the hub that forks into two blades
       // reaching the barrel. Five arms means the windows between them — not the spokes — are the
-      // dominant read, which is what separates a forged race wheel from a turbine impeller.
+      // dominant read, which is what separates a forged race rim from a turbine impeller.
       // Phased half a pitch apart between the two faces (rule 3).
       const web = 0.022
       rimParts.push(mirror(ringOfMerged(
@@ -445,7 +445,7 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
       ], Math.max(20, seg / 2))))
 
       // The livery accent instead lives where a real team stripe does: a pinstripe edging the rim lip.
-      // Kept deliberately thin — the wheel already carries one saturated colour in the compound grading,
+      // Kept deliberately thin — the tyre already carries one saturated colour in the compound grading,
       // and a second broad band of it turns the prop into a toy.
       accentParts.push(mirror(latheZ([
         [0.598 * R, 0.318 * W], [0.607 * R, 0.330 * W], [0.607 * R, 0.348 * W],
@@ -453,7 +453,7 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
       ], seg)))
 
       // Centre lock nut, recessed ~0.017 m behind the spoke plane so the centre reads as a dark machined
-      // socket, not a protruding boss. Bright machined metal — the only chrome on the wheel.
+      // socket, not a protruding boss. Bright machined metal — the only chrome on the rim.
       const nut = new CylinderGeometry(0.114 * R, 0.114 * R, 0.028, 6)
       nut.rotateX(Math.PI / 2)
       nut.translate(0, 0, 0.180 * W * face)

@@ -1,5 +1,5 @@
-// f1-gun-rack — a tubular A-frame rack holding idle `f1-pit-wheel-gun` instances, sockets down. Depends
-// on `f1-pit-wheel-gun` for the individual guns, matching the kit's registry-dependency pattern for
+// f1-gun-rack — a tubular A-frame rack holding idle `f1-tyre-gun` instances, sockets down. Depends
+// on `f1-tyre-gun` for the individual guns, matching the kit's registry-dependency pattern for
 // props composed from other props. One shared gun material set is owned here so recolouring the rack
 // recolours every hanging gun.
 
@@ -22,7 +22,7 @@ import {
   taperedTube,
   tubeSection,
 } from '../f1-kit-core/index.ts'
-import { createModel as createGun, type F1PitWheelGunInstance } from '../f1-pit-wheel-gun/model.ts'
+import { createModel as createGun, type F1TyreGunInstance } from '../f1-tyre-gun/model.ts'
 
 type Slot = 'frame'
 
@@ -87,7 +87,7 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
 
   const generated: BufferGeometry[] = []
   const meshesBySlot: Record<Slot, Mesh[]> = { frame: [] }
-  let guns: F1PitWheelGunInstance[] = []
+  let guns: F1TyreGunInstance[] = []
 
   const releaseFrame = (): void => {
     frameGroup.clear()

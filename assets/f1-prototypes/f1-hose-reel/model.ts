@@ -103,7 +103,7 @@ function ringPlate(rIn: number, rOut: number, depth: number, bevel: number): Buf
 }
 
 /**
- * One flange, built as an open spoked wheel rather than a plate with holes drilled in it.
+ * One flange, built as an open spoked flange rather than a plate with holes drilled in it.
  *
  * A pierced plate leaves a wide blank annulus of flange between the outermost wrap and the rim, and its
  * windows read as black voids because the hose behind them sits unlit inside the drum. An open spoke
@@ -258,7 +258,7 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     const crankX = 0.310
     const throwY = 0.130
     const arm = bevelBox(throwY + 0.030, 0.032, 0.017, 0.004)
-    arm.rotateY(Math.PI / 2) // lay the arm's length into the wheel plane
+    arm.rotateY(Math.PI / 2) // lay the arm's length into the flange plane
     arm.rotateX(Math.PI / 2)
     arm.translate(crankX, AXLE_Y + throwY / 2, 0)
     metalParts.push(arm)
@@ -282,7 +282,7 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     // --- Stand: one bent tube, the way a real reel frame is made ------------------------------------
     // Up from the floor on the left, over the drum as a carry bow, and back down on the right. Each
     // upright lands on its own front-to-back floor tube. This keeps every tube clear of the flange
-    // faces, so nothing crosses the wheel the crank turns on.
+    // faces, so nothing crosses the flange the crank turns on.
     // The uprights sit well outboard of the flanges so the frame straddles the drum rather than crossing
     // its face — a tube running down the front of the flange makes the drum read as threaded onto a
     // handle instead of journalled in a frame.

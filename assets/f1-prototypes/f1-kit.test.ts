@@ -13,7 +13,7 @@ import { createModel as createReel } from './f1-hose-reel/model.ts'
 import { createModel as createPitBoard } from './f1-pit-board/model.ts'
 import { createModel as createGantry } from './f1-pit-gantry/model.ts'
 import { createModel as createLollipop } from './f1-lollipop-board/model.ts'
-import { createModel as createWheelGun } from './f1-pit-wheel-gun/model.ts'
+import { createModel as createTyreGun } from './f1-tyre-gun/model.ts'
 import { createModel as createPitJack } from './f1-pit-jack/model.ts'
 import { createModel as createCabinet } from './f1-tool-cabinet/model.ts'
 import { createModel as createExtinguisher } from './f1-fire-extinguisher/model.ts'
@@ -72,7 +72,7 @@ const factories = {
   'f1-pit-board': () => createPitBoard(),
   'f1-pit-gantry': () => createGantry(),
   'f1-lollipop-board': () => createLollipop(),
-  'f1-pit-wheel-gun': () => createWheelGun(),
+  'f1-tyre-gun': () => createTyreGun(),
   'f1-pit-jack': () => createPitJack(),
   'f1-tool-cabinet': () => createCabinet(),
   'f1-fire-extinguisher': () => createExtinguisher(),
@@ -139,7 +139,7 @@ describe.each(Object.keys(factories) as Array<keyof typeof factories>)('%s owner
 
 describe('material slots', () => {
   test('setMaterial retargets live meshes without a rebuild', () => {
-    // This assertion fails against the original wheel, whose setMaterial wrote to a slot map that
+    // This assertion fails against the original tyre, whose setMaterial wrote to a slot map that
     // rebuild() never read back.
     const model = createTyre()
     const probe = new MeshStandardMaterial({ color: 0xff00ff })
@@ -160,10 +160,10 @@ describe('material slots', () => {
     probe.dispose()
   })
 
-  test('a wheel never disposes a material its consumer supplied', () => {
+  test('a tyre never disposes a material its consumer supplied', () => {
     const shared = new MeshStandardMaterial()
-    const wheel = createTyre({ materials: { cover: shared } })
-    wheel.dispose()
+    const tyre = createTyre({ materials: { cover: shared } })
+    tyre.dispose()
     expect(countOf(shared)).toBe(0)
     shared.dispose()
   })
@@ -175,7 +175,7 @@ describe('material slots', () => {
     rack.dispose()
   })
 
-  test('a stack owns the cover/accent materials it shares across its child wheels', () => {
+  test('a stack owns the cover/accent materials it shares across its child tyres', () => {
     // Four children share one pair of materials. If the children disposed them, the pair would be
     // disposed four times over and the siblings would be rendering freed materials.
     const stack = createStack({ count: 4 })
@@ -191,7 +191,7 @@ describe('material slots', () => {
 
 describe('applied-layer clearance (rule 8)', () => {
   // Every applied detail must either stand clear of its host by at least 15 mm or bite into it by at
-  // least 2 mm. The failure this catches is the original wheel's habit of parking discs a fraction of a
+  // least 2 mm. The failure this catches is the original tyre's habit of parking discs a fraction of a
   // millimetre off the sidewall, which both z-fights and reads as a decal.
   // Scoped to meshes within the same semantic part group. World-space AABBs cannot judge a detail placed
   // radially on a cylindrical host — a cable gland standing well clear of a tyre's surface still falls

@@ -1583,7 +1583,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     label: 'F1 Tyre',
     category: 'Vehicles / Motorsport',
     description: 'Loose pit-lane wet tyre on an 18-inch rim: a swept tread with four cut circumferential grooves and a directional V pattern, five paired spoke arms in a dished barrel, a recessed centre-lock hub, and official compound grading arcs on the sidewall, dressed on both faces.',
-    tags: ['prop', 'vehicles', 'motorsport', 'wheel'],
+    tags: ['prop', 'vehicles', 'motorsport', 'tyre'],
     exportName: 'f1-tyre.glb',
     async create(aspect) {
       const { createPreview } = await import('../../assets/f1-prototypes/f1-tyre/model.ts')
@@ -1622,14 +1622,14 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     },
   },
   {
-    id: 'f1-pit-wheel-gun',
-    label: 'F1 Pit Wheel Gun',
+    id: 'f1-tyre-gun',
+    label: 'F1 Tyre Gun',
     category: 'Vehicles / Motorsport',
     description: 'Chunky impact wrench with a lofted rounded-rect body, curved pistol grip, and a spinning hex socket that seats on a hub with a status LED.',
     tags: ['prop', 'vehicles', 'motorsport', 'pit-lane', 'interactive'],
-    exportName: 'f1-pit-wheel-gun.glb',
+    exportName: 'f1-tyre-gun.glb',
     async create(aspect) {
-      const { createPreview } = await import('../../assets/f1-prototypes/f1-pit-wheel-gun/model.ts')
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-tyre-gun/model.ts')
       const preview = createPreview({ aspect })
       return {
         scene: preview.scene,
@@ -1740,7 +1740,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     id: 'f1-gun-rack',
     label: 'F1 Gun Rack',
     category: 'Vehicles / Motorsport',
-    description: 'Tubular A-frame rack holding F1 Pit Wheel Gun instances, sockets down.',
+    description: 'Tubular A-frame rack holding F1 Tyre Gun instances, sockets down.',
     tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
     exportName: 'f1-gun-rack.glb',
     async create(aspect) {

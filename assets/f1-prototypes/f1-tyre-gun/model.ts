@@ -1,4 +1,4 @@
-// f1-pit-wheel-gun — a pit-lane impact wrench: a two-stage motor barrel with an exhaust tail, a rubber
+// f1-tyre-gun — a pit-lane impact wrench: a two-stage motor barrel with an exhaust tail, a rubber
 // pistol grip with a trigger, an air inlet at the grip heel, and a thick-walled hex socket on the anvil.
 //
 // The read depends on three things a tapered blob cannot give you: a cylindrical motor housing with real
@@ -38,29 +38,29 @@ import {
 
 type Slot = 'gunmetal' | 'steel' | 'gripRubber' | 'accent' | 'led'
 
-export interface F1PitWheelGunConfig {
+export interface F1TyreGunConfig {
   /** 0 = held back/away, 1 = socket seated on the hub. */
   engaged: number
   /** Whether the socket free-spins each `update()` tick. */
   spinning: boolean
 }
 
-export interface F1PitWheelGunOptions extends Partial<F1PitWheelGunConfig> {
+export interface F1TyreGunOptions extends Partial<F1TyreGunConfig> {
   materials?: Partial<Record<Slot, Material>>
 }
 
-export interface F1PitWheelGunInstance {
+export interface F1TyreGunInstance {
   readonly root: Group
   readonly parts: { body: Group; spinner: Group }
   readonly materials: Readonly<Record<Slot, Material>>
-  getConfig(): Readonly<F1PitWheelGunConfig>
-  configure(patch: Partial<F1PitWheelGunConfig>): void
+  getConfig(): Readonly<F1TyreGunConfig>
+  configure(patch: Partial<F1TyreGunConfig>): void
   setMaterial(slot: Slot, material: Material): void
   update(deltaSeconds: number): void
   dispose(): void
 }
 
-const defaults: F1PitWheelGunConfig = { engaged: 0, spinning: false }
+const defaults: F1TyreGunConfig = { engaged: 0, spinning: false }
 
 const GUN_ENGAGE_TRAVEL = 0.2 // how far the gun slides +X from held-back (0) to seated (1)
 const GUN_SPIN_RATE = 55 // rad/s the socket spins while running (impact-wrench fast)
@@ -116,8 +116,8 @@ function axial(rTop: number, rBottom: number, length: number, x: number, radial 
   return geo
 }
 
-export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunInstance {
-  const config: F1PitWheelGunConfig = {
+export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
+  const config: F1TyreGunConfig = {
     engaged: clamp01(options.engaged ?? defaults.engaged),
     spinning: options.spinning ?? defaults.spinning,
   }
@@ -136,7 +136,7 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
   // Runtime anchors: created once, never replaced (rules 10, 14). `body` slides on engage; `spinner`
   // rotates, so its geometry has to stay a separate mesh from the body's.
   const root = new Group()
-  root.name = 'f1-pit-wheel-gun'
+  root.name = 'f1-tyre-gun'
   const body = new Group(); body.name = 'body'
   const spinner = new Group(); spinner.name = 'spinner'
   root.add(body)
