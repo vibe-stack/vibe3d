@@ -10,7 +10,6 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  PointLight,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -182,12 +181,6 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
         lamp.translate(x, PANEL_Y + (1.5 - r) * rowPitch, lampZ)
         emit('lamp', lamp, panel, `lamp-${c}-${r}`, on ? lampOn : lampOff)
       }
-      if (on) {
-        const glow = new PointLight(0xc41820, 1.4, 1.8, 2)
-        glow.name = `glow-${c}`
-        glow.position.set(x, PANEL_Y, lampZ + 0.12)
-        panel.add(glow)
-      }
     }
   }
   rebuild()
@@ -225,8 +218,17 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
   }
 }
 
+function litFromEnv(): number | undefined {
+  const raw = process.env.F1_START_LIGHTS_LIT
+  if (raw === undefined || raw === '') return undefined
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return undefined
+  return Math.min(5, Math.max(0, Math.round(n)))
+}
+
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), {
+  const lit = litFromEnv()
+  return createF1Preview(createModel(lit !== undefined ? { lit } : {}), {
     aspect,
     target: [0, PANEL_Y, 0.28],
     distance: 4.8,

@@ -35,7 +35,7 @@ export interface F1PreviewOptions {
   /** Elevation in radians above the horizon. */
   readonly pitch?: number
   readonly fov?: number
-  /** Dark receive card so lamp PointLights/SpotLights pool on the ground. */
+  /** Dark receive card for preview framing (optional emissive lamp read). */
   readonly ground?: boolean
 }
 

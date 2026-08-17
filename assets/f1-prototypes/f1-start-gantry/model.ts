@@ -8,7 +8,6 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  PointLight,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -194,13 +193,6 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     }
     emit('banner', mergeParts(housings, 'housings'), banner, 'housings', kit.graphite)
     emit('banner', mergeParts(lamps, 'lights'), banner, 'lights', lampOn)
-    for (let c = 0; c < 5; c++) {
-      const x = (c - 2) * LIGHT_PITCH
-      const glow = new PointLight(0xc41820, 1.2, 1.6, 2)
-      glow.name = `glow-${c}`
-      glow.position.set(x, bannerY, lampZ + 0.1)
-      banner.add(glow)
-    }
   }
   rebuild()
 
