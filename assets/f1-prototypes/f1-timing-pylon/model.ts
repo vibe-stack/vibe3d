@@ -97,8 +97,8 @@ function cabinetTexture(digit: number[]): DataTexture {
   const paper: [number, number, number] = [242, 248, 252]
   fillRect(data, w, 0, 0, w, h, ink)
   fillRect(data, w, 8, 8, w - 16, h - 16, [10, 14, 20])
-  glyph3x5(data, w, 18, 22, digit, paper, 14)
-  fillRect(data, w, 72, 36, 40, 56, cyan)
+  glyph3x5(data, w, 22, 28, digit, paper, 12)
+  fillRect(data, w, 78, 40, 34, 48, cyan)
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = NearestFilter
   tex.magFilter = NearestFilter

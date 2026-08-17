@@ -126,9 +126,9 @@ function timingSheet(): DataTexture {
   fillRect(data, w, 0, 0, w, h, ink)
   fillRect(data, w, 0, 0, w, 72, accent)
   fillRect(data, w, 0, h - 28, w, 28, accent)
-  writeWord(data, w, 16, 10, 'P', paper, 12)
-  writeWord(data, w, 140, 10, 'LAP', paper, 12)
-  writeWord(data, w, 340, 10, 'TIME', paper, 12)
+  writeWord(data, w, 16, 8, 'P', paper, 14)
+  writeWord(data, w, 120, 8, 'LAP', paper, 14)
+  writeWord(data, w, 300, 8, 'TIME', paper, 14)
   const rowH = 36
   for (let row = 0; row < 4; row++) {
     const y = 84 + row * rowH
@@ -244,30 +244,10 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     }
     emit('frame', mergeParts(speakers, 'speakers'), frame, 'speakers')
 
+    // LED face carries P/LAP/TIME — no second 3D glyph layer (that clipped the header bar).
     const panel = new PlaneGeometry(w, h)
     panel.translate(0, y, 0.18)
     emit('screen', panel, screen, 'panel')
-
-    const bit = Math.max(0.08, w * 0.02)
-    const titles: BufferGeometry[] = []
-    const stamp = (ch: string, cx: number, cy: number): void => {
-      const cells = GLYPH[ch]
-      if (!cells) return
-      for (let gy = 0; gy < 5; gy++) {
-        for (let gx = 0; gx < 3; gx++) {
-          if (!cells[gy * 3 + gx]) continue
-          const block = bevelBox(bit * 0.88, bit * 0.88, 0.05, 0.008)
-          block.translate(cx + (gx - 1) * bit, cy + (2 - gy) * bit, 0.28)
-          titles.push(block)
-        }
-      }
-    }
-    const topY = y + h * 0.28
-    const pitch = bit * 3.6
-    stamp('P', -w * 0.36, topY)
-    ;(['L', 'A', 'P'] as const).forEach((ch, i) => stamp(ch, -w * 0.08 + i * pitch, topY))
-    ;(['T', 'I', 'M', 'E'] as const).forEach((ch, i) => stamp(ch, w * 0.14 + i * pitch, topY))
-    emit('frame', mergeParts(titles, 'titles'), frame, 'titles', kit.shell)
   }
   rebuild()
 

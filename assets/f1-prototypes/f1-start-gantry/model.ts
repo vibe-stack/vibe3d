@@ -167,14 +167,14 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
 
     // Banner sits BEHIND the light cluster (lower Z), hung clear of the truss soffit.
     const bannerY = height - HOUSE_H / 2 - 0.55
-    // Placard behind the light cluster with a clear air gap (rule 8).
+    // Placard well behind the cluster so housings read as separate volumes at 320 px.
     const placard = bevelBox(Math.min(span * 0.55, 6.2), 1.05, 0.08, 0.012)
-    placard.translate(0, bannerY, 0.12)
+    placard.translate(0, bannerY, -0.05)
     emit('banner', placard, banner, 'banner')
 
     const housings: BufferGeometry[] = []
     const lamps: BufferGeometry[] = []
-    const houseZ = HOUSE_D / 2 + 0.28
+    const houseZ = HOUSE_D / 2 + 0.42
     const lampZ = houseZ + HOUSE_D / 2 + LAYER_CLEARANCE + 0.02
     for (let c = 0; c < 5; c++) {
       const x = (c - 2) * LIGHT_PITCH

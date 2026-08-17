@@ -131,7 +131,7 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     const doors: BufferGeometry[] = []
     const lenses: BufferGeometry[] = []
     const tilt = -0.55
-    for (const sx of [-0.72, 0.72] as const) {
+    for (const sx of [-0.88, 0.88] as const) {
       for (const sy of [-0.28, 0.28] as const) {
         const cy = height - 0.22 + sy
         const can = loftRoundedBox(0.62, 0.38, 0.28, 0.04)
