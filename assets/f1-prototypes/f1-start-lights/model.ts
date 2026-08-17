@@ -2,9 +2,8 @@
 // with four stacked red lamps. configure({ lit }) lights that many columns from the left (the TV
 // sequence: 1..5 reds, then all out).
 //
-// Datums: five modules at 0.42 m pitch, each housing 0.28 × 1.05 × 0.22 m, lamps Ø 0.09 m.
-// Hung on a 6.4 m span / 5.6 m high overhead (the FIA "standard height above the track" gantry).
-// ON lamps use kit.red so they match Armco/brake-marker red under ACES (unlit MeshBasic washed peach).
+// Datums: five modules at 0.48 m pitch, each housing 0.28 × 1.05 × 0.22 m, lamps Ø 0.08 m.
+// Panel hangs clear of the overhead beam (soffit gap ≥ 0.12 m).
 
 import {
   BufferGeometry,
@@ -24,6 +23,7 @@ import {
   loftRoundedBox,
   member,
   mergeParts,
+  LAYER_CLEARANCE,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'housing' | 'lamp' | 'post'
@@ -51,12 +51,14 @@ export interface F1StartLightsInstance {
 const defaults: F1StartLightsConfig = { lit: 5 }
 const COLS = 5
 const ROWS = 4
-const PITCH = 0.42
+const PITCH = 0.48
 const MODULE_W = 0.28
 const MODULE_H = 1.05
 const MODULE_D = 0.22
-const LAMP_R = 0.1
+const LAMP_R = 0.08
 const HEIGHT = 5.6
+/** Panel centre Y — hung so housing top clears the soffit by ≥ 0.12 m. */
+const PANEL_Y = HEIGHT - MODULE_H / 2 - 0.28
 
 export function createModel(options: F1StartLightsOptions = {}): F1StartLightsInstance {
   const config: F1StartLightsConfig = {
@@ -136,32 +138,45 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     }
     postParts.push(member(new Vector3(-half, HEIGHT, 0), new Vector3(half, HEIGHT, 0), 0.1, 12))
     const beam = bevelBox(span + 0.5, 0.28, 0.36, 0.02)
-    beam.translate(0, HEIGHT + 0.05, 0)
+    beam.translate(0, HEIGHT + 0.14, 0)
     postParts.push(beam)
+    // Drop hangers from the soffit to the panel top — no housing/beam intersection.
+    for (const sx of [-1.2, 0, 1.2] as const) {
+      postParts.push(member(
+        new Vector3(sx, HEIGHT, 0),
+        new Vector3(sx, PANEL_Y + MODULE_H / 2 + 0.04, 0.12),
+        0.028,
+        8,
+      ))
+    }
     emit('post', mergeParts(postParts, 'posts'), gantry, 'posts')
 
-    const panelW = (COLS - 1) * PITCH + MODULE_W + 0.16
-    const back = bevelBox(panelW, MODULE_H + 0.18, 0.08, 0.012)
-    back.translate(0, HEIGHT - 0.55, -0.02)
+    const panelW = (COLS - 1) * PITCH + MODULE_W + 0.2
+    // Backboard behind the modules with ≥15 mm air gap (rule 8).
+    const back = bevelBox(panelW, MODULE_H + 0.18, 0.05, 0.01)
+    back.translate(0, PANEL_Y, -0.08)
     emit('housing', back, panel, 'backboard')
 
     const housings: BufferGeometry[] = []
+    // loftRoundedBox is W×H×D in XYZ — no rotateY (that swapped width/depth and kissed the board).
+    const faceZ = MODULE_D / 2 + 0.02
     for (let c = 0; c < COLS; c++) {
       const x = (c - (COLS - 1) / 2) * PITCH
       const body = loftRoundedBox(MODULE_W, MODULE_H, MODULE_D, 0.045)
-      body.rotateY(Math.PI / 2)
-      body.translate(x, HEIGHT - 0.55, MODULE_D / 2 + 0.04)
+      body.translate(x, PANEL_Y, faceZ)
       housings.push(body)
     }
     emit('housing', mergeParts(housings, 'housings'), panel, 'housings')
 
+    const lampZ = faceZ + MODULE_D / 2 + LAYER_CLEARANCE + 0.02
+    const rowPitch = 0.2
     for (let c = 0; c < COLS; c++) {
       const on = c < config.lit
       const x = (c - (COLS - 1) / 2) * PITCH
       for (let r = 0; r < ROWS; r++) {
-        const lamp = new CylinderGeometry(LAMP_R, LAMP_R * 0.92, 0.05, 18)
+        const lamp = new CylinderGeometry(LAMP_R, LAMP_R * 0.92, 0.04, 18)
         lamp.rotateX(Math.PI / 2)
-        lamp.translate(x, HEIGHT - 0.55 + (1.5 - r) * 0.22, MODULE_D + 0.08)
+        lamp.translate(x, PANEL_Y + (1.5 - r) * rowPitch, lampZ)
         emit('lamp', lamp, panel, `lamp-${c}-${r}`, on ? lampOn : lampOff)
       }
     }
@@ -194,9 +209,9 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
-    target: [0, HEIGHT - 0.55, 0.28],
-    distance: 5.2,
+    target: [0, PANEL_Y, 0.28],
+    distance: 4.8,
     fov: 28,
-    pitch: 0.08,
+    pitch: 0.06,
   })
 }

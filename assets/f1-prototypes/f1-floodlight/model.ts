@@ -131,36 +131,36 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     const doors: BufferGeometry[] = []
     const lenses: BufferGeometry[] = []
     const tilt = -0.55
-    for (const sx of [-0.58, 0.58] as const) {
+    for (const sx of [-0.72, 0.72] as const) {
       for (const sy of [-0.28, 0.28] as const) {
         const cy = height - 0.22 + sy
         const can = loftRoundedBox(0.62, 0.38, 0.28, 0.04)
         can.rotateX(tilt)
-        can.translate(sx, cy, 0.28)
+        can.translate(sx, cy, 0.42)
         cans.push(can)
 
         const top = bevelBox(0.64, 0.018, 0.14, 0.003)
         top.rotateX(tilt - 0.35)
-        top.translate(sx, cy + 0.2, 0.4)
+        top.translate(sx, cy + 0.2, 0.54)
         doors.push(top)
         const bot = bevelBox(0.64, 0.018, 0.14, 0.003)
         bot.rotateX(tilt + 0.35)
-        bot.translate(sx, cy - 0.2, 0.4)
+        bot.translate(sx, cy - 0.2, 0.54)
         doors.push(bot)
         const left = bevelBox(0.018, 0.4, 0.14, 0.003)
         left.rotateX(tilt)
-        left.translate(sx - 0.32, cy, 0.4)
+        left.translate(sx - 0.32, cy, 0.54)
         doors.push(left)
         const right = bevelBox(0.018, 0.4, 0.14, 0.003)
         right.rotateX(tilt)
-        right.translate(sx + 0.32, cy, 0.4)
+        right.translate(sx + 0.32, cy, 0.54)
         doors.push(right)
 
         for (const lx of [-0.14, 0.14] as const) {
           for (const ly of [-0.1, 0.1] as const) {
             const lens = new CylinderGeometry(0.08, 0.08, 0.03, 16)
             lens.rotateX(Math.PI / 2 + tilt)
-            lens.translate(sx + lx, cy + ly, 0.46)
+            lens.translate(sx + lx, cy + ly, 0.62)
             lenses.push(lens)
           }
         }

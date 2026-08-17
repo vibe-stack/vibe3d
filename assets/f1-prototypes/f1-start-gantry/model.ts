@@ -1,5 +1,5 @@
 // f1-start-gantry — start/finish overhead: lattice posts, lofted box-truss beam, walkway, cameras,
-// a blank banner slot, and a five-column start-light panel hung under the beam.
+// a blank banner slot, and a five-column start-light panel hung UNDER the beam (clear of the truss).
 //
 // Datums: 14 m span, 7.2 m soffit, 0.7 × 0.7 m box truss. No circuit or championship lettering.
 
@@ -21,6 +21,7 @@ import {
   loftRoundedBox,
   member,
   mergeParts,
+  LAYER_CLEARANCE,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'post' | 'beam' | 'banner'
@@ -46,6 +47,10 @@ export interface F1StartGantryInstance {
 }
 
 const defaults: F1StartGantryConfig = { span: 14, height: 7.2 }
+const LIGHT_PITCH = 0.5
+const HOUSE_W = 0.26
+const HOUSE_H = 0.9
+const HOUSE_D = 0.18
 
 export function createModel(options: F1StartGantryOptions = {}): F1StartGantryInstance {
   const config: F1StartGantryConfig = {
@@ -150,32 +155,36 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
       }
     }
     const walk = bevelBox(span * 0.92, 0.04, 0.7, 0.008)
-    walk.translate(0, height - 0.22, 0.05)
+    walk.translate(0, height - 0.22, -0.35)
     beamParts.push(walk)
     for (const sx of [-span * 0.22, span * 0.22] as const) {
       const pod = loftRoundedBox(0.28, 0.18, 0.32, 0.04)
       pod.rotateX(0.4)
-      pod.translate(sx, height - 0.42, 0.22)
+      pod.translate(sx, height - 0.42, -0.35)
       beamParts.push(pod)
     }
     emit('beam', mergeParts(beamParts, 'beam'), beam, 'beam')
 
-    const panel = bevelBox(span * 0.62, 1.05, 0.08, 0.012)
-    panel.translate(0, height - 0.85, 0.38)
-    emit('banner', panel, banner, 'banner')
+    // Banner sits BEHIND the light cluster (lower Z), hung clear of the truss soffit.
+    const bannerY = height - HOUSE_H / 2 - 0.55
+    // Placard behind the light cluster with a clear air gap (rule 8).
+    const placard = bevelBox(Math.min(span * 0.55, 6.2), 1.05, 0.08, 0.012)
+    placard.translate(0, bannerY, 0.12)
+    emit('banner', placard, banner, 'banner')
 
     const housings: BufferGeometry[] = []
     const lamps: BufferGeometry[] = []
+    const houseZ = HOUSE_D / 2 + 0.28
+    const lampZ = houseZ + HOUSE_D / 2 + LAYER_CLEARANCE + 0.02
     for (let c = 0; c < 5; c++) {
-      const x = (c - 2) * 0.38
-      const house = loftRoundedBox(0.24, 0.9, 0.18, 0.04)
-      house.rotateY(Math.PI / 2)
-      house.translate(x, height - 0.55, 0.55)
+      const x = (c - 2) * LIGHT_PITCH
+      const house = loftRoundedBox(HOUSE_W, HOUSE_H, HOUSE_D, 0.04)
+      house.translate(x, bannerY, houseZ)
       housings.push(house)
       for (let r = 0; r < 4; r++) {
-        const lamp = new CylinderGeometry(0.07, 0.065, 0.04, 14)
+        const lamp = new CylinderGeometry(0.065, 0.06, 0.035, 14)
         lamp.rotateX(Math.PI / 2)
-        lamp.translate(x, height - 0.55 + (1.5 - r) * 0.18, 0.68)
+        lamp.translate(x, bannerY + (1.5 - r) * 0.18, lampZ)
         lamps.push(lamp)
       }
     }
@@ -210,9 +219,9 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ span: 10, height: 6.2 }), {
     aspect,
-    target: [0, 5.6, 0.45],
-    distance: 9.5,
+    target: [0, 5.2, 0.4],
+    distance: 8.8,
     fov: 28,
-    pitch: 0.12,
+    pitch: 0.1,
   })
 }

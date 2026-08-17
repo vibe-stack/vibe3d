@@ -248,7 +248,7 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     panel.translate(0, y, 0.18)
     emit('screen', panel, screen, 'panel')
 
-    const bit = Math.max(0.09, w * 0.022)
+    const bit = Math.max(0.08, w * 0.02)
     const titles: BufferGeometry[] = []
     const stamp = (ch: string, cx: number, cy: number): void => {
       const cells = GLYPH[ch]
@@ -257,16 +257,16 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
         for (let gx = 0; gx < 3; gx++) {
           if (!cells[gy * 3 + gx]) continue
           const block = bevelBox(bit * 0.88, bit * 0.88, 0.05, 0.008)
-          block.translate(cx + (gx - 1) * bit, cy + (2 - gy) * bit, 0.24)
+          block.translate(cx + (gx - 1) * bit, cy + (2 - gy) * bit, 0.28)
           titles.push(block)
         }
       }
     }
     const topY = y + h * 0.28
     const pitch = bit * 3.6
-    stamp('P', -w * 0.38, topY)
-    ;(['L', 'A', 'P'] as const).forEach((ch, i) => stamp(ch, -w * 0.12 + i * pitch, topY))
-    ;(['T', 'I', 'M', 'E'] as const).forEach((ch, i) => stamp(ch, w * 0.16 + i * pitch, topY))
+    stamp('P', -w * 0.36, topY)
+    ;(['L', 'A', 'P'] as const).forEach((ch, i) => stamp(ch, -w * 0.08 + i * pitch, topY))
+    ;(['T', 'I', 'M', 'E'] as const).forEach((ch, i) => stamp(ch, w * 0.14 + i * pitch, topY))
     emit('frame', mergeParts(titles, 'titles'), frame, 'titles', kit.shell)
   }
   rebuild()
