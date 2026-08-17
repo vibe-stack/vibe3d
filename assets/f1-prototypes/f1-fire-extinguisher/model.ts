@@ -7,17 +7,15 @@ import {
   BoxGeometry,
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
   Group,
-  HemisphereLight,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
-  Scene,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { revolve, taperedTube } from '../f1-kit-core/sculpt.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
 
@@ -43,9 +41,9 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
 
   const bag = new ResourceBag()
   // Safety-equipment red — universal fire-extinguisher convention, not team branding.
-  const body = (options.materials?.body ?? bag.mat(new MeshStandardMaterial({ color: 0xcc1417, roughness: 0.45, metalness: 0.25 }))) as Material
-  const hardware = (options.materials?.hardware ?? bag.mat(new MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.55, metalness: 0.45 }))) as Material
-  const hose = (options.materials?.hose ?? bag.mat(new MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.8, metalness: 0 }))) as Material
+  const body = (options.materials?.body ?? bag.mat(new MeshStandardMaterial({ color: TOKEN.RED_500, roughness: 0.45, metalness: 0.25 }))) as Material
+  const hardware = (options.materials?.hardware ?? bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.05), roughness: 0.55, metalness: 0.45 }))) as Material
+  const hose = (options.materials?.hose ?? bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, -0.15), roughness: 0.8, metalness: 0 }))) as Material
   const materialSlots: Record<'body' | 'hardware' | 'hose', Material> = { body, hardware, hose }
 
   const root = new Group()
@@ -132,15 +130,5 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-2, 3, 2.5)
-  scene.add(key)
-  const camera = new PerspectiveCamera(30, aspect, 0.02, 20)
-  camera.position.set(0.95, 0.65, 0.95)
-  camera.lookAt(0.05, 0.35, 0)
-  scene.add(camera)
-  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
+  return createF1Preview(createModel(), { aspect, target: [0.05, 0.35, 0], distance: 1.68 })
 }

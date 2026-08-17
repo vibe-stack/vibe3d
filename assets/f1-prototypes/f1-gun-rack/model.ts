@@ -4,17 +4,15 @@
 
 import {
   CylinderGeometry,
-  DirectionalLight,
   Group,
-  HemisphereLight,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
-  Scene,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { taperedTube } from '../f1-kit-core/sculpt.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
 import { createModel as createGun, type F1PitWheelGunInstance } from '../f1-pit-wheel-gun/model.ts'
@@ -53,7 +51,7 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
   }
 
   const bag = new ResourceBag()
-  const frame = (options.materials?.frame ?? bag.mat(new MeshStandardMaterial({ color: 0x3a3f45, roughness: 0.7, metalness: 0.5 }))) as Material
+  const frame = (options.materials?.frame ?? bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, -0.2), roughness: 0.7, metalness: 0.5 }))) as Material
   const materialSlots: Record<'frame', Material> = { frame }
 
   const root = new Group()
@@ -128,15 +126,5 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-2.5, 3, 3)
-  scene.add(key)
-  const camera = new PerspectiveCamera(30, aspect, 0.05, 40)
-  camera.position.set(2.0, 1.2, 2.0)
-  camera.lookAt(0, 0.6, 0)
-  scene.add(camera)
-  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
+  return createF1Preview(createModel(), { aspect, target: [0, 0.6, 0], distance: 2.89 })
 }

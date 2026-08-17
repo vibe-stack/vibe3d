@@ -11,19 +11,17 @@
 import {
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
   Group,
-  HemisphereLight,
   Matrix4,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
   Quaternion,
-  Scene,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { bevelBox } from '../f1-kit-core/bevel.ts'
 import { mergeParts } from '../f1-kit-core/merge.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
@@ -137,11 +135,11 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
   const bag = new ResourceBag()
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ??
-      bag.mat(new MeshStandardMaterial({ color: 0x2a2e33, metalness: 0.6, roughness: 0.5 })),
+      bag.mat(new MeshStandardMaterial({ color: TOKEN.GRAPHITE_800, metalness: 0.6, roughness: 0.5 })),
     banner: options.materials?.banner ??
-      bag.mat(new MeshStandardMaterial({ color: 0x1a4d7a, metalness: 0.0, roughness: 0.65 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.COBALT_500, -0.45), metalness: 0.0, roughness: 0.65 })),
     fitting: options.materials?.fitting ??
-      bag.mat(new MeshStandardMaterial({ color: 0x9aa1a9, metalness: 0.75, roughness: 0.35 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, 0.32), metalness: 0.75, roughness: 0.35 })),
   }
 
   // Runtime anchors: created once, never replaced (rules 10, 14).
@@ -297,15 +295,5 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-4, 8, 6)
-  scene.add(key)
-  const camera = new PerspectiveCamera(42, aspect, 0.1, 60)
-  camera.position.set(9, 5, 9)
-  camera.lookAt(0, 2.6, 0)
-  scene.add(camera)
-  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
+  return createF1Preview(createModel(), { aspect, target: [0, 2.6, 0], distance: 12.95, fov: 42 })
 }

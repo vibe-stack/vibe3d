@@ -12,16 +12,14 @@
 import {
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
   Group,
-  HemisphereLight,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
-  Scene,
   type Material,
 } from 'three/webgpu'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { bevelBox } from '../f1-kit-core/bevel.ts'
 import { mergeParts } from '../f1-kit-core/merge.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
@@ -76,13 +74,13 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
   const bag = new ResourceBag()
   const materialSlots: Record<Slot, Material> = {
     pole: options.materials?.pole ??
-      bag.mat(new MeshStandardMaterial({ color: 0x2a2e33, metalness: 0.5, roughness: 0.5 })),
+      bag.mat(new MeshStandardMaterial({ color: TOKEN.GRAPHITE_800, metalness: 0.5, roughness: 0.5 })),
     board: options.materials?.board ??
-      bag.mat(new MeshStandardMaterial({ color: 0x111417, metalness: 0.1, roughness: 0.8 })),
+      bag.mat(new MeshStandardMaterial({ color: TOKEN.INK_900, metalness: 0.1, roughness: 0.8 })),
     card: options.materials?.card ??
-      bag.mat(new MeshStandardMaterial({ color: 0xf2f2f2, metalness: 0.05, roughness: 0.75 })),
+      bag.mat(new MeshStandardMaterial({ color: TOKEN.SHELL_050, metalness: 0.05, roughness: 0.75 })),
     rail: options.materials?.rail ??
-      bag.mat(new MeshStandardMaterial({ color: 0x3c4248, metalness: 0.65, roughness: 0.45 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, -0.15), metalness: 0.65, roughness: 0.45 })),
   }
 
   // Runtime anchors: created once, never replaced (rules 10, 14).
@@ -226,15 +224,5 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-2, 4, 3)
-  scene.add(key)
-  const camera = new PerspectiveCamera(32, aspect, 0.05, 30)
-  camera.position.set(3.0, 1.6, 3.2)
-  camera.lookAt(0, 1.3, 0)
-  scene.add(camera)
-  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
+  return createF1Preview(createModel(), { aspect, target: [0, 1.3, 0], distance: 4.40, fov: 32 })
 }

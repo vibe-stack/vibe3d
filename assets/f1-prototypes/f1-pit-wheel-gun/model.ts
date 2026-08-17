@@ -12,22 +12,20 @@
 import {
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
   ExtrudeGeometry,
   Group,
-  HemisphereLight,
   MathUtils,
   Mesh,
   MeshStandardMaterial,
   Path,
-  PerspectiveCamera,
-  Scene,
   Shape,
   Vector3,
   type Material,
 } from 'three/webgpu'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { bevelBox } from '../f1-kit-core/bevel.ts'
 import { mergeParts } from '../f1-kit-core/merge.ts'
 import { ovalTube } from '../f1-kit-core/primitives.ts'
@@ -126,17 +124,17 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
   const ownsLed = options.materials?.led === undefined
   const materialSlots: Record<Slot, Material> = {
     gunmetal: options.materials?.gunmetal ??
-      bag.mat(new MeshStandardMaterial({ color: 0x3b3f45, metalness: 0.75, roughness: 0.45 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, -0.2), metalness: 0.75, roughness: 0.45 })),
     steel: options.materials?.steel ??
-      bag.mat(new MeshStandardMaterial({ color: 0xc8ccd2, metalness: 0.85, roughness: 0.3 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SHELL_200, -0.12), metalness: 0.85, roughness: 0.3 })),
     gripRubber: options.materials?.gripRubber ??
-      bag.mat(new MeshStandardMaterial({ color: 0x121317, metalness: 0.0, roughness: 0.95 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.03), metalness: 0.0, roughness: 0.95 })),
     accent: options.materials?.accent ??
-      bag.mat(new MeshStandardMaterial({ color: 0xff5a1f, metalness: 0.2, roughness: 0.5 })),
+      bag.mat(new MeshStandardMaterial({ color: TOKEN.ORANGE_500, metalness: 0.2, roughness: 0.5 })),
     // Status LED — the only emissive part, unlit-bright via toneMapped:false so it glows through the tone map.
     led: options.materials?.led ??
       bag.mat(new MeshStandardMaterial({
-        color: 0x001a00, emissive: 0x35ff5a, emissiveIntensity: 0.25, toneMapped: false,
+        color: shade(TOKEN.INK_950, -0.4), emissive: TOKEN.CYAN_400, emissiveIntensity: 0.25, toneMapped: false,
       })),
   }
 
@@ -289,22 +287,10 @@ export function createModel(options: F1PitWheelGunOptions = {}): F1PitWheelGunIn
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-2, 3, 2.5)
-  scene.add(key)
-  const camera = new PerspectiveCamera(30, aspect, 0.02, 20)
-  camera.position.set(0.55, 0.35, 0.55)
-  camera.lookAt(0.05, -0.05, 0)
-  scene.add(camera)
+  const preview = createF1Preview(model, { aspect, target: [0.05, -0.05, 0], distance: 1.05 })
   let running = false
   return {
-    scene,
-    root: model.root,
-    camera,
-    update: model.update,
-    dispose: model.dispose,
+    ...preview,
     /** Toggle engaged + spinning together, for an interactive preview action. */
     toggleRun(): void {
       running = !running

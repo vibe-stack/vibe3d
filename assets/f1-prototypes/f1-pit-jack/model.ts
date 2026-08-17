@@ -9,17 +9,15 @@ import {
   BoxGeometry,
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
   Group,
-  HemisphereLight,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
-  Scene,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { ovalTube } from '../f1-kit-core/primitives.ts'
 import { ResourceBag, clamp01 } from '../f1-kit-core/resourceBag.ts'
 
@@ -57,10 +55,10 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
   const config: F1PitJackConfig = { lift: clamp01(options.lift ?? defaults.lift) }
 
   const bag = new ResourceBag()
-  const metal = (options.materials?.metal ?? bag.mat(new MeshStandardMaterial({ color: 0x8f959c, metalness: 0.85, roughness: 0.35 }))) as Material
-  const darkMetal = (options.materials?.darkMetal ?? bag.mat(new MeshStandardMaterial({ color: 0x2c2f34, metalness: 0.7, roughness: 0.5 }))) as Material
-  const accent = (options.materials?.accent ?? bag.mat(new MeshStandardMaterial({ color: 0xff5a1f, metalness: 0.2, roughness: 0.55 }))) as Material
-  const rubber = (options.materials?.rubber ?? bag.mat(new MeshStandardMaterial({ color: 0x14151a, metalness: 0.0, roughness: 0.95 }))) as Material
+  const metal = (options.materials?.metal ?? bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SLATE_650, 0.28), metalness: 0.85, roughness: 0.35 }))) as Material
+  const darkMetal = (options.materials?.darkMetal ?? bag.mat(new MeshStandardMaterial({ color: TOKEN.GRAPHITE_800, metalness: 0.7, roughness: 0.5 }))) as Material
+  const accent = (options.materials?.accent ?? bag.mat(new MeshStandardMaterial({ color: TOKEN.ORANGE_500, metalness: 0.2, roughness: 0.55 }))) as Material
+  const rubber = (options.materials?.rubber ?? bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.04), metalness: 0.0, roughness: 0.95 }))) as Material
   const materialSlots: Record<'metal' | 'darkMetal' | 'accent' | 'rubber', Material> = { metal, darkMetal, accent, rubber }
 
   const root = new Group()
@@ -172,22 +170,10 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-2, 3, 2.5)
-  scene.add(key)
-  const camera = new PerspectiveCamera(30, aspect, 0.02, 20)
-  camera.position.set(1.1, 0.75, 1.1)
-  camera.lookAt(0.15, 0.1, 0)
-  scene.add(camera)
+  const preview = createF1Preview(model, { aspect, target: [0.15, 0.1, 0], distance: 2.49 })
   let lifted = false
   return {
-    scene,
-    root: model.root,
-    camera,
-    update: model.update,
-    dispose: model.dispose,
+    ...preview,
     /** Toggle between resting and fully-jacked, for an interactive preview action. */
     toggleLift(): void {
       lifted = !lifted

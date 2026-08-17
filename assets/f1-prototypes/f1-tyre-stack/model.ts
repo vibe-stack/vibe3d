@@ -11,27 +11,24 @@
 import {
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
   Group,
-  HemisphereLight,
   LatheGeometry,
   MathUtils,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
-  Scene,
   Vector2,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { bevelBox } from '../f1-kit-core/bevel.ts'
 import { creased, mergeParts } from '../f1-kit-core/merge.ts'
 import { taperedTube } from '../f1-kit-core/sculpt.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
 import {
   createModel as createWheel,
-  F1_COMPOUND_COLORS,
   type F1Compound,
   type F1WheelAssemblyInstance,
 } from '../f1-wheel-assembly/model.ts'
@@ -139,11 +136,11 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
   const materialSlots: Record<Slot, Material> = {
     // Warmer blankets are dark quilted fabric — a light value here reads as smooth moulded plastic.
     blanket: options.materials?.blanket ??
-      bag.mat(new MeshStandardMaterial({ color: 0x161b21, roughness: 0.95, metalness: 0.0 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.GRAPHITE_800, -0.35), roughness: 0.95, metalness: 0.0 })),
     strap: options.materials?.strap ??
-      bag.mat(new MeshStandardMaterial({ color: 0x2a2a2e, roughness: 0.8, metalness: 0.1 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.GRAPHITE_800, -0.1), roughness: 0.8, metalness: 0.1 })),
     cable: options.materials?.cable ??
-      bag.mat(new MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9, metalness: 0.0 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.05), roughness: 0.9, metalness: 0.0 })),
   }
 
   // Runtime anchors: created once, never replaced (rules 10, 14).
@@ -357,17 +354,5 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-2.5, 3.5, 3)
-  scene.add(key)
-  const camera = new PerspectiveCamera(30, aspect, 0.05, 40)
-  camera.position.set(2.1, 1.4, 2.1)
-  camera.lookAt(0, 0.6, 0)
-  scene.add(camera)
-  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
+  return createF1Preview(createModel(), { aspect, target: [0, 0.6, 0], distance: 3.08 })
 }
-
-export { F1_COMPOUND_COLORS }

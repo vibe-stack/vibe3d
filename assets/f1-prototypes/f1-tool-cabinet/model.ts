@@ -8,16 +8,14 @@ import {
   BoxGeometry,
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
   Group,
-  HemisphereLight,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
-  Scene,
   type Material,
 } from 'three/webgpu'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
 
 export interface F1ToolCabinetConfig {
@@ -51,10 +49,10 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
 
   const bag = new ResourceBag()
   // Neutral industrial teal default — the source prop's "Ferrari-ish red" would read as team branding.
-  const body = (options.materials?.body ?? bag.mat(new MeshStandardMaterial({ color: 0x1f6f6b, roughness: 0.5, metalness: 0.3 }))) as Material
-  const top = (options.materials?.top ?? bag.mat(new MeshStandardMaterial({ color: 0x2b2f34, roughness: 0.4, metalness: 0.6 }))) as Material
-  const handle = (options.materials?.handle ?? bag.mat(new MeshStandardMaterial({ color: 0xd6d9dd, roughness: 0.35, metalness: 0.8 }))) as Material
-  const caster = (options.materials?.caster ?? bag.mat(new MeshStandardMaterial({ color: 0x15181b, roughness: 0.8, metalness: 0.1 }))) as Material
+  const body = (options.materials?.body ?? bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.GRAPHITE_800, 0.1), roughness: 0.5, metalness: 0.3 }))) as Material
+  const top = (options.materials?.top ?? bag.mat(new MeshStandardMaterial({ color: TOKEN.GRAPHITE_800, roughness: 0.4, metalness: 0.6 }))) as Material
+  const handle = (options.materials?.handle ?? bag.mat(new MeshStandardMaterial({ color: TOKEN.SHELL_200, roughness: 0.35, metalness: 0.8 }))) as Material
+  const caster = (options.materials?.caster ?? bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_900, -0.1), roughness: 0.8, metalness: 0.1 }))) as Material
   const materialSlots: Record<'body' | 'top' | 'handle' | 'caster', Material> = { body, top, handle, caster }
 
   const root = new Group()
@@ -143,15 +141,5 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-2, 3, 2.5)
-  scene.add(key)
-  const camera = new PerspectiveCamera(30, aspect, 0.02, 20)
-  camera.position.set(1.6, 1.1, 1.6)
-  camera.lookAt(0, 0.55, 0)
-  scene.add(camera)
-  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
+  return createF1Preview(createModel(), { aspect, target: [0, 0.55, 0], distance: 2.33 })
 }

@@ -16,20 +16,18 @@
 import {
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
   Float32BufferAttribute,
   Group,
-  HemisphereLight,
   LatheGeometry,
   MathUtils,
   Mesh,
   MeshStandardMaterial,
-  PerspectiveCamera,
-  Scene,
   Vector2,
   type Material,
 } from 'three/webgpu'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { COMPOUND_TOKEN, TOKEN, shade, type Compound } from '../f1-kit-core/palette.ts'
 import { arcBand, bevelBlade } from '../f1-kit-core/bevel.ts'
 import { creased, mergeParts } from '../f1-kit-core/merge.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
@@ -37,19 +35,16 @@ import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
 type Slot = 'rubber' | 'tread' | 'rim' | 'metal' | 'cover' | 'accent' | 'band'
 
 /**
- * The five sidewall grading colours the sport actually uses to mark tyre compounds. Keeping the model
- * on this palette means the sidewall band always reads as a real compound marking rather than an
- * arbitrary livery stripe, and it is the colour key a viewer already knows how to read.
+ * The sidewall grading key, in canonical colour tokens.
+ *
+ * The sport's key is a colour *ordering* — shell, caution, critical across the slicks, then field and
+ * navigation for the wets — and the kit's palette already carries every one of those roles. So this is a
+ * mapping onto `COMPOUND_TOKEN` rather than five hand-picked hexes: the key stays readable and the kit
+ * stays inside the palette. See `f1-kit-core/palette.ts`.
  */
-export const F1_COMPOUND_COLORS = {
-  hard: 0xf2f2f2,
-  medium: 0xffd100,
-  soft: 0xda291c,
-  intermediate: 0x43b02a,
-  wet: 0x0067b1,
-} as const
+export const F1_COMPOUND_COLORS = COMPOUND_TOKEN
 
-export type F1Compound = keyof typeof F1_COMPOUND_COLORS
+export type F1Compound = Compound
 
 export interface F1WheelAssemblyConfig {
   /** Overall tyre radius, metres. Real F1 tyres run ~0.33 m. */
@@ -257,23 +252,23 @@ export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemb
 
   const materialSlots: Record<Slot, Material> = {
     rubber: options.materials?.rubber ??
-      bag.mat(new MeshStandardMaterial({ color: 0x0d0d10, roughness: 0.98, metalness: 0.0 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, -0.15), roughness: 0.98, metalness: 0.0 })),
     tread: options.materials?.tread ??
-      bag.mat(new MeshStandardMaterial({ color: 0x16161a, roughness: 0.72, metalness: 0.0 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.08), roughness: 0.72, metalness: 0.0 })),
     // Forged F1 wheels are anodised satin black, not chrome — the bright metal on the wheel is confined
     // to the machined centre nut, which is what gives the hub its single hard highlight.
     rim: options.materials?.rim ??
-      bag.mat(new MeshStandardMaterial({ color: 0x121216, roughness: 0.42, metalness: 0.65 })),
+      bag.mat(new MeshStandardMaterial({ color: TOKEN.GRAPHITE_800, roughness: 0.42, metalness: 0.65 })),
     metal: options.materials?.metal ??
-      bag.mat(new MeshStandardMaterial({ color: 0xc8ccd2, roughness: 0.28, metalness: 0.9 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SHELL_200, -0.12), roughness: 0.28, metalness: 0.9 })),
     cover: options.materials?.cover ??
-      bag.mat(new MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.4, metalness: 0.2 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, -0.2), roughness: 0.4, metalness: 0.2 })),
     // The rim pinstripe stays a dark machined tone by default. The kit's lime livery accent reads as a
     // second saturated marking here, and on a tyre the only saturated colour that means anything is the
     // compound grading — a lime ring on a white-walled hard makes it look like two compounds at once.
     // Still a real slot: a consumer wanting a team edge can tint it.
     accent: options.materials?.accent ??
-      bag.mat(new MeshStandardMaterial({ color: 0x4a4f57, roughness: 0.38, metalness: 0.7 })),
+      bag.mat(new MeshStandardMaterial({ color: TOKEN.SLATE_650, roughness: 0.38, metalness: 0.7 })),
     band: options.materials?.band ??
       bag.mat(new MeshStandardMaterial({ color: config.band, roughness: 0.6, metalness: 0.0 })),
   }
@@ -520,15 +515,5 @@ export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemb
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-3, 4, 3)
-  scene.add(key)
-  const camera = new PerspectiveCamera(30, aspect, 0.02, 20)
-  camera.position.set(0.9, 0.55, 0.9)
-  camera.lookAt(0, 0.1, 0)
-  scene.add(camera)
-  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
+  return createF1Preview(createModel(), { aspect, target: [0, 0.1, 0], distance: 1.35 })
 }

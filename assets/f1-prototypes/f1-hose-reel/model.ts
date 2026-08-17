@@ -14,16 +14,12 @@ import {
   BufferGeometry,
   CatmullRomCurve3,
   CylinderGeometry,
-  DirectionalLight,
   ExtrudeGeometry,
   Group,
-  HemisphereLight,
   MathUtils,
   Mesh,
   MeshStandardMaterial,
   Path,
-  PerspectiveCamera,
-  Scene,
   Shape,
   TubeGeometry,
   Vector3,
@@ -31,6 +27,8 @@ import {
 } from 'three/webgpu'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
+import { createF1Preview } from '../f1-kit-core/preview.ts'
+import { TOKEN, shade } from '../f1-kit-core/palette.ts'
 import { bevelBox } from '../f1-kit-core/bevel.ts'
 import { mergeParts } from '../f1-kit-core/merge.ts'
 import { taperedTube } from '../f1-kit-core/sculpt.ts'
@@ -164,13 +162,13 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
   const materialSlots: Record<Slot, Material> = {
     // Amber flanges — generic hazard-equipment colour, not team branding.
     accent: options.materials?.accent ??
-      bag.mat(new MeshStandardMaterial({ color: 0xffb300, roughness: 0.5, metalness: 0.3 })),
+      bag.mat(new MeshStandardMaterial({ color: TOKEN.AMBER_400, roughness: 0.5, metalness: 0.3 })),
     stand: options.materials?.stand ??
-      bag.mat(new MeshStandardMaterial({ color: 0x33383d, roughness: 0.5, metalness: 0.6 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.GRAPHITE_800, 0.12), roughness: 0.5, metalness: 0.6 })),
     hose: options.materials?.hose ??
-      bag.mat(new MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.85, metalness: 0 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.INK_950, 0.05), roughness: 0.85, metalness: 0 })),
     metal: options.materials?.metal ??
-      bag.mat(new MeshStandardMaterial({ color: 0xb9bec6, roughness: 0.3, metalness: 0.85 })),
+      bag.mat(new MeshStandardMaterial({ color: shade(TOKEN.SHELL_200, -0.18), roughness: 0.3, metalness: 0.85 })),
   }
 
   // Runtime anchors: created once, never replaced, so consumer attachments survive a rebuild (rules 10, 14).
@@ -372,15 +370,5 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  const scene = new Scene()
-  scene.add(model.root, new HemisphereLight(0x8ea3b2, 0x0a0c10, 0.6))
-  const key = new DirectionalLight(0xfff2e2, 1.2)
-  key.position.set(-2, 3, 2.5)
-  scene.add(key)
-  const camera = new PerspectiveCamera(30, aspect, 0.02, 20)
-  camera.position.set(1.3, 0.85, 1.3)
-  camera.lookAt(0.1, 0.35, 0)
-  scene.add(camera)
-  return { scene, root: model.root, camera, update: model.update, dispose: model.dispose }
+  return createF1Preview(createModel(), { aspect, target: [0.1, 0.35, 0], distance: 1.84 })
 }
