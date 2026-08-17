@@ -57,7 +57,12 @@ export function createModel(): StreetModel {
       // Controller cabinet at the base, and the duct that feeds the arm.
       slab(p, m.shellShade, [0.42, 0.72, 0.28], [0.34, 0.44, 0])
       slab(p, m.ink, [0.34, 0.6, 0.02], [0.34, 0.44, 0.15])
-      p.add(cylinder(m.graphiteEdge, 0.04, MAST - 1.1, [0, 0.9, 0.1], AXIS_Y, 8))
+      // Duct from the cabinet up to the arm. Its length is solved from the two
+      // heights it actually spans; drawn as `MAST - 1.1` centred at 0.9 it ran
+      // from 1.05 m *below* the pavement to well short of the arm.
+      const DUCT_LO = 0.3
+      const DUCT_HI = MAST - 0.4
+      p.add(cylinder(m.graphiteEdge, 0.04, DUCT_HI - DUCT_LO, [0, (DUCT_LO + DUCT_HI) / 2, 0.1], AXIS_Y, 8))
       return { sockets: { fx_signal_head: [HX, HY - 0.02, 0.235], power_controller: [0.34, 0.44, 0.15] } }
     },
   })

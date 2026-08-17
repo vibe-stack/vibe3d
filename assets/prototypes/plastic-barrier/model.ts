@@ -40,7 +40,10 @@ export function createModel(): StreetModel {
       p.add(cylinder(body, 0.09, 1.36, [0, 0.74, 0], [0, 0, Math.PI / 2], 10))
       // Interlock: a pin one end, a socket the other.
       p.add(cylinder(m.graphiteEdge, 0.05, 0.22, [0.79, 0.44, 0], [0, 0, Math.PI / 2], 8))
-      slab(p, m.ink, [0.1, 0.3, 0.2], [-0.76, 0.44, 0])
+      // Socket recessed into the end wall rather than stood proud of it. A dark
+      // block on the outside reads as something glued on; a socket is a hole.
+      slab(p, body, [0.08, 0.34, 0.24], [-0.73, 0.44, 0])
+      slab(p, m.ink, [0.05, 0.22, 0.15], [-0.7, 0.44, 0])
       // Fill port on top, drain recess at the foot.
       p.add(cylinder(m.graphiteEdge, 0.07, 0.05, [0.42, 0.8, 0], AXIS_Y, 10))
       slab(p, m.ink, [0.12, 0.07, 0.1], [-0.42, 0.06, 0.2])

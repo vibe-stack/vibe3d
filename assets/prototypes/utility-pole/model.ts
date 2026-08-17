@@ -42,9 +42,13 @@ export function createModel(): StreetModel {
         const reach = index === 0 ? 1.1 : 0.78
         slab(p, m.timber, [reach * 2, 0.12, 0.13], [0, y, 0])
         slab(p, m.steel, [0.05, 0.34, 0.05], [0, y - 0.2, 0], [0, 0, 0])
-        for (let n = 0; n < (index === 0 ? 3 : 2); n += 1) {
-          const t = (n - ((index === 0 ? 3 : 2) - 1) / 2) / Math.max(1, index === 0 ? 1 : 1)
-          const x = t * reach * 0.78
+        // Spread across the arm from its own count. The previous divisor was
+        // `Math.max(1, index === 0 ? 1 : 1)` — always 1, which collapsed the
+        // spacing and left the lower arm bare.
+        const count = index === 0 ? 3 : 2
+        for (let n = 0; n < count; n += 1) {
+          const t = count === 1 ? 0 : (n / (count - 1)) * 2 - 1
+          const x = t * reach * 0.72
           p.add(cylinder(m.steel, 0.016, 0.13, [x, y + 0.12, 0], AXIS_Y, 6))
           p.add(cylinder(m.glass, 0.055, 0.06, [x, y + 0.2, 0], AXIS_Y, 10))
           p.add(cylinder(m.glass, 0.045, 0.05, [x, y + 0.25, 0], AXIS_Y, 10))

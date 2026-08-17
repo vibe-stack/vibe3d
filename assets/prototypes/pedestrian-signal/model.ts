@@ -34,13 +34,15 @@ export function createModel(): StreetModel {
       const stop = streetLamp(bundle, 'RED-500', 7_731, 'signal')
       pole(p, m, STREET.pole.signal, 2.9)
       // Head: two stacked lenses under a hood each, on the pole's road face.
-      slab(p, m.graphite, [0.3, 0.62, 0.24], [0, 2.42, 0.1])
+      slab(p, m.graphite, [0.4, 0.8, 0.3], [0, 2.36, 0.12])
       for (const [index, lit] of [stop, go].entries()) {
-        const y = 2.62 - index * 0.28
-        slab(p, m.ink, [0.22, 0.22, 0.03], [0, y, 0.22])
-        slab(p, lit, [0.17, 0.17, 0.02], [0, y, 0.235])
+        // Head sized against the 180 mm pole rather than against itself: at
+        // 300 mm wide it read as a matchbox taped to a broomstick.
+        const y = 2.6 - index * 0.36
+        slab(p, m.ink, [0.3, 0.3, 0.035], [0, y, 0.27])
+        slab(p, lit, [0.24, 0.24, 0.025], [0, y, 0.29])
         // Hood, raked so low sun does not wash the lens out.
-        slab(p, m.graphiteEdge, [0.26, 0.05, 0.16], [0, y + 0.13, 0.27], [0.42, 0, 0])
+        slab(p, m.graphiteEdge, [0.34, 0.06, 0.2], [0, y + 0.17, 0.33], [0.42, 0, 0])
       }
       // Push unit at hand height, with its tactile arrow and confirm lamp.
       slab(p, m.graphiteEdge, [0.16, 0.22, 0.12], [0, 1.05, 0.12])

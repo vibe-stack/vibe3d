@@ -43,9 +43,17 @@ export function createModel(): StreetModel {
         }
       }
       slab(p, m.ink, [0.3, 0.04, 0.3], [0, 0.17, 0])
-      // Trunk: three stepped sections, each thinner and slightly offset.
+      // Trunk: two concentric sections, the upper one running up *into* the
+      // canopy rather than stopping below it.
+      //
+      // The first pass offset the upper section 58 mm sideways to suggest a
+      // natural lean. Concentricity is what makes a taper read as one trunk, so
+      // the offset just put a visible knee at the joint — and the upper section,
+      // narrower but shifted, broke the silhouette of the wider one below it.
+      // It also stopped at 2.65 m while the canopy began at 2.80 m, leaving the
+      // whole crown hanging on four thin raked twigs.
       p.add(cylinder(m.timber, 0.11, 1.5, [0, 0.9, 0], AXIS_Y, 10))
-      p.add(cylinder(m.timber, 0.085, 1.1, [0.05, 2.1, 0.03], AXIS_Y, 10))
+      p.add(cylinder(m.timber, 0.085, 1.75, [0, 2.4, 0], AXIS_Y, 10))
       // Canopy: three overlapping masses at falling widths, each rotated off the
       // one below, on a short branch armature.
       //
@@ -58,20 +66,28 @@ export function createModel(): StreetModel {
       const leafDark = foliage(bundle, 7_902, -0.42)
       for (let index = 0; index < 4; index += 1) {
         const a = (index / 4) * Math.PI * 2 + 0.5
-        p.add(cylinder(m.timber, 0.038, 0.72, [
-          0.05 + Math.cos(a) * 0.22, 2.78, 0.03 + Math.sin(a) * 0.22,
+        p.add(cylinder(m.timber, 0.042, 0.78, [
+          Math.cos(a) * 0.2, 2.92, Math.sin(a) * 0.2,
         ], [Math.sin(a) * 0.85, 0, -Math.cos(a) * 0.85], 6))
       }
+      // First tier overlaps the trunk's top rather than clearing it.
+      // Canopy as three overlapping tiers, each rotated off the one below.
+      //
+      // Tried scattering fourteen small lumps instead, on the theory that big
+      // boxes read as crates. They read worse: at that size nothing overlaps
+      // enough to form a crown, so the silhouette dissolved into loose confetti.
+      // Fewer, larger, overlapping masses at least hold an outline. This is
+      // stylised rather than convincing either way — foliage wants a primitive
+      // this kit does not have, and that is a kit change, not a model change.
       const tiers: readonly (readonly [number, number, number, number])[] = [
-        [1.5, 0.52, 3.06, 0.0],
-        [1.24, 0.46, 3.42, 0.62],
-        [0.84, 0.38, 3.74, 1.15],
+        [1.5, 0.56, 3.02, 0.0],
+        [1.24, 0.46, 3.4, 0.62],
+        [0.84, 0.38, 3.72, 1.15],
       ]
       for (const [index, [w, h, y, yaw]] of tiers.entries()) {
-        slab(p, index === 1 ? leafDark : leaf, [w, h, w * 0.9], [0.05, y, 0.03], [0, yaw, 0])
-        // A smaller mass offset off each tier, so no silhouette is symmetrical.
+        slab(p, index === 1 ? leafDark : leaf, [w, h, w * 0.9], [0, y, 0], [0, yaw, 0])
         slab(p, index === 1 ? leaf : leafDark, [w * 0.52, h * 0.72, w * 0.5], [
-          0.05 + Math.cos(yaw + 1.1) * w * 0.36, y + h * 0.22, 0.03 + Math.sin(yaw + 1.1) * w * 0.36,
+          Math.cos(yaw + 1.1) * w * 0.36, y + h * 0.22, Math.sin(yaw + 1.1) * w * 0.36,
         ], [0, yaw + 0.5, 0])
       }
 
@@ -85,7 +101,7 @@ export function createModel(): StreetModel {
         p.add(cylinder(m.steel, 0.012, 0.6, [0, y, 0], [Math.PI / 2, 0, 0], 6))
       }
       p.add(cylinder(m.ink, 0.035, 0.6, [0.46, 0.32, 0.3], AXIS_Y, 8))
-      return { sockets: { dressing_canopy: [0.05, 3.3, 0.03], pipe_irrigation: [0.46, 0.62, 0.3] } }
+      return { sockets: { dressing_canopy: [0, 3.3, 0], pipe_irrigation: [0.46, 0.62, 0.3] } }
     },
   })
 }

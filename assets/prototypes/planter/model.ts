@@ -66,7 +66,13 @@ export function createModel(): StreetModel {
         [0.24, 0.15, 0.26, 2.7],
       ]
       for (const [index, [x, h, w, yaw]] of clumps.entries()) {
-        slab(p, index % 2 === 0 ? leaf : leafDark, [w, h, w * 0.8], [x, 0.1 + H + h * 0.4, (index % 2 ? 0.1 : -0.1)], [0, yaw, 0])
+        // Seated so each clump emerges *from* the soil line rather than resting
+        // on the rim: soil tops out at 0.1 + H - 0.02, and a clump buried by a
+        // third of its height reads as planted instead of placed.
+        const soil = 0.1 + H - 0.02
+        slab(p, index % 2 === 0 ? leaf : leafDark, [w, h, w * 0.8], [
+          x, soil + h * 0.34, (index % 2 ? 0.1 : -0.1),
+        ], [0, yaw, 0])
       }
       return { sockets: { dressing_planting: [0, 0.1 + H + 0.1, 0], mount_fork_slots: [0, 0.05, 0.28] } }
     },

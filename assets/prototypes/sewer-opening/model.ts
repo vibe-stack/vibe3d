@@ -46,7 +46,10 @@ export function createModel(): StreetModel {
       for (const sz of [-1, 1]) {
         slab(g, m.ink, [0.1, 0.03, 0.03], [0, 0.075, sz * 0.21])
       }
-      g.add(cylinder(m.steel, 0.014, 0.5, [-0.29, 0.05, 0], AXIS_X, 6))
+      // Hinge pin down the long side. Laid on AXIS_X it ran *across* the gully
+      // and stuck 210 mm out past a frame only 660 mm wide; the pin runs with
+      // the side it hinges, which is Z.
+      g.add(cylinder(m.steel, 0.014, 0.46, [-0.29, 0.05, 0], [Math.PI / 2, 0, 0], 6))
 
       // Silt bucket visible through the bars: the thing that is actually serviced.
       slab(g, m.ink, [0.44, 0.24, 0.36], [0, -0.12, 0])

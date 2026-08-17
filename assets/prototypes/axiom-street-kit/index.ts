@@ -137,6 +137,15 @@ export function pole(
 ): void {
   const [x, z] = centre
   parent.add(cylinder(material, radius, height - 0.1, [x, 0.1 + (height - 0.1) * 0.5, z], AXIS_Y, 12))
+  // Swollen base over the bottom fifth.
+  //
+  // A column of constant diameter reads as a rod whatever its thickness — at
+  // 1:24 slenderness the lamps came out as broomsticks. Real columns are
+  // thickest where the bending moment is, which is at the ground, and that
+  // swell is most of what makes the eye accept the height.
+  const swell = Math.min(height * 0.2, 1.1)
+  parent.add(cylinder(material, radius * 1.32, swell, [x, 0.1 + swell * 0.5, z], AXIS_Y, 12))
+  parent.add(cylinder(material, radius * 1.12, swell * 0.34, [x, 0.1 + swell, z], AXIS_Y, 12))
   // Grout pad, base plate, and four bolts on the plate's corners.
   slab(parent, m.ink, [radius * 4.6, 0.05, radius * 4.6], [x, 0.025, z])
   slab(parent, m.graphiteEdge, [radius * 4, 0.045, radius * 4], [x, 0.072, z])
