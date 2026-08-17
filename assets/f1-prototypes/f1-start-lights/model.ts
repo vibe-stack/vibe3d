@@ -32,6 +32,8 @@ type Slot = 'housing' | 'lamp' | 'post'
 export interface F1StartLightsConfig {
   /** Lit columns, 0–5. */
   lit: number
+  /** When true, update() runs the FIA 1..5 then all-out sequence. Sheets stay static. */
+  sequence: boolean
 }
 
 export interface F1StartLightsOptions extends Partial<F1StartLightsConfig> {
@@ -49,7 +51,7 @@ export interface F1StartLightsInstance {
   dispose(): void
 }
 
-const defaults: F1StartLightsConfig = { lit: 5 }
+const defaults: F1StartLightsConfig = { lit: 5, sequence: false }
 const COLS = 5
 const ROWS = 4
 const PITCH = 0.48
@@ -64,7 +66,9 @@ const PANEL_Y = HEIGHT - MODULE_H / 2 - 0.28
 export function createModel(options: F1StartLightsOptions = {}): F1StartLightsInstance {
   const config: F1StartLightsConfig = {
     lit: Math.min(5, Math.max(0, Math.round(options.lit ?? defaults.lit))),
+    sequence: options.sequence ?? defaults.sequence,
   }
+  let elapsed = 0
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
@@ -195,13 +199,23 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     getConfig: () => ({ ...config }),
     configure(patch) {
       if (patch.lit !== undefined) config.lit = Math.min(5, Math.max(0, Math.round(patch.lit)))
+      if (patch.sequence !== undefined) config.sequence = patch.sequence
       rebuild()
     },
     setMaterial(slot, material) {
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) mesh.material = material
     },
-    update: () => {},
+    update(deltaSeconds) {
+      if (!config.sequence) return
+      elapsed += deltaSeconds
+      const cycle = elapsed % 7
+      const next = cycle < 5 ? Math.min(5, Math.floor(cycle) + 1) : 0
+      if (next !== config.lit) {
+        config.lit = next
+        rebuild()
+      }
+    },
     dispose() {
       releaseGenerated()
       for (const material of extras) material.dispose()

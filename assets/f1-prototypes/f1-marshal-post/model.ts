@@ -22,6 +22,7 @@ import {
   disposeF1Materials,
   loftAlongX,
   marshalPlateTexture,
+  paintedShellTexture,
   mergeParts,
   revolve,
   roofSheetTexture,
@@ -76,11 +77,13 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     return material
   }
 
+  const paintMap = paintedShellTexture(128)
   const roofMap = roofSheetTexture(128)
   const plateMap = marshalPlateTexture('12')
   const paint = options.materials?.hut ?? own(new MeshPhysicalMaterial({
     name: 'f1-kit / marshal paint',
-    color: 0xd9e6e9,
+    map: paintMap,
+    color: 0xffffff,
     roughness: 0.36,
     metalness: 0.08,
     clearcoat: 0.42,
@@ -188,7 +191,10 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
 
     const door = bevelBox(0.62, 1.55, 0.04, 0.006)
     door.translate(HUT_W / 2 + 0.01, y0 + 0.78, -0.15)
-    paintParts.push(door)
+    emit('hut', uvPlanar(door), hut, 'door', paint)
+    const stile = bevelBox(0.04, 1.4, 0.015, 0.003)
+    stile.translate(HUT_W / 2 + 0.03, y0 + 0.82, -0.12)
+    emit('hut', stile, hut, 'door-stile', kit.graphite)
     const kick = bevelBox(0.58, 0.22, 0.02, 0.004)
     kick.translate(HUT_W / 2 + 0.03, y0 + 0.22, -0.15)
     emit('hut', kick, hut, 'kick', kit.graphite)
@@ -197,7 +203,8 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     knob.translate(HUT_W / 2 + 0.04, y0 + 0.85, -0.02)
     emit('hut', knob, hut, 'knob', kit.steel)
 
-    emit('hut', uvPlanar(mergeParts(paintParts, 'cabin')), hut, 'cabin', paint)
+    for (const part of paintParts) uvPlanar(part)
+    emit('hut', mergeParts(paintParts, 'cabin'), hut, 'cabin', paint)
 
     const roofOver = 0.18
     const z0 = -HUT_D / 2 - roofOver
@@ -255,8 +262,12 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     const poleX = 1.15
     const poleZ = HUT_D / 2 + 0.55
     flagParts.push(tubeSection(0.016, 2.15, [poleX, 1.15, poleZ], [0, 1, 0], 8))
-    const cloth = bevelBox(0.72, 0.48, 0.018, 0.004)
-    cloth.translate(poleX + 0.38, 1.95, poleZ)
+    const cloth = loftAlongX(
+      [[0.0, 0.0], [0.012, 0.02], [0.01, 0.46], [0.0, 0.48], [-0.004, 0.24]],
+      0.72,
+      { closed: true, stations: 6 },
+    )
+    cloth.translate(poleX + 0.38, 1.71, poleZ)
     flagParts.push(cloth)
     emit('flag', mergeParts(flagParts, 'flag'), crew, 'flag')
 
@@ -282,6 +293,7 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     update: () => {},
     dispose() {
       releaseGenerated()
+      paintMap.dispose()
       roofMap.dispose()
       plateMap.dispose()
       for (const material of extras) material.dispose()
