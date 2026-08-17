@@ -1,13 +1,16 @@
 // f1-jumbotron — trackside LED screen on a steel truss: lattice legs, hood, walkway, speakers,
 // and a generic timing-sheet DataTexture (P / LAP / TIME blocks — no names, no teams).
+// Glyphs are sized to read at a 320 px contact-sheet cell; the LED face is a PlaneGeometry so
+// the sheet maps 0–1 instead of smearing across a bevelBox.
 
 import {
   BufferGeometry,
   DataTexture,
   Group,
-  LinearFilter,
   Mesh,
   MeshBasicMaterial,
+  NearestFilter,
+  PlaneGeometry,
   RGBAFormat,
   UnsignedByteType,
   Vector3,
@@ -66,19 +69,47 @@ function fillRect(
   }
 }
 
-function glyph3x5(data: Uint8Array, w: number, ox: number, oy: number, cells: number[], rgb: readonly [number, number, number]): void {
-  const cell = 3
+function glyph3x5(
+  data: Uint8Array, w: number, ox: number, oy: number, cells: number[],
+  rgb: readonly [number, number, number], cell: number,
+): void {
   for (let gy = 0; gy < 5; gy++) {
     for (let gx = 0; gx < 3; gx++) {
       if (!cells[gy * 3 + gx]) continue
-      fillRect(data, w, ox + gx * cell, oy + gy * cell, cell, cell, rgb)
+      fillRect(data, w, ox + gx * cell, oy + gy * cell, cell - 1, cell - 1, rgb)
     }
   }
 }
 
+const GLYPH: Record<string, number[]> = {
+  P: [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0],
+  L: [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1],
+  A: [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1],
+  T: [1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+  I: [1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1],
+  M: [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1],
+  E: [1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1],
+  '1': [0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1],
+  '2': [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1],
+  '3': [1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
+  '4': [1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1],
+}
+
+function writeWord(
+  data: Uint8Array, w: number, ox: number, oy: number, word: string,
+  rgb: readonly [number, number, number], cell: number,
+): void {
+  const advance = cell * 3 + Math.max(4, Math.round(cell * 0.4))
+  for (let i = 0; i < word.length; i++) {
+    const cells = GLYPH[word[i]!]
+    if (!cells) continue
+    glyph3x5(data, w, ox + i * advance, oy, cells, rgb, cell)
+  }
+}
+
 function timingSheet(): DataTexture {
-  const w = 256
-  const h = 144
+  const w = 512
+  const h = 256
   const data = new Uint8Array(w * h * 4)
   const ink: [number, number, number] = [8, 12, 18]
   const paper: [number, number, number] = [242, 244, 248]
@@ -93,28 +124,23 @@ function timingSheet(): DataTexture {
     TOKEN.CYAN_400 & 0xff,
   ]
   fillRect(data, w, 0, 0, w, h, ink)
-  fillRect(data, w, 0, 0, w, 28, accent)
-  fillRect(data, w, 0, h - 18, w, 18, accent)
-  // P / LAP / TIME as 3x5 block glyphs in the header — no typeface, no names.
-  glyph3x5(data, w, 10, 6, [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], paper)
-  glyph3x5(data, w, 70, 6, [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1], paper)
-  glyph3x5(data, w, 86, 6, [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1], paper)
-  glyph3x5(data, w, 102, 6, [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], paper)
-  glyph3x5(data, w, 170, 6, [1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], paper)
-  glyph3x5(data, w, 186, 6, [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1], paper)
-  glyph3x5(data, w, 202, 6, [1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], paper)
-  glyph3x5(data, w, 218, 6, [1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1], paper)
-  for (let row = 0; row < 8; row++) {
-    const y = 32 + row * 12
-    if (row % 2 === 1) fillRect(data, w, 0, y, w, 12, [12, 16, 22])
-    fillRect(data, w, 6, y + 2, 14, 8, paper)
-    fillRect(data, w, 26, y + 2, 90, 8, cyan)
-    fillRect(data, w, 122, y + 3, 48, 6, [160, 170, 180])
-    fillRect(data, w, 196, y + 2, 52, 8, paper)
+  fillRect(data, w, 0, 0, w, 72, accent)
+  fillRect(data, w, 0, h - 28, w, 28, accent)
+  writeWord(data, w, 16, 10, 'P', paper, 12)
+  writeWord(data, w, 140, 10, 'LAP', paper, 12)
+  writeWord(data, w, 340, 10, 'TIME', paper, 12)
+  const rowH = 36
+  for (let row = 0; row < 4; row++) {
+    const y = 84 + row * rowH
+    if (row % 2 === 1) fillRect(data, w, 0, y, w, rowH, [12, 16, 22])
+    writeWord(data, w, 18, y + 6, String(row + 1), paper, 6)
+    fillRect(data, w, 70, y + 8, 220, 20, cyan)
+    fillRect(data, w, 310, y + 10, 70, 16, [160, 170, 180])
+    fillRect(data, w, 400, y + 8, 96, 20, paper)
   }
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
-  tex.minFilter = LinearFilter
-  tex.magFilter = LinearFilter
+  tex.minFilter = NearestFilter
+  tex.magFilter = NearestFilter
   tex.needsUpdate = true
   tex.flipY = true
   return tex
@@ -161,9 +187,15 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (
+    slot: Slot,
+    geometry: BufferGeometry,
+    group: Group,
+    name: string,
+    material?: Material,
+  ): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -212,9 +244,30 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     }
     emit('frame', mergeParts(speakers, 'speakers'), frame, 'speakers')
 
-    const panel = bevelBox(w, h, 0.06, 0.008)
-    panel.translate(0, y, 0.14)
+    const panel = new PlaneGeometry(w, h)
+    panel.translate(0, y, 0.18)
     emit('screen', panel, screen, 'panel')
+
+    const bit = Math.max(0.09, w * 0.022)
+    const titles: BufferGeometry[] = []
+    const stamp = (ch: string, cx: number, cy: number): void => {
+      const cells = GLYPH[ch]
+      if (!cells) return
+      for (let gy = 0; gy < 5; gy++) {
+        for (let gx = 0; gx < 3; gx++) {
+          if (!cells[gy * 3 + gx]) continue
+          const block = bevelBox(bit * 0.88, bit * 0.88, 0.05, 0.008)
+          block.translate(cx + (gx - 1) * bit, cy + (2 - gy) * bit, 0.24)
+          titles.push(block)
+        }
+      }
+    }
+    const topY = y + h * 0.28
+    const pitch = bit * 3.6
+    stamp('P', -w * 0.38, topY)
+    ;(['L', 'A', 'P'] as const).forEach((ch, i) => stamp(ch, -w * 0.12 + i * pitch, topY))
+    ;(['T', 'I', 'M', 'E'] as const).forEach((ch, i) => stamp(ch, w * 0.16 + i * pitch, topY))
+    emit('frame', mergeParts(titles, 'titles'), frame, 'titles', kit.shell)
   }
   rebuild()
 
@@ -245,9 +298,10 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ width: 6 }), {
     aspect,
-    target: [0, 4.6, 0.12],
-    distance: 11.5,
-    fov: 30,
-    pitch: 0.12,
+    target: [0, 4.7, 0.18],
+    distance: 9.2,
+    fov: 26,
+    pitch: 0.06,
+    yaw: -0.28,
   })
 }

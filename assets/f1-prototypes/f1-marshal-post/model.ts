@@ -1,16 +1,13 @@
 // f1-marshal-post — a trackside observers' hut: white cabin, track window, numbered board,
-// two orange-suited marshals in white helmets (visor + radio), a held yellow flag, and a
-// pad-mounted extinguisher.
+// a planted yellow flag, and a pad-mounted extinguisher. No crew figures.
 //
 // Datums from a typical FIA marshal post (Silverstone-style hut, ~2.2 m wide):
 // hut 2.2 × 2.05 × 1.8 m, roof overhang 0.18 m, window 1.15 × 0.72 m on the track face.
 
 import {
   BufferGeometry,
-  CapsuleGeometry,
   Group,
   Mesh,
-  SphereGeometry,
   type Material,
 } from 'three/webgpu'
 
@@ -48,59 +45,6 @@ export interface F1MarshalPostInstance {
 const HUT_W = 2.2
 const HUT_D = 1.8
 const HUT_H = 2.05
-
-function marshalFigure(x: number, z: number, yaw: number): BufferGeometry[] {
-  const parts: BufferGeometry[] = []
-  const torso = new CapsuleGeometry(0.16, 0.55, 4, 10)
-  torso.translate(0, 1.05, 0)
-  parts.push(torso)
-  const hip = new CapsuleGeometry(0.14, 0.12, 3, 8)
-  hip.translate(0, 0.68, 0)
-  parts.push(hip)
-  for (const side of [-1, 1] as const) {
-    const thigh = new CapsuleGeometry(0.075, 0.32, 3, 8)
-    thigh.translate(side * 0.09, 0.42, 0)
-    parts.push(thigh)
-    const boot = bevelBox(0.11, 0.08, 0.22, 0.012)
-    boot.translate(side * 0.09, 0.05, 0.04)
-    parts.push(boot)
-  }
-  const armL = new CapsuleGeometry(0.05, 0.42, 3, 8)
-  armL.rotateZ(0.45)
-  armL.translate(-0.28, 1.15, 0.08)
-  parts.push(armL)
-  const armR = new CapsuleGeometry(0.05, 0.48, 3, 8)
-  armR.rotateZ(-0.9)
-  armR.rotateX(-0.4)
-  armR.translate(0.32, 1.28, 0.18)
-  parts.push(armR)
-  const radio = bevelBox(0.07, 0.1, 0.04, 0.006)
-  radio.translate(0.12, 1.18, 0.18)
-  parts.push(radio)
-  for (const geo of parts) {
-    geo.rotateY(yaw)
-    geo.translate(x, 0, z)
-  }
-  return parts
-}
-
-function helmet(x: number, z: number, yaw: number): BufferGeometry {
-  const shell = new SphereGeometry(0.13, 16, 12)
-  shell.scale(1, 1.08, 1.05)
-  shell.translate(0, 1.58, 0.02)
-  shell.rotateY(yaw)
-  shell.translate(x, 0, z)
-  return shell
-}
-
-function visor(x: number, z: number, yaw: number): BufferGeometry {
-  const disc = bevelDisc(0.09, 0.018, 0.004, 12)
-  disc.rotateX(-0.4)
-  disc.translate(0, 1.55, 0.14)
-  disc.rotateY(yaw)
-  disc.translate(x, 0, z)
-  return disc
-}
 
 export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostInstance {
   const config: F1MarshalPostConfig = {}
@@ -234,25 +178,9 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     frameParts.push(bevelBox(0.03, 0.66, 0.03, 0.004).translate(0, winY, zFace))
     emit('hut', mergeParts(frameParts, 'frame'), hut, 'window-frame', kit.graphite)
 
-    const crewParts: BufferGeometry[] = []
-    const helmetParts: BufferGeometry[] = []
-    const visorParts: BufferGeometry[] = []
-    const poses: Array<readonly [number, number, number]> = [
-      [-0.62, HUT_D / 2 + 0.55, 0.15],
-      [0.72, HUT_D / 2 + 0.7, -0.25],
-    ]
-    for (const [x, z, yaw] of poses) {
-      crewParts.push(...marshalFigure(x, z, yaw))
-      helmetParts.push(helmet(x, z, yaw))
-      visorParts.push(visor(x, z, yaw))
-    }
-    emit('crew', mergeParts(crewParts, 'crew'), crew, 'crew')
-    emit('hut', mergeParts(helmetParts, 'helmets'), crew, 'helmets')
-    emit('hut', mergeParts(visorParts, 'visors'), crew, 'visors', kit.ink)
-
     const flagParts: BufferGeometry[] = []
     const poleX = 1.15
-    const poleZ = HUT_D / 2 + 0.85
+    const poleZ = HUT_D / 2 + 0.55
     flagParts.push(tubeSection(0.016, 2.15, [poleX, 1.15, poleZ], [0, 1, 0], 8))
     const cloth = bevelBox(0.72, 0.48, 0.018, 0.004)
     cloth.translate(poleX + 0.38, 1.95, poleZ)
@@ -290,9 +218,9 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
-    target: [0.2, 1.2, 0.7],
-    distance: 5.8,
+    target: [0.1, 1.25, 0.15],
+    distance: 6.2,
     fov: 30,
-    pitch: 0.18,
+    pitch: 0.16,
   })
 }

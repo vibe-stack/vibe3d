@@ -1,13 +1,14 @@
 // f1-timing-pylon — a tall scoring tower: steel frame, three stacked LED cabinets, generic DataTexture
-// rows (position bars only — no names or teams). configure({ height }).
+// rows with large position glyphs (no names or teams). configure({ height }).
 
 import {
   BufferGeometry,
   DataTexture,
   Group,
-  LinearFilter,
   Mesh,
   MeshBasicMaterial,
+  NearestFilter,
+  PlaneGeometry,
   RGBAFormat,
   UnsignedByteType,
   type Material,
@@ -46,38 +47,63 @@ export interface F1TimingPylonInstance {
 
 const defaults: F1TimingPylonConfig = { height: 9 }
 
+function put(data: Uint8Array, w: number, x: number, y: number, rgb: readonly [number, number, number]): void {
+  if (x < 0 || y < 0 || x >= w) return
+  const i = (y * w + x) * 4
+  if (i < 0 || i + 3 >= data.length) return
+  data[i] = rgb[0]
+  data[i + 1] = rgb[1]
+  data[i + 2] = rgb[2]
+  data[i + 3] = 255
+}
+
+function fillRect(
+  data: Uint8Array, w: number, x0: number, y0: number, rw: number, rh: number,
+  rgb: readonly [number, number, number],
+): void {
+  for (let y = y0; y < y0 + rh; y++) {
+    for (let x = x0; x < x0 + rw; x++) put(data, w, x, y, rgb)
+  }
+}
+
+function glyph3x5(
+  data: Uint8Array, w: number, ox: number, oy: number, cells: number[],
+  rgb: readonly [number, number, number], cell: number,
+): void {
+  for (let gy = 0; gy < 5; gy++) {
+    for (let gx = 0; gx < 3; gx++) {
+      if (!cells[gy * 3 + gx]) continue
+      fillRect(data, w, ox + gx * cell, oy + gy * cell, cell - 1, cell - 1, rgb)
+    }
+  }
+}
+
 function slotTexture(): DataTexture {
-  const w = 64
+  const w = 128
   const h = 256
   const data = new Uint8Array(w * h * 4)
-  const ink = [6, 10, 16]
+  const ink: [number, number, number] = [6, 10, 16]
   const cyan: [number, number, number] = [
     (TOKEN.CYAN_400 >> 16) & 0xff,
     (TOKEN.CYAN_400 >> 8) & 0xff,
     TOKEN.CYAN_400 & 0xff,
   ]
   const paper: [number, number, number] = [230, 240, 245]
-  for (let i = 0; i < w * h; i++) {
-    data[i * 4] = ink[0]!
-    data[i * 4 + 1] = ink[1]!
-    data[i * 4 + 2] = ink[2]!
-    data[i * 4 + 3] = 255
-  }
-  for (let row = 0; row < 12; row++) {
-    const y0 = 12 + row * 20
-    for (let y = y0; y < y0 + 14; y++) {
-      for (let x = 6; x < w - 6; x++) {
-        const i = (y * w + x) * 4
-        const bar = x < 18
-        data[i] = bar ? paper[0] : cyan[0]
-        data[i + 1] = bar ? paper[1] : cyan[1]
-        data[i + 2] = bar ? paper[2] : cyan[2]
-      }
-    }
+  fillRect(data, w, 0, 0, w, h, ink)
+  const digits: number[][] = [
+    [0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1],
+    [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1],
+    [1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
+  ]
+  for (let slot = 0; slot < 3; slot++) {
+    const y0 = 12 + slot * 80
+    fillRect(data, w, 8, y0, w - 16, 68, [10, 14, 20])
+    glyph3x5(data, w, 16, y0 + 8, digits[slot]!, paper, 10)
+    fillRect(data, w, 56, y0 + 18, 56, 32, cyan)
   }
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
-  tex.minFilter = LinearFilter
-  tex.magFilter = LinearFilter
+  tex.minFilter = NearestFilter
+  tex.magFilter = NearestFilter
   tex.needsUpdate = true
   tex.flipY = true
   return tex
@@ -123,9 +149,15 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (
+    slot: Slot,
+    geometry: BufferGeometry,
+    group: Group,
+    name: string,
+    material?: Material,
+  ): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -149,19 +181,40 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     parts.push(tubeSection(0.045, 0.6, [0, height + 0.45, 0], [0, 1, 0], 8))
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const screensGeo: BufferGeometry[] = []
     const bezels: BufferGeometry[] = []
+    const panelH = height * 0.2
     for (let i = 0; i < 3; i++) {
       const y = height * (0.28 + i * 0.24)
-      const bezel = bevelBox(0.92, height * 0.2 + 0.1, 0.1, 0.012)
+      const bezel = bevelBox(0.92, panelH + 0.1, 0.1, 0.012)
       bezel.translate(0, y, 0.18)
       bezels.push(bezel)
-      const panel = bevelBox(0.78, height * 0.2, 0.05, 0.008)
-      panel.translate(0, y, 0.26)
-      screensGeo.push(panel)
     }
     emit('frame', mergeParts(bezels, 'bezels'), frame, 'bezels')
-    emit('screen', mergeParts(screensGeo, 'screens'), screens, 'screens')
+    const stackH = panelH * 3 + height * 0.04 * 2
+    const panel = new PlaneGeometry(0.78, stackH)
+    panel.translate(0, height * 0.52, 0.26)
+    emit('screen', panel, screens, 'screens')
+
+    const digits: number[][] = [
+      [0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1],
+      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1],
+      [1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
+    ]
+    const labels: BufferGeometry[] = []
+    const bit = Math.max(0.07, panelH * 0.14)
+    for (let i = 0; i < 3; i++) {
+      const y = height * (0.28 + i * 0.24)
+      const cells = digits[i]!
+      for (let gy = 0; gy < 5; gy++) {
+        for (let gx = 0; gx < 3; gx++) {
+          if (!cells[gy * 3 + gx]) continue
+          const block = bevelBox(bit * 0.88, bit * 0.88, 0.04, 0.006)
+          block.translate(-0.22 + (gx - 1) * bit, y + (2 - gy) * bit, 0.3)
+          labels.push(block)
+        }
+      }
+    }
+    emit('frame', mergeParts(labels, 'labels'), frame, 'labels', kit.shell)
   }
   rebuild()
 
@@ -192,9 +245,10 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
-    target: [0, 4.4, 0.2],
-    distance: 9.5,
-    fov: 28,
-    pitch: 0.08,
+    target: [0, 4.4, 0.22],
+    distance: 8.2,
+    fov: 26,
+    pitch: 0.04,
+    yaw: -0.4,
   })
 }
