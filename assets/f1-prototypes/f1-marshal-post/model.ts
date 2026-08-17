@@ -23,7 +23,6 @@ import {
   loftAlongX,
   marshalPlateTexture,
   mergeParts,
-  paintedShellTexture,
   revolve,
   roofSheetTexture,
   tubeSection,
@@ -77,17 +76,15 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     return material
   }
 
-  const paintMap = paintedShellTexture(128)
   const roofMap = roofSheetTexture(128)
   const plateMap = marshalPlateTexture('12')
   const paint = options.materials?.hut ?? own(new MeshPhysicalMaterial({
     name: 'f1-kit / marshal paint',
-    map: paintMap,
-    color: 0xffffff,
-    roughness: 0.42,
-    metalness: 0.06,
-    clearcoat: 0.28,
-    clearcoatRoughness: 0.45,
+    color: 0xd9e6e9,
+    roughness: 0.36,
+    metalness: 0.08,
+    clearcoat: 0.42,
+    clearcoatRoughness: 0.32,
   }))
   const roofMat = own(new MeshPhysicalMaterial({
     name: 'f1-kit / marshal roof',
@@ -285,7 +282,6 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     update: () => {},
     dispose() {
       releaseGenerated()
-      paintMap.dispose()
       roofMap.dispose()
       plateMap.dispose()
       for (const material of extras) material.dispose()

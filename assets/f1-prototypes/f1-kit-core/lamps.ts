@@ -7,8 +7,6 @@
 
 import { MeshPhysicalMaterial } from 'three/webgpu'
 
-import { TOKEN } from './palette.ts'
-
 export interface F1LampMaterialOptions {
   readonly on: boolean
   /** Lit colour. Defaults to FIA start-light red. */
@@ -19,7 +17,7 @@ export interface F1LampMaterialOptions {
 }
 
 export function createLampMaterial(options: F1LampMaterialOptions): MeshPhysicalMaterial {
-  const color = options.color ?? TOKEN.RED_500
+  const color = options.color ?? 0xc41820
   const name = options.name ?? (options.on ? 'f1-kit / lamp on' : 'f1-kit / lamp off')
   if (!options.on) {
     return new MeshPhysicalMaterial({
@@ -35,7 +33,7 @@ export function createLampMaterial(options: F1LampMaterialOptions): MeshPhysical
     name,
     color: 0x120404,
     emissive: color,
-    emissiveIntensity: options.intensity ?? 2.4,
+    emissiveIntensity: options.intensity ?? 1.35,
     roughness: 0.18,
     metalness: 0.04,
     toneMapped: false,
