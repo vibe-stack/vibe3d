@@ -1,8 +1,14 @@
-// f1-grandstand-bay — one lofted seating bay with a roof canopy. configure({ rows }).
+// f1-grandstand-bay — one seating bay: lofted staircase bowl, instanced seat backs, rear wall,
+// cantilever roof. configure({ rows, width }).
+//
+// Datums from a typical F1 grandstand bay: 0.42 m rise, 0.85 m tread, cantilever roof dropping 0.6 m
+// toward the track. Seat backs 0.42 m wide, instanced along the bay.
 
 import {
   BufferGeometry,
   Group,
+  InstancedMesh,
+  Matrix4,
   Mesh,
   Vector3,
   type Material,
@@ -13,6 +19,7 @@ import {
   bevelBox,
   createF1Preview,
   disposeF1Materials,
+  loftAlongX,
   member,
   mergeParts,
 } from '../f1-kit-core/index.ts'
@@ -40,6 +47,9 @@ export interface F1GrandstandBayInstance {
 }
 
 const defaults: F1GrandstandBayConfig = { rows: 8, width: 10 }
+const RISE = 0.42
+const TREAD = 0.85
+const FASCIA = 0.32
 
 export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandBayInstance {
   const config: F1GrandstandBayConfig = {
@@ -84,37 +94,85 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
   const rebuild = (): void => {
     releaseGenerated()
     const { rows, width } = config
-    const rise = 0.42
-    const tread = 0.85
-    const struct: BufferGeometry[] = []
-    const seats: BufferGeometry[] = []
-    const depth = rows * tread
-    const wall = bevelBox(width + 0.4, rows * rise + 0.4, 0.22, 0.03)
-    wall.translate(0, (rows * rise + 0.4) / 2, -depth / 2 - 0.1)
-    struct.push(wall)
-    for (let r = 0; r < rows; r++) {
-      const z = depth / 2 - r * tread - tread / 2
-      const y = 0.18 + r * rise
-      const step = bevelBox(width, 0.16, tread - 0.08, 0.02)
-      step.translate(0, y, z)
-      struct.push(step)
-      const bench = bevelBox(width - 0.3, 0.08, 0.38, 0.015)
-      bench.translate(0, y + 0.18, z - 0.12)
-      seats.push(bench)
-    }
-    emit('structure', mergeParts(struct, 'bowl'), bowl, 'bowl')
-    emit('seat', mergeParts(seats, 'seats'), bowl, 'seats')
+    const depth = rows * TREAD
+    const halfD = depth / 2
+    const height = FASCIA + rows * RISE
 
-    const roofY = rows * rise + 2.2
+    // Closed staircase profile in ZY, lofted along X. Front (+Z) is low, toward the track.
+    const profile: Array<readonly [number, number]> = []
+    profile.push([halfD, 0])
+    profile.push([halfD, FASCIA])
+    for (let t = 0; t < rows; t++) {
+      const yTop = FASCIA + t * RISE
+      const zFront = halfD - t * TREAD
+      const zBack = halfD - (t + 1) * TREAD
+      profile.push([zFront, yTop])
+      profile.push([zBack, yTop])
+      profile.push([zBack, yTop + RISE])
+    }
+    profile.push([-halfD, 0])
+    emit('structure', loftAlongX(profile, width, { closed: true }), bowl, 'bowl')
+
+    const rear = bevelBox(width + 0.6, height + 0.4, 0.55, 0.03)
+    rear.translate(0, (height + 0.4) / 2, -halfD - 0.28)
+    emit('structure', rear, bowl, 'rear-wall')
+
+    const fascia = bevelBox(width, FASCIA * 0.7, 0.16, 0.02)
+    fascia.translate(0, FASCIA * 0.45, halfD + 0.1)
+    emit('structure', fascia, bowl, 'fascia')
+
+    // Instanced seat backs on each tread.
+    const seatsAcross = Math.max(6, Math.floor(width / 0.48))
+    const seatGeo = bevelBox(0.38, 0.42, 0.08, 0.01)
+    generated.push(seatGeo)
+    const count = seatsAcross * rows
+    const seats = new InstancedMesh(seatGeo, materialSlots.seat, count)
+    seats.name = 'seats'
+    seats.castShadow = true
+    seats.receiveShadow = true
+    const m = new Matrix4()
+    let i = 0
+    for (let r = 0; r < rows; r++) {
+      const y = FASCIA + r * RISE + 0.28
+      const z = halfD - (r + 0.55) * TREAD
+      for (let s = 0; s < seatsAcross; s++) {
+        const x = -width / 2 + (s + 0.5) * (width / seatsAcross)
+        m.makeTranslation(x, y, z)
+        seats.setMatrixAt(i, m)
+        i++
+      }
+    }
+    seats.instanceMatrix.needsUpdate = true
+    meshesBySlot.seat.push(seats)
+    bowl.add(seats)
+
+    const roofY = height + 1.6
     const roofParts: BufferGeometry[] = []
-    const canopy = bevelBox(width + 0.6, 0.12, depth + 1.2, 0.03)
-    canopy.translate(0, roofY, 0)
-    roofParts.push(canopy)
+    const reach = depth * 0.92
+    const zBack = -halfD - 0.28
+    const zFront = zBack + reach
+    const yBack = roofY
+    const yFront = roofY - 0.7
+    const th = 0.1
+    const N = 8
+    const top: Array<readonly [number, number]> = []
+    for (let k = 0; k <= N; k++) {
+      const u = k / N
+      const z = zBack + (zFront - zBack) * u
+      const y = yBack + (yFront - yBack) * u - Math.sin(u * Math.PI) * 0.45
+      top.push([z, y])
+    }
+    const ring: Array<readonly [number, number]> = [...top]
+    for (let k = N; k >= 0; k--) ring.push([top[k]![0], top[k]![1] - th])
+    roofParts.push(loftAlongX(ring, width + 1.2, { closed: true }))
+    const lip = bevelBox(width + 1.2, 0.22, 0.28, 0.02)
+    lip.translate(0, yFront - 0.08, zFront)
+    roofParts.push(lip)
     for (const sx of [-1, 1] as const) {
       roofParts.push(member(
-        new Vector3(sx * width * 0.42, rows * rise + 0.4, -depth / 2),
-        new Vector3(sx * width * 0.42, roofY, -depth / 2),
-        0.07,
+        new Vector3(sx * width * 0.42, height * 0.55, zBack),
+        new Vector3(sx * width * 0.42, yBack - 0.1, zBack),
+        0.09,
         8,
       ))
     }
@@ -148,8 +206,8 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ rows: 6, width: 8 }), {
     aspect,
-    target: [0, 2.4, 0],
-    distance: 22,
-    fov: 36,
+    target: [0, 2.1, 0.4],
+    distance: 16,
+    fov: 34,
   })
 }

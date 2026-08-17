@@ -1,5 +1,6 @@
-// f1-catch-fence — a straight run of ~5 m debris catch-fencing: steel posts and a chain-link band.
-// The mesh texture is a DataTexture (headless preview has no document / canvas).
+// f1-catch-fence — a straight run of ~5 m debris catch-fencing: steel posts with base plates,
+// top + mid rails, stay cables, and a chain-link band. Mesh is a DataTexture (headless preview
+// has no document / canvas).
 
 import {
   BufferGeometry,
@@ -13,6 +14,7 @@ import {
   RepeatWrapping,
   RGBAFormat,
   UnsignedByteType,
+  Vector3,
   type Material,
 } from 'three/webgpu'
 
@@ -21,6 +23,7 @@ import {
   bevelBox,
   createF1Preview,
   disposeF1Materials,
+  member,
   mergeParts,
   tubeSection,
 } from '../f1-kit-core/index.ts'
@@ -28,9 +31,7 @@ import {
 type Slot = 'post' | 'mesh' | 'rail'
 
 export interface F1CatchFenceConfig {
-  /** Run length along local +X, metres. */
   length: number
-  /** Mesh height, metres. */
   height: number
 }
 
@@ -145,21 +146,37 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
     const railParts: BufferGeometry[] = []
     for (let i = 0; i < count; i++) {
       const x = -half + (i / (count - 1)) * length
-      postParts.push(tubeSection(0.045, height + 0.12, [x, (height + 0.12) / 2, 0], [0, 1, 0], 10))
-      const cap = bevelBox(0.12, 0.04, 0.12, 0.006)
-      cap.translate(x, height + 0.08, 0)
+      postParts.push(tubeSection(0.05, height + 0.16, [x, (height + 0.16) / 2, 0], [0, 1, 0], 12))
+      const base = bevelBox(0.28, 0.08, 0.28, 0.01)
+      base.translate(x, 0.04, 0)
+      postParts.push(base)
+      const cap = bevelBox(0.14, 0.05, 0.14, 0.006)
+      cap.translate(x, height + 0.1, 0)
       railParts.push(cap)
+      // Stay cable back from the post top to a ground anchor.
+      railParts.push(member(
+        new Vector3(x, height + 0.02, 0),
+        new Vector3(x, 0.08, -0.85),
+        0.012,
+        6,
+      ))
     }
-    const top = bevelBox(length + 0.08, 0.05, 0.06, 0.006)
+    const top = bevelBox(length + 0.1, 0.055, 0.07, 0.006)
     top.translate(0, height + 0.02, 0)
     railParts.push(top)
+    const mid = bevelBox(length + 0.1, 0.04, 0.05, 0.005)
+    mid.translate(0, height * 0.52, 0)
+    railParts.push(mid)
+    const bottom = bevelBox(length + 0.1, 0.04, 0.05, 0.005)
+    bottom.translate(0, 0.18, 0)
+    railParts.push(bottom)
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
     emit('rail', mergeParts(railParts, 'rails'), posts, 'rails')
 
-    const panel = new PlaneGeometry(length, height, 1, 1)
-    panel.translate(0, height / 2, 0)
-    const repeats = Math.max(1, length / 0.35)
-    tex.repeat.set(repeats, height / 0.35)
+    const panel = new PlaneGeometry(length, height - 0.2, 1, 1)
+    panel.translate(0, height / 2, 0.02)
+    const repeats = Math.max(1, length / 0.32)
+    tex.repeat.set(repeats, height / 0.32)
     tex.needsUpdate = true
     emit('mesh', panel, meshGroup, 'chain-link')
   }
@@ -191,5 +208,10 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 2.4, 0], distance: 16, fov: 36 })
+  return createF1Preview(createModel({ length: 9, height: 4.2 }), {
+    aspect,
+    target: [0, 2.1, -0.2],
+    distance: 12,
+    fov: 32,
+  })
 }

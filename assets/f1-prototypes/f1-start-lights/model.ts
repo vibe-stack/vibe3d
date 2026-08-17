@@ -1,5 +1,9 @@
-// f1-start-lights — FIA five-column start-light panel on a short overhead gantry.
-// configure({ lit }) lights that many columns from the left.
+// f1-start-lights — FIA five-column start-light panel. Each column is a lofted rounded-rect housing
+// with four stacked red lamps. configure({ lit }) lights that many columns from the left (the TV
+// sequence: 1..5 reds, then all out).
+//
+// Datums: five modules at 0.42 m pitch, each housing 0.28 × 1.05 × 0.22 m, lamps Ø 0.09 m.
+// Hung on a 6.4 m span / 5.6 m high overhead (the FIA "standard height above the track" gantry).
 
 import {
   BufferGeometry,
@@ -12,14 +16,15 @@ import {
 } from 'three/webgpu'
 
 import {
+  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
   disposeF1Materials,
+  loftRoundedBox,
   member,
   mergeParts,
 } from '../f1-kit-core/index.ts'
-import { TOKEN } from '../f1-kit-core/index.ts'
 
 type Slot = 'housing' | 'lamp' | 'post'
 
@@ -44,6 +49,13 @@ export interface F1StartLightsInstance {
 }
 
 const defaults: F1StartLightsConfig = { lit: 5 }
+const COLS = 5
+const ROWS = 4
+const PITCH = 0.42
+const MODULE_W = 0.28
+const MODULE_H = 1.05
+const MODULE_D = 0.22
+const LAMP_R = 0.09
 
 export function createModel(options: F1StartLightsOptions = {}): F1StartLightsInstance {
   const config: F1StartLightsConfig = {
@@ -62,16 +74,16 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     name: 'f1-kit / start-lamp on',
     color: TOKEN.RED_500,
     emissive: TOKEN.RED_500,
-    emissiveIntensity: 1.4,
-    roughness: 0.35,
-    metalness: 0.1,
+    emissiveIntensity: 3.2,
+    roughness: 0.22,
+    metalness: 0,
     toneMapped: false,
   }))
   const lampOff = own(new MeshStandardMaterial({
     name: 'f1-kit / start-lamp off',
-    color: 0x1a0a0a,
-    roughness: 0.55,
-    metalness: 0.2,
+    color: 0x2a0c0c,
+    roughness: 0.22,
+    metalness: 0.12,
   }))
 
   const materialSlots: Record<Slot, Material> = {
@@ -96,7 +108,13 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
+  const emit = (
+    slot: Slot,
+    geometry: BufferGeometry,
+    group: Group,
+    name: string,
+    material?: Material,
+  ): void => {
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
@@ -109,37 +127,50 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
   const rebuild = (): void => {
     releaseGenerated()
     const span = 6.4
-    const height = 5.8
+    const height = 5.6
     const half = span / 2
     const postParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
+      postParts.push(member(new Vector3(sx * half, 0, 0), new Vector3(sx * half, height, 0), 0.11, 12))
+      const plate = bevelBox(0.55, 0.08, 0.55, 0.012)
+      plate.translate(sx * half, 0.04, 0)
+      postParts.push(plate)
+      // Lattice braces on each post.
       postParts.push(member(
-        new Vector3(sx * half, 0, 0),
-        new Vector3(sx * half, height, 0),
-        0.09,
-        10,
+        new Vector3(sx * half, 0.4, -0.18),
+        new Vector3(sx * half, height - 0.4, 0.18),
+        0.035,
+        8,
       ))
     }
-    postParts.push(member(
-      new Vector3(-half, height, 0),
-      new Vector3(half, height, 0),
-      0.08,
-      10,
-    ))
+    postParts.push(member(new Vector3(-half, height, 0), new Vector3(half, height, 0), 0.1, 12))
+    const beam = bevelBox(span + 0.5, 0.28, 0.36, 0.02)
+    beam.translate(0, height + 0.05, 0)
+    postParts.push(beam)
     emit('post', mergeParts(postParts, 'posts'), gantry, 'posts')
 
-    const box = bevelBox(3.4, 0.95, 0.22, 0.02)
-    box.translate(0, height - 0.15, 0.18)
-    emit('housing', box, panel, 'housing')
+    const panelW = (COLS - 1) * PITCH + MODULE_W + 0.16
+    const back = bevelBox(panelW, MODULE_H + 0.18, 0.08, 0.012)
+    back.translate(0, height - 0.55, -0.02)
+    emit('housing', back, panel, 'backboard')
 
-    const cols = 5
-    const rows = 4
-    for (let c = 0; c < cols; c++) {
+    const housings: BufferGeometry[] = []
+    for (let c = 0; c < COLS; c++) {
+      const x = (c - (COLS - 1) / 2) * PITCH
+      const body = loftRoundedBox(MODULE_W, MODULE_H, MODULE_D, 0.045)
+      body.rotateY(Math.PI / 2)
+      body.translate(x, height - 0.55, MODULE_D / 2 + 0.04)
+      housings.push(body)
+    }
+    emit('housing', mergeParts(housings, 'housings'), panel, 'housings')
+
+    for (let c = 0; c < COLS; c++) {
       const on = c < config.lit
-      for (let r = 0; r < rows; r++) {
-        const lamp = new CylinderGeometry(0.09, 0.09, 0.06, 16)
+      const x = (c - (COLS - 1) / 2) * PITCH
+      for (let r = 0; r < ROWS; r++) {
+        const lamp = new CylinderGeometry(LAMP_R, LAMP_R * 0.92, 0.05, 18)
         lamp.rotateX(Math.PI / 2)
-        lamp.translate((c - 2) * 0.58, height - 0.15 + (r - 1.5) * 0.2, 0.30)
+        lamp.translate(x, height - 0.55 + (1.5 - r) * 0.22, MODULE_D + 0.08)
         emit('lamp', lamp, panel, `lamp-${c}-${r}`, on ? lampOn : lampOff)
       }
     }
@@ -168,6 +199,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     },
   }
 }
+
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 4.2, 0], distance: 12, fov: 34 })
+  return createF1Preview(createModel(), { aspect, target: [0, 5.05, 0.35], distance: 4.8, fov: 28 })
 }

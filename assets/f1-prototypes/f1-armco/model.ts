@@ -1,5 +1,5 @@
-// f1-armco — a straight W-beam guardrail run: boxed posts and a three-fold corrugated rail,
-// alternating red / shell bays the way a circuit Armco reads at speed.
+// f1-armco — a straight W-beam guardrail: lofted AASHTO W-section (~312 mm tall, 85 mm corrugation)
+// on C-channel posts at 2.0 m centres, alternating red / shell bays.
 
 import {
   BufferGeometry,
@@ -14,6 +14,7 @@ import {
   bolt,
   createF1Preview,
   disposeF1Materials,
+  loftAlongX,
   mergeParts,
   AXIS_Y,
 } from '../f1-kit-core/index.ts'
@@ -21,7 +22,6 @@ import {
 type Slot = 'post' | 'rail' | 'stripe'
 
 export interface F1ArmcoConfig {
-  /** Number of post-to-post bays. */
   bays: number
 }
 
@@ -42,20 +42,20 @@ export interface F1ArmcoInstance {
 
 const defaults: F1ArmcoConfig = { bays: 4 }
 const PITCH = 2.0
+const W_H = 0.312
+const W_D = 0.085
+const W_T = 0.004
 
-function wBeam(length: number): BufferGeometry[] {
-  const folds: BufferGeometry[] = []
-  const parts: Array<{ y: number; z: number; h: number; d: number }> = [
-    { y: 0.55, z: 0.00, h: 0.09, d: 0.04 },
-    { y: 0.46, z: 0.05, h: 0.08, d: 0.04 },
-    { y: 0.37, z: 0.00, h: 0.09, d: 0.04 },
+function wBeamProfile(): Array<readonly [number, number]> {
+  const outer: Array<readonly [number, number]> = [
+    [0.00, 0.00],
+    [W_D, W_H * 0.22],
+    [0.01, W_H * 0.50],
+    [W_D, W_H * 0.78],
+    [0.00, W_H],
   ]
-  for (const fold of parts) {
-    const bar = bevelBox(length, fold.h, fold.d, 0.006)
-    bar.translate(0, fold.y, fold.z)
-    folds.push(bar)
-  }
-  return folds
+  const inner = [...outer].reverse().map(([z, y]) => [z - W_T, y] as const)
+  return [...outer, ...inner]
 }
 
 export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
@@ -101,33 +101,27 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
     const length = bays * PITCH
     const half = length / 2
     const postParts: BufferGeometry[] = []
-    const railParts: BufferGeometry[] = []
-    const stripeParts: BufferGeometry[] = []
+    const profile = wBeamProfile()
 
     for (let i = 0; i <= bays; i++) {
       const x = -half + i * PITCH
-      const post = bevelBox(0.12, 0.72, 0.10, 0.008)
-      post.translate(x, 0.36, -0.08)
+      const post = bevelBox(0.08, 0.78, 0.10, 0.006)
+      post.translate(x, 0.39, -0.06)
       postParts.push(post)
       const plate = bevelBox(0.22, 0.04, 0.20, 0.006)
-      plate.translate(x, 0.02, -0.06)
+      plate.translate(x, 0.02, -0.04)
       postParts.push(plate)
-      postParts.push(bolt([x, 0.74, -0.04], 0.014, 0.018, AXIS_Y))
+      postParts.push(bolt([x, 0.62, 0.02], 0.014, 0.02, AXIS_Y))
+      postParts.push(bolt([x, 0.22, 0.02], 0.014, 0.02, AXIS_Y))
     }
+    emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
 
     for (let bay = 0; bay < bays; bay++) {
       const x = -half + (bay + 0.5) * PITCH
-      const beam = wBeam(PITCH - 0.08)
-      for (const part of beam) {
-        part.translate(x, 0, 0)
-        if (bay % 2 === 0) stripeParts.push(part)
-        else railParts.push(part)
-      }
+      const beam = loftAlongX(profile, PITCH - 0.06, { closed: true })
+      beam.translate(x, 0.18, 0)
+      emit(bay % 2 === 0 ? 'stripe' : 'rail', beam, rail, `bay-${bay}`)
     }
-
-    emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
-    if (railParts.length > 0) emit('rail', mergeParts(railParts, 'rail'), rail, 'shell-bays')
-    if (stripeParts.length > 0) emit('stripe', mergeParts(stripeParts, 'stripe'), rail, 'red-bays')
   }
   rebuild()
 
@@ -154,5 +148,5 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.4, 0], distance: 11, fov: 32 })
+  return createF1Preview(createModel(), { aspect, target: [0, 0.4, 0.1], distance: 9.5, fov: 30 })
 }

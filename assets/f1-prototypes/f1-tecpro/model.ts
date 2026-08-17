@@ -1,5 +1,6 @@
-// f1-tecpro — a modern energy-absorbing barrier: stacked foam blocks in a plastic wrap,
-// cinched with straps. Invented for the kit — the racing game has Armco and tyre walls, not TecPro.
+// f1-tecpro — stacked polyethylene energy-absorbing barriers. Each block is a lofted stadium section
+// with a recessed front handle — the interlocking TecPro silhouette, not a cube.
+// configure({ columns, rows }). Default wrap is amber (the common yellow TecPro), foam is shell.
 
 import {
   BufferGeometry,
@@ -13,16 +14,15 @@ import {
   bevelBox,
   createF1Preview,
   disposeF1Materials,
+  loftAlongX,
   mergeParts,
-  wrapStrap,
+  tubeSection,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'block' | 'wrap' | 'strap'
 
 export interface F1TecproConfig {
-  /** Blocks along local +X. */
   columns: number
-  /** Courses high. */
   rows: number
 }
 
@@ -42,9 +42,25 @@ export interface F1TecproInstance {
 }
 
 const defaults: F1TecproConfig = { columns: 3, rows: 2 }
-const BW = 0.85
+const BW = 1.05
 const BH = 0.52
 const BD = 0.48
+
+function blockProfile(): Array<readonly [number, number]> {
+  const h = BH - 0.04
+  const d = BD / 2
+  return [
+    [-d + 0.04, 0],
+    [-d, 0.06],
+    [-d - 0.03, h * 0.45],
+    [-d, h - 0.06],
+    [-d + 0.04, h],
+    [d - 0.04, h],
+    [d, h - 0.06],
+    [d, 0.06],
+    [d - 0.04, 0],
+  ]
+}
 
 export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
   const config: F1TecproConfig = {
@@ -55,9 +71,9 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
   const bundle = acquireF1Materials()
   const kit = bundle.materials
   const materialSlots: Record<Slot, Material> = {
-    block: options.materials?.block ?? kit.orange,
-    wrap: options.materials?.wrap ?? kit.shell,
-    strap: options.materials?.strap ?? kit.ink,
+    block: options.materials?.block ?? kit.shell,
+    wrap: options.materials?.wrap ?? kit.amber,
+    strap: options.materials?.strap ?? kit.graphite,
   }
 
   const root = new Group()
@@ -89,28 +105,36 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
   const rebuild = (): void => {
     releaseGenerated()
     const { columns, rows } = config
-    const blockParts: BufferGeometry[] = []
-    const wrapParts: BufferGeometry[] = []
-    const strapParts: BufferGeometry[] = []
+    const foam: BufferGeometry[] = []
+    const wrap: BufferGeometry[] = []
+    const handles: BufferGeometry[] = []
     const half = ((columns - 1) * BW) / 2
+    const profile = blockProfile()
 
     for (let c = 0; c < columns; c++) {
       for (let r = 0; r < rows; r++) {
         const x = -half + c * BW
-        const y = BH / 2 + r * BH
-        const foam = bevelBox(BW - 0.04, BH - 0.03, BD - 0.06, 0.04)
-        foam.translate(x, y, 0)
-        blockParts.push(foam)
-        const sleeve = bevelBox(BW - 0.01, BH - 0.01, BD, 0.02)
-        sleeve.translate(x, y, 0)
-        wrapParts.push(sleeve)
-        strapParts.push(wrapStrap(Math.max(BW, BH) * 0.38, [x, y, BD / 2 - 0.02], 0.045, 0.012, 24))
+        const y = 0.02 + r * BH
+        const body = loftAlongX(profile, BW - 0.06, { closed: true })
+        body.translate(x, y, 0)
+        wrap.push(body)
+        const core = loftAlongX(
+          profile.map(([z, py]) => [z * 0.82, py * 0.82 + 0.04] as const),
+          BW - 0.14,
+          { closed: true },
+        )
+        core.translate(x, y, 0)
+        foam.push(core)
+        const recess = bevelBox(0.22, 0.1, 0.06, 0.008)
+        recess.translate(x, y + BH * 0.55, BD / 2 - 0.02)
+        handles.push(recess)
+        handles.push(tubeSection(0.018, 0.28, [x, y + BH * 0.55, BD / 2 + 0.04], [1, 0, 0], 8))
       }
     }
 
-    emit('block', mergeParts(blockParts, 'foam'), blocks, 'foam')
-    emit('wrap', mergeParts(wrapParts, 'wrap'), blocks, 'wrap')
-    emit('strap', mergeParts(strapParts, 'straps'), straps, 'straps')
+    emit('wrap', mergeParts(wrap, 'wrap'), blocks, 'wrap')
+    emit('block', mergeParts(foam, 'foam'), blocks, 'foam')
+    emit('strap', mergeParts(handles, 'handles'), straps, 'handles')
   }
   rebuild()
 
@@ -138,5 +162,5 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.55, 0], distance: 5.4, fov: 32 })
+  return createF1Preview(createModel(), { aspect, target: [0, 0.55, 0.1], distance: 5.8, fov: 30 })
 }

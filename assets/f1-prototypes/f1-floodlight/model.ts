@@ -1,21 +1,31 @@
-// f1-floodlight — a circuit flood mast: a tapered pole, a yoke, and a cluster of lamp cans.
+// f1-floodlight — a circuit flood mast: tapered pole, access ladder, yoke, and a 2×2 cluster of
+// rectangular Musco-style cans with emissive lenses.
+//
+// Datums: 12 m mast (configurable), 0.14→0.22 m taper, 2.2 m crossbar, each can 0.62 × 0.38 × 0.28 m
+// pitched −32°. Preview frames the HEAD, not the whole needle.
 
 import {
   BufferGeometry,
   CylinderGeometry,
   Group,
   Mesh,
+  MeshStandardMaterial,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
 import {
+  TOKEN,
   acquireF1Materials,
   bevelBox,
+  bolt,
   createF1Preview,
   disposeF1Materials,
+  groundPad,
+  loftRoundedBox,
   member,
   mergeParts,
+  AXIS_Y,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'mast' | 'can' | 'lens'
@@ -46,10 +56,25 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  const extras: Material[] = []
+  const own = (material: Material): Material => {
+    extras.push(material)
+    return material
+  }
+  const lensMat = options.materials?.lens ?? own(new MeshStandardMaterial({
+    name: 'f1-kit / flood lens',
+    color: 0x000000,
+    emissive: TOKEN.SHELL_050,
+    emissiveIntensity: 3.4,
+    roughness: 0.35,
+    metalness: 0,
+    toneMapped: false,
+  }))
+
   const materialSlots: Record<Slot, Material> = {
     mast: options.materials?.mast ?? kit.graphite,
     can: options.materials?.can ?? kit.slate,
-    lens: options.materials?.lens ?? kit.shell,
+    lens: lensMat,
   }
 
   const root = new Group()
@@ -81,27 +106,43 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
   const rebuild = (): void => {
     releaseGenerated()
     const { height } = config
-    const pole = new CylinderGeometry(0.07, 0.14, height, 12)
+    const pole = new CylinderGeometry(0.09, 0.18, height, 16)
     pole.translate(0, height / 2, 0)
     emit('mast', pole, mast, 'pole')
-    const base = bevelBox(0.7, 0.12, 0.7, 0.02)
-    base.translate(0, 0.06, 0)
-    emit('mast', base, mast, 'base')
+    emit('mast', groundPad([0.85, 0.85], [0, 0, 0], 0.1), mast, 'pad')
+    const collar = bevelBox(0.42, 0.08, 0.42, 0.01)
+    collar.translate(0, 0.14, 0)
+    emit('mast', collar, mast, 'collar')
+    emit('mast', bolt([0.22, 0.2, 0.22], 0.016, 0.02, AXIS_Y), mast, 'bolt-a')
+    emit('mast', bolt([-0.22, 0.2, 0.22], 0.016, 0.02, AXIS_Y), mast, 'bolt-b')
+    emit('mast', bolt([0.22, 0.2, -0.22], 0.016, 0.02, AXIS_Y), mast, 'bolt-c')
+    emit('mast', bolt([-0.22, 0.2, -0.22], 0.016, 0.02, AXIS_Y), mast, 'bolt-d')
 
-    const yoke = member(new Vector3(-0.55, height - 0.15, 0), new Vector3(0.55, height - 0.15, 0), 0.04, 8)
+    const rungs: BufferGeometry[] = []
+    const rungN = Math.max(6, Math.round(height / 0.45))
+    for (let i = 1; i < rungN; i++) {
+      const y = (i / rungN) * (height - 0.8)
+      rungs.push(member(new Vector3(-0.11, y, 0.12), new Vector3(0.11, y, 0.12), 0.016, 6))
+    }
+    emit('mast', mergeParts(rungs, 'ladder'), mast, 'ladder')
+
+    const yoke = bevelBox(2.35, 0.22, 0.28, 0.02)
+    yoke.translate(0, height - 0.08, 0)
     emit('can', yoke, head, 'yoke')
+    emit('can', member(new Vector3(0, height - 0.22, 0), new Vector3(0, height + 0.05, 0.05), 0.05, 10), head, 'pivot')
 
     const cans: BufferGeometry[] = []
     const lenses: BufferGeometry[] = []
-    for (const sx of [-0.32, 0.32] as const) {
-      for (const sy of [-0.18, 0.18] as const) {
-        const can = new CylinderGeometry(0.16, 0.18, 0.22, 14)
-        can.rotateX(-0.55)
-        can.translate(sx, height - 0.35 + sy, 0.18)
+    const tilt = -0.55
+    for (const sx of [-0.58, 0.58] as const) {
+      for (const sy of [-0.28, 0.28] as const) {
+        const can = loftRoundedBox(0.62, 0.38, 0.28, 0.04)
+        can.rotateX(tilt)
+        can.translate(sx, height - 0.22 + sy, 0.28)
         cans.push(can)
-        const lens = new CylinderGeometry(0.13, 0.13, 0.03, 14)
-        lens.rotateX(-0.55)
-        lens.translate(sx, height - 0.35 + sy, 0.30)
+        const lens = bevelBox(0.52, 0.3, 0.03, 0.006)
+        lens.rotateX(tilt)
+        lens.translate(sx, height - 0.22 + sy, 0.44)
         lenses.push(lens)
       }
     }
@@ -126,6 +167,7 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     update: () => {},
     dispose() {
       releaseGenerated()
+      for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -133,5 +175,6 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 6.2, 0], distance: 18, fov: 32 })
+  const model = createModel({ height: 8 })
+  return createF1Preview(model, { aspect, target: [0, 7.55, 0.25], distance: 5.8, fov: 32 })
 }
