@@ -1579,14 +1579,14 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     },
   },
   {
-    id: 'f1-wheel',
-    label: 'F1 Wheel',
+    id: 'f1-tyre',
+    label: 'F1 Tyre',
     category: 'Vehicles / Motorsport',
     description: 'Loose pit-lane wet tyre on an 18-inch rim: a swept tread with four cut circumferential grooves and a directional V pattern, five paired spoke arms in a dished barrel, a recessed centre-lock hub, and official compound grading arcs on the sidewall, dressed on both faces.',
     tags: ['prop', 'vehicles', 'motorsport', 'wheel'],
-    exportName: 'f1-wheel.glb',
+    exportName: 'f1-tyre.glb',
     async create(aspect) {
-      const { createPreview } = await import('../../assets/f1-prototypes/f1-wheel/model.ts')
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-tyre/model.ts')
       return adaptStaticPreview(createPreview({ aspect }), 0.15)
     },
   },
@@ -1728,7 +1728,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     id: 'f1-tyre-stack',
     label: 'F1 Tyre Stack',
     category: 'Vehicles / Motorsport',
-    description: 'Blanketed stack of F1 Wheel tyres: a quilted warmer wrap bulging over each course and cinched between them by buckled straps, with an overlap seam, rolled hems, and a power cable running from a gland to the floor. The bottom tyre is left uncovered.',
+    description: 'Blanketed stack of F1 Tyre tyres: a quilted warmer wrap bulging over each course and cinched between them by buckled straps, with an overlap seam, rolled hems, and a power cable running from a gland to the floor. The bottom tyre is left uncovered.',
     tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
     exportName: 'f1-tyre-stack.glb',
     async create(aspect) {
