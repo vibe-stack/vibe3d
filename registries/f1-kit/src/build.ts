@@ -65,7 +65,7 @@ async function buildSupportItem(itemId: string): Promise<RegistryItem> {
     name: itemId,
     type: 'vibe3d:lib',
     title: titleFromId(itemId),
-    description: 'Shared loft primitives and the resource-disposal contract every prop in the kit builds on.',
+    description: 'Shared loft, bevel and merge primitives plus the resource-disposal contract every prop in the kit builds on.',
     dependencies: ['three@>=0.185.0'],
     registryDependencies: [],
     files,

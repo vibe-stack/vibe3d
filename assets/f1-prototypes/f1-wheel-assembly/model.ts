@@ -17,7 +17,6 @@ import {
   BufferGeometry,
   CylinderGeometry,
   DirectionalLight,
-  ExtrudeGeometry,
   Float32BufferAttribute,
   Group,
   HemisphereLight,
@@ -27,12 +26,12 @@ import {
   MeshStandardMaterial,
   PerspectiveCamera,
   Scene,
-  Shape,
   Vector2,
   type Material,
 } from 'three/webgpu'
-import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
+import { arcBand, bevelBlade } from '../f1-kit-core/bevel.ts'
+import { creased, mergeParts } from '../f1-kit-core/merge.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
 
 type Slot = 'rubber' | 'tread' | 'rim' | 'metal' | 'cover' | 'accent' | 'band'
@@ -100,93 +99,6 @@ const defaults: F1WheelAssemblyConfig = {
 // every `.ts` under f1-kit-core ships to kit consumers as permanent public surface.
 // ---------------------------------------------------------------------------------------------------
 
-/** Strip a geometry to the exact shape `mergeGeometries` needs: non-indexed, position/normal/uv only. */
-function mergeReady(geometry: BufferGeometry): BufferGeometry {
-  const flat = geometry.index ? geometry.toNonIndexed() : geometry
-  if (flat !== geometry) geometry.dispose()
-  if (!flat.getAttribute('normal')) flat.computeVertexNormals()
-  if (!flat.getAttribute('uv')) {
-    const count = flat.getAttribute('position').count
-    flat.setAttribute('uv', new Float32Array(count * 2) as unknown as never)
-  }
-  for (const name of Object.keys(flat.attributes)) {
-    if (name !== 'position' && name !== 'normal' && name !== 'uv') flat.deleteAttribute(name)
-  }
-  flat.clearGroups()
-  return flat
-}
-
-/**
- * Merge parts into one geometry — rule 9's "build, bake, then merge". Disposes every input. Throws rather
- * than returning `mergeGeometries`' silent `null`, which is what mixing indexed and non-indexed sources
- * produces and is otherwise invisible until the part is missing from the render.
- */
-function mergeParts(parts: BufferGeometry[], label: string): BufferGeometry {
-  const ready = parts.map(mergeReady)
-  if (ready.length === 1) return ready[0]!
-  const merged = mergeGeometries(ready, false)
-  for (const part of ready) part.dispose()
-  if (!merged) throw new Error(`f1-wheel-assembly: failed to merge "${label}" (${ready.length} parts)`)
-  return merged
-}
-
-/**
- * The kit's chamfered prism: an arbitrary convex outline in XY extruded `depth` along +Z and centred on
- * the origin, with a real 45-degree facet rolling every face into its neighbour (rule 1). `bevel` is a
- * world-unit dimension (rule 7), clamped so it can never invert the shape (rule 6).
- */
-function bevelPrism(outline: ReadonlyArray<readonly [number, number]>, depth: number, bevel: number): BufferGeometry {
-  let span = Infinity
-  for (const [x, y] of outline) span = Math.min(span, Math.abs(x) * 2, Math.abs(y) * 2)
-  const b = Math.max(0, Math.min(bevel, Math.min(span, depth) * 0.3))
-
-  // Inset the outline by the bevel so the facet grows back out to the requested extents rather than
-  // eating into them — the bevel is a physical dimension, not a fraction of the part (rule 7).
-  const scale = (v: number, limit: number): number => (limit <= b ? v : v * (1 - b / limit))
-  const shape = new Shape()
-  outline.forEach(([x, y], i) => {
-    const px = scale(x, Math.abs(x))
-    const py = scale(y, Math.abs(y))
-    if (i === 0) shape.moveTo(px, py)
-    else shape.lineTo(px, py)
-  })
-  shape.closePath()
-
-  const geo = new ExtrudeGeometry(shape, {
-    depth: Math.max(1e-4, depth - 2 * b),
-    bevelEnabled: b > 0,
-    bevelThickness: b,
-    bevelSize: b,
-    bevelOffset: 0,
-    bevelSegments: 1,
-    steps: 1,
-    curveSegments: 1,
-  })
-  geo.translate(0, 0, -(depth / 2 - b))
-  // ExtrudeGeometry output is non-indexed, so toCreasedNormals returns the same object and nothing leaks.
-  // 50 degrees smooths the 45-degree bevel band into both neighbours while leaving square runs crisp.
-  const creased = toCreasedNormals(geo, MathUtils.degToRad(50))
-  if (creased !== geo) geo.dispose()
-  return creased
-}
-
-/**
- * A tapered blade: a radial spoke running from `rIn` to `rOut` along +X, `wIn` wide at the hub end and
- * `wOut` at the rim end, `depth` thick along the axle. Authored so the ring helper can place it directly.
- */
-function bevelBlade(
-  rIn: number, rOut: number, wIn: number, wOut: number, depth: number, bevel: number,
-): BufferGeometry {
-  const mid = (rIn + rOut) / 2
-  const geo = bevelPrism(
-    [[rIn - mid, -wIn / 2], [rOut - mid, -wOut / 2], [rOut - mid, wOut / 2], [rIn - mid, wIn / 2]],
-    depth,
-    bevel,
-  )
-  geo.translate(mid, 0, 0)
-  return geo
-}
-
 /**
  * Merge `count` copies of a part into a ring about +Z — the generalisation of the old private `spokeFan`.
  * `make` returns the part authored at the origin, oriented for angle 0 (radial along +X). Returning null
@@ -209,35 +121,6 @@ function ringOfMerged(
     parts.push(part)
   }
   return mergeParts(parts, label)
-}
-
-/**
- * A raised arc band lying in the XY (sidewall) plane: an annular sector from `aStart` to `aEnd`, `depth`
- * proud along +Z, chamfered all round. Built as one extruded sector rather than a ring of merged chord
- * blocks, which leave visible notches between segments and read as a zipper instead of a painted arc.
- */
-function arcBand(
-  rIn: number, rOut: number, aStart: number, aEnd: number, depth: number, bevel: number,
-): BufferGeometry {
-  const b = Math.max(0, Math.min(bevel, Math.min(rOut - rIn, depth) * 0.3))
-  const shape = new Shape()
-  shape.absarc(0, 0, rOut - b, aStart, aEnd, false)
-  shape.absarc(0, 0, rIn + b, aEnd, aStart, true)
-  shape.closePath()
-  const geo = new ExtrudeGeometry(shape, {
-    depth: Math.max(1e-4, depth - 2 * b),
-    bevelEnabled: b > 0,
-    bevelThickness: b,
-    bevelSize: b,
-    bevelOffset: 0,
-    bevelSegments: 1,
-    steps: 1,
-    curveSegments: 28,
-  })
-  geo.translate(0, 0, -(depth / 2 - b))
-  const out = toCreasedNormals(geo, MathUtils.degToRad(50))
-  if (out !== geo) geo.dispose()
-  return out
 }
 
 /** A solid of revolution about +Z (the axle) from an absolute `[radius, z]` profile. */
@@ -354,17 +237,6 @@ function sweptTread(options: {
   geo.setIndex(index)
   geo.computeVertexNormals()
   return geo
-}
-
-/**
- * Re-shade a geometry so edges sharper than `angleDeg` stay crisp. LatheGeometry smooths normals along
- * the whole profile, which would round off the square-cut tread grooves into soft dents; this restores
- * them. Disposes the input when the utility returns a new object.
- */
-function creased(geometry: BufferGeometry, angleDeg = 40): BufferGeometry {
-  const out = toCreasedNormals(geometry, MathUtils.degToRad(angleDeg))
-  if (out !== geometry) geometry.dispose()
-  return out
 }
 
 export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemblyInstance {

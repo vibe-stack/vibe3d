@@ -12,22 +12,20 @@ import {
   BufferGeometry,
   CylinderGeometry,
   DirectionalLight,
-  ExtrudeGeometry,
   Group,
   HemisphereLight,
-  MathUtils,
   Matrix4,
   Mesh,
   MeshStandardMaterial,
   PerspectiveCamera,
   Quaternion,
   Scene,
-  Shape,
   Vector3,
   type Material,
 } from 'three/webgpu'
-import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
+import { bevelBox } from '../f1-kit-core/bevel.ts'
+import { mergeParts } from '../f1-kit-core/merge.ts'
 import { ResourceBag } from '../f1-kit-core/resourceBag.ts'
 
 type Slot = 'post' | 'banner' | 'fitting'
@@ -65,60 +63,6 @@ const LACE = 0.020  // lacing tube radius
 // Local geometry helpers, deliberately private to this file rather than shared through f1-kit-core:
 // every `.ts` under f1-kit-core ships to kit consumers as permanent public surface.
 // ---------------------------------------------------------------------------------------------------
-
-/** Strip a geometry to the exact shape `mergeGeometries` needs: non-indexed, position/normal/uv only. */
-function mergeReady(geometry: BufferGeometry): BufferGeometry {
-  const flat = geometry.index ? geometry.toNonIndexed() : geometry
-  if (flat !== geometry) geometry.dispose()
-  if (!flat.getAttribute('normal')) flat.computeVertexNormals()
-  if (!flat.getAttribute('uv')) {
-    const count = flat.getAttribute('position').count
-    flat.setAttribute('uv', new Float32Array(count * 2) as unknown as never)
-  }
-  for (const name of Object.keys(flat.attributes)) {
-    if (name !== 'position' && name !== 'normal' && name !== 'uv') flat.deleteAttribute(name)
-  }
-  flat.clearGroups()
-  return flat
-}
-
-/** Merge parts into one geometry (rule 9). Disposes every input; throws rather than returning null. */
-function mergeParts(parts: BufferGeometry[], label: string): BufferGeometry {
-  const ready = parts.map(mergeReady)
-  if (ready.length === 1) return ready[0]!
-  const merged = mergeGeometries(ready, false)
-  for (const part of ready) part.dispose()
-  if (!merged) throw new Error(`f1-pit-gantry: failed to merge "${label}" (${ready.length} parts)`)
-  return merged
-}
-
-/** A chamfered block: `width` x `height` x `depth`, centred on the origin, depth along +Z (rules 1, 6, 7). */
-function bevelBox(width: number, height: number, depth: number, bevel: number): BufferGeometry {
-  const b = Math.max(0, Math.min(bevel, Math.min(width, height, depth) * 0.3))
-  const shape = new Shape()
-  const hw = Math.max(1e-4, width / 2 - b)
-  const hh = Math.max(1e-4, height / 2 - b)
-  shape.moveTo(-hw, -hh)
-  shape.lineTo(hw, -hh)
-  shape.lineTo(hw, hh)
-  shape.lineTo(-hw, hh)
-  shape.closePath()
-  const geo = new ExtrudeGeometry(shape, {
-    depth: Math.max(1e-4, depth - 2 * b),
-    bevelEnabled: b > 0,
-    bevelThickness: b,
-    bevelSize: b,
-    bevelOffset: 0,
-    bevelSegments: 1,
-    steps: 1,
-    curveSegments: 1,
-  })
-  geo.translate(0, 0, -(depth / 2 - b))
-  // ExtrudeGeometry output is non-indexed, so toCreasedNormals returns the same object and nothing leaks.
-  const creased = toCreasedNormals(geo, MathUtils.degToRad(50))
-  if (creased !== geo) geo.dispose()
-  return creased
-}
 
 /** A tube between two points — the truss member primitive. */
 function strut(from: Vector3, to: Vector3, radius: number, radial = 8): BufferGeometry {
