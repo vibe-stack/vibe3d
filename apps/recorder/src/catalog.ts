@@ -30,6 +30,8 @@ export interface CatalogItem {
   name: string
   category: string
   animated: boolean
+  /** A lightweight card image when the source library has a matching reference render. */
+  preview: string | null
   /** ISO date of the commit that introduced this model, or null if unknown. */
   addedAt: string | null
   controls: ModelControl[]
@@ -224,6 +226,42 @@ function categoryFor(id: string): string {
 
 const introducedAt = timeline as Record<string, string | null>
 
+// These are intentionally a curated subset of the much larger reference-image
+// library. Keeping a small set of webp thumbnails in the recorder makes the browser
+// scannable without making first load compete with the active WebGPU preview.
+const previewIds = new Set([
+  'armored-cargo-crate',
+  'building-threshold',
+  'canal-ladder',
+  'cargo-crate-large',
+  'cargo-pallet',
+  'checkpoint-gate-assembly',
+  'commercial-dumpster',
+  'container-stack',
+  'directional-sign',
+  'door-control-panel',
+  'equipment-chest',
+  'equipment-shelving',
+  'fuel-drum',
+  'gantry-crane',
+  'gas-bottles',
+  'hard-equipment-case',
+  'industrial-robot-arm',
+  'loading-dock-ramp',
+  'medical-cart',
+  'microscope-science-station',
+  'pressure-gauge',
+  'respawn-beacon',
+  'robotic-medical-arm',
+  'room-shell',
+  'shipping-container-standard',
+  'stacked-crates',
+  'storage-rack',
+  'street-sign-pole',
+  'traffic-cone',
+  'warehouse-shelf',
+])
+
 export const catalog: CatalogItem[] = Object.entries(modules)
   .map(([path, load]) => {
     const scene = path.match(/terrain\/([^/]+)\/([^/]+)-scene\.ts$/)
@@ -236,6 +274,9 @@ export const catalog: CatalogItem[] = Object.entries(modules)
       name: title(id),
       category: categoryFor(id),
       animated: animatedIds.has(id),
+      preview: previewIds.has(id)
+        ? `${import.meta.env.BASE_URL}model-previews/${id}.webp`
+        : null,
       addedAt: introducedAt[id] ?? null,
       // The compound cliff scene forwards the same patch to every granite
       // instance it holds, so it takes the same panel as the single boulder.

@@ -1,6 +1,7 @@
 import { Check, ClipboardCopy, Copy, Layers, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatPin, formatReport, type Pin, type ReportSection } from './annotations.ts'
+import { copyText } from './clipboard.ts'
 
 interface AnnotatePanelProps {
   modelId: string
@@ -22,29 +23,6 @@ interface AnnotatePanelProps {
  * about to paste into a chat is exactly the thing they need to know landed.
  */
 const CONFIRM_MS = 1_600
-
-/**
- * The Clipboard API exists only on secure origins, and the recorder is routinely
- * opened on a LAN address so a reviewer can turn the model on another machine.
- * Selecting an offscreen field is the only copy that works there, and a report
- * the user cannot take away is not a report.
- */
-async function copyText(text: string): Promise<void> {
-  if (navigator.clipboard) {
-    await navigator.clipboard.writeText(text)
-    return
-  }
-  const carrier = document.createElement('textarea')
-  carrier.value = text
-  carrier.readOnly = true
-  carrier.style.position = 'fixed'
-  carrier.style.opacity = '0'
-  document.body.append(carrier)
-  carrier.select()
-  const copied = document.execCommand('copy')
-  carrier.remove()
-  if (!copied) throw new Error('The browser refused the copy')
-}
 
 type CopyStatus = { key: string; failed: boolean } | null
 

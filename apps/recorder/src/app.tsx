@@ -1,7 +1,9 @@
 import {
   Box,
+  Check,
   ChevronRight,
   Clock,
+  ClipboardCopy,
   Crosshair,
   Download,
   Grid3X3,
@@ -26,6 +28,7 @@ import {
   type PinStore,
   type ReportSection,
 } from './annotations.ts'
+import { copyText } from './clipboard.ts'
 import {
   catalog,
   categories,
@@ -34,6 +37,7 @@ import {
   releaseGroups,
   type CatalogItem,
 } from './catalog.ts'
+import { formatImportPrompt } from './import-prompt.ts'
 import { Stage, type ModelStats, type RenderMode } from './stage.tsx'
 
 const renderModes: RenderMode[] = ['full', 'solid', 'wireframe']
@@ -64,25 +68,76 @@ const isNew = (item: CatalogItem): boolean =>
 interface ItemCardProps {
   item: CatalogItem
   active: boolean
+  checked: boolean
   index: number
   onSelect(item: CatalogItem): void
+  onToggle(item: CatalogItem): void
 }
 
-function ItemCard({ item, active, index, onSelect }: ItemCardProps) {
+function ItemCard({ item, active, checked, index, onSelect, onToggle }: ItemCardProps) {
   return (
-    <button
+    <article
       className="item-card"
-      type="button"
-      aria-pressed={active}
-      onClick={() => onSelect(item)}
+      data-active={active}
+      data-checked={checked}
     >
-      <span className="item-index">{String(index + 1).padStart(2, '0')}</span>
-      <span className="item-copy">
-        <strong>{item.name}{isNew(item) && <em className="item-new">New</em>}</strong>
-        <small>{item.category}{item.animated ? ' · Motion' : ''}</small>
-      </span>
-      <ChevronRight aria-hidden="true" />
-    </button>
+      <button
+        className="item-open"
+        type="button"
+        aria-current={active ? 'true' : undefined}
+        onClick={() => onSelect(item)}
+      >
+        <span className="item-preview">
+          {item.preview
+            ? <img src={item.preview} alt="" width="96" height="72" loading="lazy" />
+            : <Box aria-hidden="true" />}
+        </span>
+        <span className="item-copy">
+          <strong>{item.name}{isNew(item) && <em className="item-new">New</em>}</strong>
+          <small><span className="item-index">{String(index + 1).padStart(2, '0')}</span>{item.category}{item.animated ? ' · Motion' : ''}</small>
+        </span>
+        <ChevronRight aria-hidden="true" />
+      </button>
+      <button
+        className="item-select"
+        type="button"
+        aria-pressed={checked}
+        aria-label={`${checked ? 'Remove' : 'Add'} ${item.name} ${checked ? 'from' : 'to'} import selection`}
+        title={`${checked ? 'Remove from' : 'Add to'} import selection`}
+        onClick={() => onToggle(item)}
+      >
+        <Check aria-hidden="true" />
+      </button>
+    </article>
+  )
+}
+
+interface SelectionActionProps {
+  count: number
+  copyStatus: 'idle' | 'copied' | 'failed'
+  onClear(): void
+  onCopy(): void
+}
+
+function SelectionAction({ count, copyStatus, onClear, onCopy }: SelectionActionProps) {
+  const label = copyStatus === 'copied'
+    ? 'Prompt copied'
+    : copyStatus === 'failed'
+      ? 'Copy failed'
+      : 'Copy import prompt'
+
+  return (
+    <div className="selection-action" aria-live="polite">
+      <div>
+        <strong>{count} selected</strong>
+        <span>{count === 0 ? 'Choose models from the cards' : 'Ready to add to your game'}</span>
+      </div>
+      {count > 0 && <button type="button" className="selection-clear" onClick={onClear}>Clear</button>}
+      <button type="button" className="copy-prompt" disabled={count === 0} onClick={onCopy}>
+        {copyStatus === 'copied' ? <Check aria-hidden="true" /> : <ClipboardCopy aria-hidden="true" />}
+        <span>{label}</span>
+      </button>
+    </div>
   )
 }
 
@@ -106,6 +161,8 @@ export function App() {
   const [selected, setSelected] = useState(initialItem)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('category')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [isAnimating, setIsAnimating] = useState(selected.animated)
   const [renderMode, setRenderMode] = useState<RenderMode>('full')
   const [loading, setLoading] = useState(true)
@@ -119,6 +176,7 @@ export function App() {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const exporterRef = useRef<(() => Promise<Blob>) | null>(null)
+  const copyTimerRef = useRef<number | undefined>(undefined)
 
   const selectedControlValues = useMemo(
     () => controlValues[selected.id] ?? defaultControlValues(selected),
@@ -156,6 +214,7 @@ export function App() {
   )
 
   useEffect(() => writeStore(pinStore), [pinStore])
+  useEffect(() => () => window.clearTimeout(copyTimerRef.current), [])
 
   const handleSelect = useCallback((item: CatalogItem) => {
     setSelected(item)
@@ -165,6 +224,38 @@ export function App() {
     url.searchParams.set('model', item.id)
     window.history.replaceState({}, '', url)
   }, [])
+
+  const handleToggleSelection = useCallback((item: CatalogItem) => {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(item.id)) next.delete(item.id)
+      else next.add(item.id)
+      return next
+    })
+    setCopyStatus('idle')
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set())
+    setCopyStatus('idle')
+  }, [])
+
+  const copyImportPrompt = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const items = catalog.filter((item) => selectedIds.has(item.id))
+    const settle = (status: 'copied' | 'failed') => {
+      setCopyStatus(status)
+      window.clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = window.setTimeout(() => setCopyStatus('idle'), 1_800)
+    }
+    void copyText(formatImportPrompt(items)).then(
+      () => settle('copied'),
+      (copyError: unknown) => {
+        console.error('Unable to copy the model import prompt', copyError)
+        settle('failed')
+      },
+    )
+  }, [selectedIds])
 
   const handleLoadingChange = useCallback((value: boolean) => setLoading(value), [])
   const handleError = useCallback((message: string | null) => setError(message), [])
@@ -342,14 +433,25 @@ export function App() {
                   key={item.id}
                   item={item}
                   active={item.id === selected.id}
+                  checked={selectedIds.has(item.id)}
                   index={catalog.indexOf(item)}
                   onSelect={handleSelect}
+                  onToggle={handleToggleSelection}
                 />
               ))}
             </section>
           ))}
           {filtered.length === 0 && <p className="empty-state">No objects match “{query}”.</p>}
         </div>
+
+        <footer className="selection-tray">
+          <SelectionAction
+            count={selectedIds.size}
+            copyStatus={copyStatus}
+            onClear={clearSelection}
+            onCopy={copyImportPrompt}
+          />
+        </footer>
       </aside>
 
       <div className="stage-controls">
@@ -471,11 +573,24 @@ export function App() {
             key={item.id}
             item={item}
             active={item.id === selected.id}
+            checked={selectedIds.has(item.id)}
             index={catalog.indexOf(item)}
             onSelect={handleSelect}
+            onToggle={handleToggleSelection}
           />
         ))}
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="mobile-selection-tray">
+          <SelectionAction
+            count={selectedIds.size}
+            copyStatus={copyStatus}
+            onClear={clearSelection}
+            onCopy={copyImportPrompt}
+          />
+        </div>
+      )}
 
       {loading && (
         <div className="loading-state" role="status">
