@@ -14,7 +14,7 @@ source needed to make it fit your world.
 
 ## Pit lane, wave one
 
-Eleven props covering a working pit box: a loose tyre; the two
+Twenty-four props covering a working pit box and the trackside around it: a loose tyre; the two
 hand tools a pit crew swings during a stop (a lever jack and an impact tyre
 gun); garage dressing (a tool cabinet, a fire extinguisher, an air-hose
 reel); and pit-lane signage and structures (a blanketed tyre stack, a
@@ -33,6 +33,18 @@ bunx vibe3d add @f1-kit/f1-tool-cabinet
 - `@f1-kit/f1-kit-core` — the wave's palette, shared material bundle, hardware
   vocabulary (bolts, castors, straps, pads), swept-geometry helpers, and the
   disposal contract every prop in the kit builds on.
+
+
+## Trackside, wave two
+
+Thirteen more props for the circuit itself: catch fence, Armco, a tyre barrier
+instanced from `f1-tyre`, a TecPro stack, FIA start lights, a kerb run, a
+floodlight, a timing pylon, a brake marker, a jumbotron, a marshal post, a
+start/finish gantry, and one grandstand bay.
+
+```sh
+bunx vibe3d add @f1-kit/f1-catch-fence
+```
 
 ## No real-team branding
 

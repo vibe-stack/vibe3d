@@ -18,6 +18,19 @@ import { createModel as createPitJack } from './f1-pit-jack/model.ts'
 import { createModel as createCabinet } from './f1-tool-cabinet/model.ts'
 import { createModel as createExtinguisher } from './f1-fire-extinguisher/model.ts'
 import { createModel as createGunRack } from './f1-gun-rack/model.ts'
+import { createModel as createCatchFence } from './f1-catch-fence/model.ts'
+import { createModel as createArmco } from './f1-armco/model.ts'
+import { createModel as createTyreBarrier } from './f1-tyre-barrier/model.ts'
+import { createModel as createTecpro } from './f1-tecpro/model.ts'
+import { createModel as createStartLights } from './f1-start-lights/model.ts'
+import { createModel as createKerb } from './f1-kerb/model.ts'
+import { createModel as createFloodlight } from './f1-floodlight/model.ts'
+import { createModel as createTimingPylon } from './f1-timing-pylon/model.ts'
+import { createModel as createBrakeMarker } from './f1-brake-marker/model.ts'
+import { createModel as createJumbotron } from './f1-jumbotron/model.ts'
+import { createModel as createMarshalPost } from './f1-marshal-post/model.ts'
+import { createModel as createStartGantry } from './f1-start-gantry/model.ts'
+import { createModel as createGrandstandBay } from './f1-grandstand-bay/model.ts'
 
 // --- dispose instrumentation -------------------------------------------------------------------------
 
@@ -77,6 +90,19 @@ const factories = {
   'f1-tool-cabinet': () => createCabinet(),
   'f1-fire-extinguisher': () => createExtinguisher(),
   'f1-gun-rack': () => createGunRack(),
+  'f1-catch-fence': () => createCatchFence({ length: 6, height: 3 }),
+  'f1-armco': () => createArmco({ bays: 2 }),
+  'f1-tyre-barrier': () => createTyreBarrier({ columns: 2, rows: 2, depth: 1 }),
+  'f1-tecpro': () => createTecpro({ columns: 2, rows: 2 }),
+  'f1-start-lights': () => createStartLights({ lit: 3 }),
+  'f1-kerb': () => createKerb({ modules: 4 }),
+  'f1-floodlight': () => createFloodlight({ height: 8 }),
+  'f1-timing-pylon': () => createTimingPylon({ height: 6 }),
+  'f1-brake-marker': () => createBrakeMarker({ distance: 100 }),
+  'f1-jumbotron': () => createJumbotron({ width: 4 }),
+  'f1-marshal-post': () => createMarshalPost(),
+  'f1-start-gantry': () => createStartGantry({ span: 8, height: 5 }),
+  'f1-grandstand-bay': () => createGrandstandBay({ rows: 4, width: 5 }),
 } as const
 
 describe.each(Object.keys(factories) as Array<keyof typeof factories>)('%s ownership', (id) => {

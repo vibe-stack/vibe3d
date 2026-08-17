@@ -1748,6 +1748,162 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
       return adaptStaticPreview(createPreview({ aspect }), 0.6)
     },
   },
+  {
+    id: 'f1-catch-fence',
+    label: 'F1 Catch Fence',
+    category: 'Vehicles / Motorsport',
+    description: 'Chain-link debris fence on steel posts. Configurable span and height. Mesh is a DataTexture, not a canvas.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-catch-fence.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-catch-fence/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.4)
+    },
+  },
+  {
+    id: 'f1-armco',
+    label: 'F1 Armco',
+    category: 'Vehicles / Motorsport',
+    description: 'W-beam guardrail with boxed posts and alternating red/shell bays.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-armco.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-armco/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.4)
+    },
+  },
+  {
+    id: 'f1-tyre-barrier',
+    label: 'F1 Tyre Barrier',
+    category: 'Vehicles / Motorsport',
+    description: 'Tyre wall instanced from the kit f1-tyre — three high, two deep.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-tyre-barrier.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-tyre-barrier/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.9)
+    },
+  },
+  {
+    id: 'f1-tecpro',
+    label: 'F1 TecPro',
+    category: 'Vehicles / Motorsport',
+    description: 'Stacked energy-absorbing foam blocks in a plastic wrap, cinched with straps.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-tecpro.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-tecpro/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.55)
+    },
+  },
+  {
+    id: 'f1-start-lights',
+    label: 'F1 Start Lights',
+    category: 'Vehicles / Motorsport',
+    description: 'FIA five-column start-light panel on a short gantry. configure({ lit }) lights columns.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-start-lights.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-start-lights/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 4.2)
+    },
+  },
+  {
+    id: 'f1-kerb',
+    label: 'F1 Kerb',
+    category: 'Vehicles / Motorsport',
+    description: 'FIA rumble-strip run of raised modules with a 50 mm ramp, alternating shell and red.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-kerb.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-kerb/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.05)
+    },
+  },
+  {
+    id: 'f1-floodlight',
+    label: 'F1 Floodlight',
+    category: 'Vehicles / Motorsport',
+    description: 'Circuit flood mast with a four-can head on a tapered pole.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-floodlight.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-floodlight/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 6.2)
+    },
+  },
+  {
+    id: 'f1-timing-pylon',
+    label: 'F1 Timing Pylon',
+    category: 'Vehicles / Motorsport',
+    description: 'Tall scoring tower with a generic LED board — no driver names.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-timing-pylon.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-timing-pylon/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 4.4)
+    },
+  },
+  {
+    id: 'f1-brake-marker',
+    label: 'F1 Brake Marker',
+    category: 'Vehicles / Motorsport',
+    description: '150 / 100 / 50 distance board on twin posts.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-brake-marker.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-brake-marker/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.0)
+    },
+  },
+  {
+    id: 'f1-jumbotron',
+    label: 'F1 Jumbotron',
+    category: 'Vehicles / Motorsport',
+    description: 'Trackside screen on a steel frame. Face is a material slot.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-jumbotron.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-jumbotron/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 4.2)
+    },
+  },
+  {
+    id: 'f1-marshal-post',
+    label: 'F1 Marshal Post',
+    category: 'Vehicles / Motorsport',
+    description: 'White trackside hut, two orange marshals, and a signal flag.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-marshal-post.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-marshal-post/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.0)
+    },
+  },
+  {
+    id: 'f1-start-gantry',
+    label: 'F1 Start Gantry',
+    category: 'Vehicles / Motorsport',
+    description: 'Start/finish overhead: two posts, a box beam, and a blank banner.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-start-gantry.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-start-gantry/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 4.2)
+    },
+  },
+  {
+    id: 'f1-grandstand-bay',
+    label: 'F1 Grandstand Bay',
+    category: 'Vehicles / Motorsport',
+    description: 'One seating bay with stepped benches and a roof canopy.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-grandstand-bay.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-grandstand-bay/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.4)
+    },
+  },
 ]
 
 function createGaugePreview(
