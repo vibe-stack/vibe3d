@@ -52,20 +52,48 @@ export function ovalTube(
 /**
  * A closed (or open) profile in the ZY plane, `[z, y]` pairs, swept along X from `-length/2` to `+length/2`.
  * W-beam rails, FIA kerbs, and a grandstand seating bowl all share this: one measured section, lofted.
+ * `stations` > 2 densifies the loft so UVs and shallow corrugations survive a contact-sheet downsample.
  */
 export function loftAlongX(
   profileZY: ReadonlyArray<readonly [number, number]>,
   length: number,
-  opts: { closed?: boolean } = {},
+  opts: { closed?: boolean; stations?: number } = {},
 ): THREE.BufferGeometry {
   const closed = opts.closed ?? true
+  const n = Math.max(2, opts.stations ?? 2)
   const half = length / 2
-  const ring = (x: number): THREE.Vector3[] => profileZY.map(([z, y]) => new THREE.Vector3(x, y, z))
-  return new LoftGeometry([ring(-half), ring(+half)], {
+  const rings: THREE.Vector3[][] = []
+  for (let i = 0; i < n; i++) {
+    const x = -half + (i / (n - 1)) * length
+    rings.push(profileZY.map(([z, y]) => new THREE.Vector3(x, y, z)))
+  }
+  return new LoftGeometry(rings, {
     closed,
     capStart: true,
     capEnd: true,
   })
+}
+
+/**
+ * Planar UVs from world XZ so a DataTexture (FIA 45° stripes, timing sheets) maps onto a loft
+ * instead of smearing along LoftGeometry's default ring parameter.
+ */
+export function uvAlongX(
+  geometry: THREE.BufferGeometry,
+  length: number,
+  depth: number,
+): THREE.BufferGeometry {
+  const pos = geometry.getAttribute('position')
+  if (!pos) return geometry
+  const uvs = new Float32Array(pos.count * 2)
+  const invL = length === 0 ? 0 : 1 / length
+  const invD = depth === 0 ? 0 : 1 / depth
+  for (let i = 0; i < pos.count; i++) {
+    uvs[i * 2] = pos.getX(i) * invL + 0.5
+    uvs[i * 2 + 1] = pos.getZ(i) * invD + 0.5
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
+  return geometry
 }
 
 /**

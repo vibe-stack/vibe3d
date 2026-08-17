@@ -7,7 +7,7 @@ import {
   Group,
   LinearFilter,
   Mesh,
-  MeshStandardMaterial,
+  MeshBasicMaterial,
   RGBAFormat,
   UnsignedByteType,
   Vector3,
@@ -66,6 +66,16 @@ function fillRect(
   }
 }
 
+function glyph3x5(data: Uint8Array, w: number, ox: number, oy: number, cells: number[], rgb: readonly [number, number, number]): void {
+  const cell = 3
+  for (let gy = 0; gy < 5; gy++) {
+    for (let gx = 0; gx < 3; gx++) {
+      if (!cells[gy * 3 + gx]) continue
+      fillRect(data, w, ox + gx * cell, oy + gy * cell, cell, cell, rgb)
+    }
+  }
+}
+
 function timingSheet(): DataTexture {
   const w = 256
   const h = 144
@@ -83,21 +93,30 @@ function timingSheet(): DataTexture {
     TOKEN.CYAN_400 & 0xff,
   ]
   fillRect(data, w, 0, 0, w, h, ink)
-  fillRect(data, w, 0, 0, w, 22, accent)
+  fillRect(data, w, 0, 0, w, 28, accent)
   fillRect(data, w, 0, h - 18, w, 18, accent)
-  // Header / footer bars as solid colour — no typeface. Body: 8 timing rows of blocks.
+  // P / LAP / TIME as 3x5 block glyphs in the header — no typeface, no names.
+  glyph3x5(data, w, 10, 6, [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], paper)
+  glyph3x5(data, w, 70, 6, [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1], paper)
+  glyph3x5(data, w, 86, 6, [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1], paper)
+  glyph3x5(data, w, 102, 6, [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], paper)
+  glyph3x5(data, w, 170, 6, [1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], paper)
+  glyph3x5(data, w, 186, 6, [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1], paper)
+  glyph3x5(data, w, 202, 6, [1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], paper)
+  glyph3x5(data, w, 218, 6, [1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1], paper)
   for (let row = 0; row < 8; row++) {
-    const y = 28 + row * 12
+    const y = 32 + row * 12
     if (row % 2 === 1) fillRect(data, w, 0, y, w, 12, [12, 16, 22])
-    fillRect(data, w, 6, y + 3, 10, 7, paper)
-    fillRect(data, w, 22, y + 3, 70, 7, cyan)
-    fillRect(data, w, 100, y + 4, 40, 5, [160, 170, 180])
-    fillRect(data, w, 200, y + 3, 48, 7, paper)
+    fillRect(data, w, 6, y + 2, 14, 8, paper)
+    fillRect(data, w, 26, y + 2, 90, 8, cyan)
+    fillRect(data, w, 122, y + 3, 48, 6, [160, 170, 180])
+    fillRect(data, w, 196, y + 2, 52, 8, paper)
   }
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = LinearFilter
   tex.magFilter = LinearFilter
   tex.needsUpdate = true
+  tex.flipY = true
   return tex
 }
 
@@ -114,15 +133,9 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
   }
   const tex = timingSheet()
   textures.push(tex)
-  const screenMat = options.materials?.screen ?? own(new MeshStandardMaterial({
+  const screenMat = options.materials?.screen ?? own(new MeshBasicMaterial({
     name: 'f1-kit / jumbotron screen',
     map: tex,
-    color: 0x000000,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.55,
-    emissiveMap: tex,
-    roughness: 0.35,
-    metalness: 0,
     toneMapped: false,
   }))
 
@@ -170,10 +183,11 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
       const x = sx * half * 0.78
       legs.push(member(new Vector3(x, 0, -0.35), new Vector3(x, elev + h * 0.15, -0.35), 0.09, 8))
       legs.push(member(new Vector3(x, 0, 0.15), new Vector3(x, elev + h * 0.15, 0.15), 0.07, 8))
-      for (let i = 0; i < 4; i++) {
-        const y0 = (i / 4) * elev
-        const y1 = ((i + 1) / 4) * elev
-        legs.push(member(new Vector3(x, y0, -0.35), new Vector3(x, y1, 0.15), 0.03, 6))
+      for (let i = 0; i < 6; i++) {
+        const y0 = (i / 6) * elev
+        const y1 = ((i + 1) / 6) * elev
+        legs.push(member(new Vector3(x, y0, -0.35), new Vector3(x, y1, 0.15), 0.028, 6))
+        legs.push(member(new Vector3(x, y0, 0.15), new Vector3(x, y1, -0.35), 0.028, 6))
       }
       const pad = bevelBox(0.55, 0.1, 0.55, 0.012)
       pad.translate(x, 0.05, -0.1)
@@ -231,8 +245,9 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ width: 6 }), {
     aspect,
-    target: [0, 4.4, 0.1],
-    distance: 13,
-    fov: 32,
+    target: [0, 4.6, 0.12],
+    distance: 11.5,
+    fov: 30,
+    pitch: 0.12,
   })
 }

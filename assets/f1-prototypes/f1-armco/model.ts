@@ -1,4 +1,4 @@
-// f1-armco — a straight W-beam guardrail: lofted AASHTO W-section (~312 mm tall, 85 mm corrugation)
+// f1-armco — a straight W-beam guardrail: lofted AASHTO W-section (~380 mm tall, 140 mm corrugation)
 // on C-channel posts at 2.0 m centres, alternating red / shell bays.
 
 import {
@@ -42,16 +42,16 @@ export interface F1ArmcoInstance {
 
 const defaults: F1ArmcoConfig = { bays: 4 }
 const PITCH = 2.0
-const W_H = 0.312
-const W_D = 0.085
-const W_T = 0.004
+const W_H = 0.38
+const W_D = 0.14
+const W_T = 0.008
 
 function wBeamProfile(): Array<readonly [number, number]> {
   const outer: Array<readonly [number, number]> = [
     [0.00, 0.00],
-    [W_D, W_H * 0.22],
-    [0.01, W_H * 0.50],
-    [W_D, W_H * 0.78],
+    [W_D, W_H * 0.18],
+    [0.02, W_H * 0.50],
+    [W_D, W_H * 0.82],
     [0.00, W_H],
   ]
   const inner = [...outer].reverse().map(([z, y]) => [z - W_T, y] as const)
@@ -105,21 +105,27 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
 
     for (let i = 0; i <= bays; i++) {
       const x = -half + i * PITCH
-      const post = bevelBox(0.08, 0.78, 0.10, 0.006)
-      post.translate(x, 0.39, -0.06)
-      postParts.push(post)
-      const plate = bevelBox(0.22, 0.04, 0.20, 0.006)
-      plate.translate(x, 0.02, -0.04)
+      const web = bevelBox(0.012, 0.78, 0.08, 0.003)
+      web.translate(x, 0.41, -0.09)
+      postParts.push(web)
+      const flangeA = bevelBox(0.08, 0.78, 0.012, 0.003)
+      flangeA.translate(x, 0.41, -0.13)
+      postParts.push(flangeA)
+      const flangeB = bevelBox(0.08, 0.78, 0.012, 0.003)
+      flangeB.translate(x, 0.41, -0.05)
+      postParts.push(flangeB)
+      const plate = bevelBox(0.24, 0.05, 0.22, 0.006)
+      plate.translate(x, 0.025, -0.04)
       postParts.push(plate)
-      postParts.push(bolt([x, 0.62, 0.02], 0.014, 0.02, AXIS_Y))
-      postParts.push(bolt([x, 0.22, 0.02], 0.014, 0.02, AXIS_Y))
+      postParts.push(bolt([x, 0.68, 0.04], 0.016, 0.022, AXIS_Y))
+      postParts.push(bolt([x, 0.28, 0.04], 0.016, 0.022, AXIS_Y))
     }
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
 
     for (let bay = 0; bay < bays; bay++) {
       const x = -half + (bay + 0.5) * PITCH
-      const beam = loftAlongX(profile, PITCH - 0.06, { closed: true })
-      beam.translate(x, 0.18, 0)
+      const beam = loftAlongX(profile, PITCH - 0.06, { closed: true, stations: 4 })
+      beam.translate(x, 0.22, 0)
       emit(bay % 2 === 0 ? 'stripe' : 'rail', beam, rail, `bay-${bay}`)
     }
   }
@@ -148,5 +154,12 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.4, 0.1], distance: 9.5, fov: 30 })
+  return createF1Preview(createModel({ bays: 3 }), {
+    aspect,
+    target: [0, 0.42, 0.08],
+    distance: 6.2,
+    fov: 28,
+    yaw: -1.15,
+    pitch: 0.22,
+  })
 }

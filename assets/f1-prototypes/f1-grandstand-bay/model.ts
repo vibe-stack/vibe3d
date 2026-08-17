@@ -1,4 +1,4 @@
-// f1-grandstand-bay — one seating bay: lofted staircase bowl, instanced seat backs, rear wall,
+// f1-grandstand-bay — one seating bay: lofted staircase bowl, instanced L-profile seats, rear wall,
 // cantilever roof. configure({ rows, width }).
 //
 // Datums from a typical F1 grandstand bay: 0.42 m rise, 0.85 m tread, cantilever roof dropping 0.6 m
@@ -98,7 +98,6 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     const halfD = depth / 2
     const height = FASCIA + rows * RISE
 
-    // Closed staircase profile in ZY, lofted along X. Front (+Z) is low, toward the track.
     const profile: Array<readonly [number, number]> = []
     profile.push([halfD, 0])
     profile.push([halfD, FASCIA])
@@ -121,10 +120,14 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     fascia.translate(0, FASCIA * 0.45, halfD + 0.1)
     emit('structure', fascia, bowl, 'fascia')
 
-    // Instanced seat backs on each tread.
-    const seatsAcross = Math.max(6, Math.floor(width / 0.48))
-    const seatGeo = bevelBox(0.38, 0.42, 0.08, 0.01)
+    const back = bevelBox(0.38, 0.42, 0.06, 0.008)
+    back.translate(0, 0.08, -0.13)
+    const pan = bevelBox(0.38, 0.05, 0.32, 0.006)
+    pan.translate(0, -0.15, 0.04)
+    const seatGeo = mergeParts([back, pan], 'seat')
     generated.push(seatGeo)
+
+    const seatsAcross = Math.max(6, Math.floor(width / 0.48))
     const count = seatsAcross * rows
     const seats = new InstancedMesh(seatGeo, materialSlots.seat, count)
     seats.name = 'seats'
@@ -206,8 +209,10 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ rows: 6, width: 8 }), {
     aspect,
-    target: [0, 2.1, 0.4],
-    distance: 16,
-    fov: 34,
+    target: [0, 2.0, 0.2],
+    distance: 14,
+    fov: 32,
+    yaw: -0.95,
+    pitch: 0.28,
   })
 }

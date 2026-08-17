@@ -8,7 +8,7 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  MeshStandardMaterial,
+  MeshBasicMaterial,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -62,13 +62,9 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     extras.push(material)
     return material
   }
-  const lampOn = own(new MeshStandardMaterial({
+  const lampOn = own(new MeshBasicMaterial({
     name: 'f1-kit / gantry-lamp',
-    color: 0x000000,
-    emissive: TOKEN.RED_500,
-    emissiveIntensity: 2.0,
-    roughness: 0.3,
-    metalness: 0,
+    color: TOKEN.RED_500,
     toneMapped: false,
   }))
 
@@ -122,12 +118,13 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
       postParts.push(member(new Vector3(x, 0, 0.22), new Vector3(x, height, 0.22), 0.07, 8))
       postParts.push(member(new Vector3(x - 0.22, 0, 0), new Vector3(x - 0.22, height, 0), 0.07, 8))
       postParts.push(member(new Vector3(x + 0.22, 0, 0), new Vector3(x + 0.22, height, 0), 0.07, 8))
-      const bays = 5
+      const bays = 8
       for (let i = 0; i < bays; i++) {
         const y0 = (i / bays) * height
         const y1 = ((i + 1) / bays) * height
-        postParts.push(member(new Vector3(x, y0, -0.22), new Vector3(x, y1, 0.22), 0.032, 6))
-        postParts.push(member(new Vector3(x, y0, 0.22), new Vector3(x, y1, -0.22), 0.032, 6))
+        postParts.push(member(new Vector3(x, y0, -0.22), new Vector3(x, y1, 0.22), 0.028, 6))
+        postParts.push(member(new Vector3(x, y0, 0.22), new Vector3(x, y1, -0.22), 0.028, 6))
+        postParts.push(member(new Vector3(x - 0.22, y0, 0), new Vector3(x + 0.22, y1, 0), 0.028, 6))
       }
       const plate = bevelBox(0.9, 0.1, 0.9, 0.015)
       plate.translate(x, 0.05, 0)
@@ -135,7 +132,6 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     }
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
 
-    // Box-truss beam: rectangular chord lofted along X, plus internal diagonals.
     const chord: Array<readonly [number, number]> = [
       [0.32, -0.22],
       [0.32, 0.28],
@@ -145,20 +141,28 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     const box = loftAlongX(chord, span + 0.8, { closed: true })
     box.translate(0, height + 0.05, 0)
     const beamParts: BufferGeometry[] = [box]
-    const segs = Math.max(4, Math.round(span / 2.2))
+    const segs = Math.max(6, Math.round(span / 1.6))
     for (let i = 0; i <= segs; i++) {
       const x = -half + (i / segs) * span
       beamParts.push(member(
         new Vector3(x, height - 0.16, -0.28),
         new Vector3(x, height + 0.26, 0.28),
-        0.03,
+        0.028,
         6,
       ))
+      if (i < segs) {
+        const x1 = -half + ((i + 1) / segs) * span
+        beamParts.push(member(
+          new Vector3(x, height - 0.16, 0.28),
+          new Vector3(x1, height + 0.26, -0.28),
+          0.024,
+          6,
+        ))
+      }
     }
     const walk = bevelBox(span * 0.92, 0.04, 0.7, 0.008)
     walk.translate(0, height - 0.22, 0.05)
     beamParts.push(walk)
-    // Camera pods on the beam soffit.
     for (const sx of [-span * 0.22, span * 0.22] as const) {
       const pod = loftRoundedBox(0.28, 0.18, 0.32, 0.04)
       pod.rotateX(0.4)
@@ -171,22 +175,23 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     panel.translate(0, height - 0.85, 0.38)
     emit('banner', panel, banner, 'banner')
 
-    // Five-column start-light cluster hung under the beam centre.
-    const lights: BufferGeometry[] = []
+    const housings: BufferGeometry[] = []
+    const lamps: BufferGeometry[] = []
     for (let c = 0; c < 5; c++) {
       const x = (c - 2) * 0.38
       const house = loftRoundedBox(0.24, 0.9, 0.18, 0.04)
       house.rotateY(Math.PI / 2)
       house.translate(x, height - 0.55, 0.55)
-      lights.push(house)
+      housings.push(house)
       for (let r = 0; r < 4; r++) {
         const lamp = new CylinderGeometry(0.07, 0.065, 0.04, 14)
         lamp.rotateX(Math.PI / 2)
         lamp.translate(x, height - 0.55 + (1.5 - r) * 0.18, 0.68)
-        lights.push(lamp)
+        lamps.push(lamp)
       }
     }
-    emit('banner', mergeParts(lights, 'lights'), banner, 'lights', lampOn)
+    emit('banner', mergeParts(housings, 'housings'), banner, 'housings', kit.graphite)
+    emit('banner', mergeParts(lamps, 'lights'), banner, 'lights', lampOn)
   }
   rebuild()
 
@@ -215,10 +220,11 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ span: 12, height: 6.4 }), {
+  return createF1Preview(createModel({ span: 10, height: 6.2 }), {
     aspect,
-    target: [0, 5.2, 0.2],
-    distance: 16,
-    fov: 34,
+    target: [0, 5.6, 0.45],
+    distance: 9.5,
+    fov: 28,
+    pitch: 0.12,
   })
 }

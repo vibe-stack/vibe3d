@@ -1,4 +1,4 @@
-// f1-timing-pylon — a tall scoring tower: steel frame, three stacked LED slots, generic DataTexture
+// f1-timing-pylon — a tall scoring tower: steel frame, three stacked LED cabinets, generic DataTexture
 // rows (position bars only — no names or teams). configure({ height }).
 
 import {
@@ -7,7 +7,7 @@ import {
   Group,
   LinearFilter,
   Mesh,
-  MeshStandardMaterial,
+  MeshBasicMaterial,
   RGBAFormat,
   UnsignedByteType,
   type Material,
@@ -96,15 +96,9 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
   }
   const tex = slotTexture()
   textures.push(tex)
-  const screenMat = options.materials?.screen ?? own(new MeshStandardMaterial({
+  const screenMat = options.materials?.screen ?? own(new MeshBasicMaterial({
     name: 'f1-kit / timing-pylon screen',
     map: tex,
-    color: 0x000000,
-    emissive: 0xffffff,
-    emissiveMap: tex,
-    emissiveIntensity: 0.7,
-    roughness: 0.3,
-    metalness: 0,
     toneMapped: false,
   }))
 
@@ -143,25 +137,30 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     releaseGenerated()
     const { height } = config
     const parts: BufferGeometry[] = []
-    const mast = bevelBox(0.42, height, 0.32, 0.02)
+    const mast = bevelBox(0.55, height, 0.38, 0.02)
     mast.translate(0, height / 2, 0)
     parts.push(mast)
-    const pad = bevelBox(1.1, 0.12, 0.9, 0.015)
+    const pad = bevelBox(1.2, 0.12, 1.0, 0.015)
     pad.translate(0, 0.06, 0)
     parts.push(pad)
-    const cap = bevelBox(0.55, 0.14, 0.4, 0.015)
-    cap.translate(0, height + 0.05, 0)
+    const cap = bevelBox(0.7, 0.16, 0.48, 0.015)
+    cap.translate(0, height + 0.06, 0)
     parts.push(cap)
-    // Chevrons / arrow fin on top.
-    parts.push(tubeSection(0.04, 0.55, [0, height + 0.4, 0], [0, 1, 0], 8))
+    parts.push(tubeSection(0.045, 0.6, [0, height + 0.45, 0], [0, 1, 0], 8))
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
     const screensGeo: BufferGeometry[] = []
+    const bezels: BufferGeometry[] = []
     for (let i = 0; i < 3; i++) {
-      const panel = bevelBox(0.72, height * 0.22, 0.06, 0.008)
-      panel.translate(0, height * (0.28 + i * 0.24), 0.2)
+      const y = height * (0.28 + i * 0.24)
+      const bezel = bevelBox(0.92, height * 0.2 + 0.1, 0.1, 0.012)
+      bezel.translate(0, y, 0.18)
+      bezels.push(bezel)
+      const panel = bevelBox(0.78, height * 0.2, 0.05, 0.008)
+      panel.translate(0, y, 0.26)
       screensGeo.push(panel)
     }
+    emit('frame', mergeParts(bezels, 'bezels'), frame, 'bezels')
     emit('screen', mergeParts(screensGeo, 'screens'), screens, 'screens')
   }
   rebuild()
@@ -191,5 +190,11 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 4.6, 0.15], distance: 12, fov: 30 })
+  return createF1Preview(createModel(), {
+    aspect,
+    target: [0, 4.4, 0.2],
+    distance: 9.5,
+    fov: 28,
+    pitch: 0.08,
+  })
 }

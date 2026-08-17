@@ -1,25 +1,24 @@
-// f1-kerb — FIA rumble-strip: one lofted 50 mm trapezoid section with 45° painted stripes.
+// f1-kerb — FIA rumble-strip: one lofted ~80 mm trapezoid with 45° painted stripes as
+// 3D bars on the top face (LoftGeometry UVs smear a DataTexture at contact-sheet scale).
 // configure({ modules }) sets how many 0.4 m modules long the run is.
 
 import {
   BufferGeometry,
-  DataTexture,
   Group,
-  LinearFilter,
   Mesh,
   MeshStandardMaterial,
-  NearestFilter,
-  RGBAFormat,
-  UnsignedByteType,
   type Material,
 } from 'three/webgpu'
 
 import {
   TOKEN,
   acquireF1Materials,
+  bevelBox,
   createF1Preview,
   disposeF1Materials,
   loftAlongX,
+  mergeParts,
+  uvAlongX,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'shell' | 'paint'
@@ -46,47 +45,20 @@ export interface F1KerbInstance {
 const defaults: F1KerbConfig = { modules: 8 }
 const MOD = 0.4
 
-function stripeTexture(modules: number): DataTexture {
-  const w = Math.max(64, modules * 32)
-  const h = 32
-  const data = new Uint8Array(w * h * 4)
-  const red = [(TOKEN.RED_500 >> 16) & 0xff, (TOKEN.RED_500 >> 8) & 0xff, TOKEN.RED_500 & 0xff]
-  const white = [(TOKEN.SHELL_050 >> 16) & 0xff, (TOKEN.SHELL_050 >> 8) & 0xff, TOKEN.SHELL_050 & 0xff]
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4
-      const stripe = Math.floor((x + y * 1.4) / 10) % 2 === 0
-      const c = stripe ? red : white
-      data[i] = c[0]!
-      data[i + 1] = c[1]!
-      data[i + 2] = c[2]!
-      data[i + 3] = 255
-    }
-  }
-  const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
-  tex.minFilter = LinearFilter
-  tex.magFilter = NearestFilter
-  tex.needsUpdate = true
-  return tex
-}
-
 export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
   const config: F1KerbConfig = { modules: Math.max(2, Math.round(options.modules ?? defaults.modules)) }
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
   const extras: Material[] = []
-  const textures: DataTexture[] = []
   const own = (material: Material): Material => {
     extras.push(material)
     return material
   }
 
-  const tex = stripeTexture(config.modules)
-  textures.push(tex)
   const paintMat = options.materials?.paint ?? own(new MeshStandardMaterial({
     name: 'f1-kit / kerb paint',
-    map: tex,
+    color: TOKEN.RED_500,
     roughness: 0.72,
     metalness: 0.05,
   }))
@@ -124,15 +96,29 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
   const rebuild = (): void => {
     releaseGenerated()
     const length = config.modules * MOD
-    // FIA 50 mm kerb: 280 mm wide, 50 mm high, 60 mm front chamfer down to the asphalt.
+    // FIA kerb: ~350 mm wide, 80 mm high, 60 mm front chamfer down to the asphalt.
     const profile: Array<readonly [number, number]> = [
-      [0.32, 0.00],
-      [0.32, 0.10],
-      [0.08, 0.10],
-      [0.00, 0.06],
-      [-0.06, 0.00],
+      [0.18, 0.00],
+      [0.18, 0.08],
+      [-0.08, 0.08],
+      [-0.16, 0.04],
+      [-0.20, 0.00],
     ]
-    emit('paint', loftAlongX(profile, length, { closed: true }), 'kerb')
+    const body = uvAlongX(loftAlongX(profile, length, { closed: true, stations: 8 }), length, 0.38)
+    emit('shell', body, 'kerb')
+
+    const red: BufferGeometry[] = []
+    const white: BufferGeometry[] = []
+    const pitch = 0.16
+    const count = Math.ceil(length / pitch) + 2
+    for (let i = 0; i < count; i++) {
+      const bar = bevelBox(0.09, 0.018, 0.36, 0.004)
+      bar.rotateY(Math.PI / 4)
+      bar.translate(-length / 2 + i * pitch, 0.078, 0.0)
+      ;(i % 2 === 0 ? red : white).push(bar)
+    }
+    if (red.length) emit('paint', mergeParts(red, 'red-stripes'), 'red-stripes')
+    if (white.length) emit('shell', mergeParts(white, 'white-stripes'), 'white-stripes')
   }
   rebuild()
 
@@ -142,13 +128,7 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
     materials: materialSlots,
     getConfig: () => ({ ...config }),
     configure(patch) {
-      if (patch.modules !== undefined) {
-        config.modules = Math.max(2, Math.round(patch.modules))
-        const next = stripeTexture(config.modules)
-        textures[0]?.dispose()
-        textures[0] = next
-        ;(paintMat as MeshStandardMaterial).map = next
-      }
+      if (patch.modules !== undefined) config.modules = Math.max(2, Math.round(patch.modules))
       rebuild()
     },
     setMaterial(slot, material) {
@@ -158,7 +138,6 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
     update: () => {},
     dispose() {
       releaseGenerated()
-      for (const texture of textures) texture.dispose()
       for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
@@ -167,5 +146,11 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.06, 0.1], distance: 3.4, fov: 26 })
+  return createF1Preview(createModel(), {
+    aspect,
+    target: [0, 0.08, 0.0],
+    distance: 2.6,
+    fov: 28,
+    pitch: 0.55,
+  })
 }

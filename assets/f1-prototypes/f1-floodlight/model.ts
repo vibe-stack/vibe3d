@@ -1,5 +1,5 @@
 // f1-floodlight — a circuit flood mast: tapered pole, access ladder, yoke, and a 2×2 cluster of
-// rectangular Musco-style cans with emissive lenses.
+// rectangular Musco-style cans with barn doors and round unlit-emissive lenses.
 //
 // Datums: 12 m mast (configurable), 0.14→0.22 m taper, 2.2 m crossbar, each can 0.62 × 0.38 × 0.28 m
 // pitched −32°. Preview frames the HEAD, not the whole needle.
@@ -9,7 +9,7 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
-  MeshStandardMaterial,
+  MeshBasicMaterial,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -61,13 +61,9 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     extras.push(material)
     return material
   }
-  const lensMat = options.materials?.lens ?? own(new MeshStandardMaterial({
+  const lensMat = options.materials?.lens ?? own(new MeshBasicMaterial({
     name: 'f1-kit / flood lens',
-    color: 0x000000,
-    emissive: TOKEN.SHELL_050,
-    emissiveIntensity: 3.4,
-    roughness: 0.35,
-    metalness: 0,
+    color: TOKEN.SHELL_050,
     toneMapped: false,
   }))
 
@@ -132,21 +128,46 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     emit('can', member(new Vector3(0, height - 0.22, 0), new Vector3(0, height + 0.05, 0.05), 0.05, 10), head, 'pivot')
 
     const cans: BufferGeometry[] = []
+    const doors: BufferGeometry[] = []
     const lenses: BufferGeometry[] = []
     const tilt = -0.55
     for (const sx of [-0.58, 0.58] as const) {
       for (const sy of [-0.28, 0.28] as const) {
+        const cy = height - 0.22 + sy
         const can = loftRoundedBox(0.62, 0.38, 0.28, 0.04)
         can.rotateX(tilt)
-        can.translate(sx, height - 0.22 + sy, 0.28)
+        can.translate(sx, cy, 0.28)
         cans.push(can)
-        const lens = bevelBox(0.52, 0.3, 0.03, 0.006)
-        lens.rotateX(tilt)
-        lens.translate(sx, height - 0.22 + sy, 0.44)
-        lenses.push(lens)
+
+        const top = bevelBox(0.64, 0.018, 0.14, 0.003)
+        top.rotateX(tilt - 0.35)
+        top.translate(sx, cy + 0.2, 0.4)
+        doors.push(top)
+        const bot = bevelBox(0.64, 0.018, 0.14, 0.003)
+        bot.rotateX(tilt + 0.35)
+        bot.translate(sx, cy - 0.2, 0.4)
+        doors.push(bot)
+        const left = bevelBox(0.018, 0.4, 0.14, 0.003)
+        left.rotateX(tilt)
+        left.translate(sx - 0.32, cy, 0.4)
+        doors.push(left)
+        const right = bevelBox(0.018, 0.4, 0.14, 0.003)
+        right.rotateX(tilt)
+        right.translate(sx + 0.32, cy, 0.4)
+        doors.push(right)
+
+        for (const lx of [-0.14, 0.14] as const) {
+          for (const ly of [-0.1, 0.1] as const) {
+            const lens = new CylinderGeometry(0.08, 0.08, 0.03, 16)
+            lens.rotateX(Math.PI / 2 + tilt)
+            lens.translate(sx + lx, cy + ly, 0.46)
+            lenses.push(lens)
+          }
+        }
       }
     }
     emit('can', mergeParts(cans, 'cans'), head, 'cans')
+    emit('can', mergeParts(doors, 'barn-doors'), head, 'barn-doors')
     emit('lens', mergeParts(lenses, 'lenses'), head, 'lenses')
   }
   rebuild()
@@ -176,5 +197,11 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel({ height: 8 })
-  return createF1Preview(model, { aspect, target: [0, 7.55, 0.25], distance: 5.8, fov: 32 })
+  return createF1Preview(model, {
+    aspect,
+    target: [0, 7.55, 0.35],
+    distance: 4.6,
+    fov: 30,
+    pitch: 0.15,
+  })
 }

@@ -1,5 +1,5 @@
 // f1-tyre-barrier — a tyre wall built by instancing the kit f1-tyre, staggered like a real
-// catch-fence tyre stack, with through-bolts and wrap straps.
+// catch-fence tyre stack, with through-bolts and front wrap bands.
 
 import {
   BufferGeometry,
@@ -12,11 +12,11 @@ import {
 
 import {
   acquireF1Materials,
+  bevelBox,
   createF1Preview,
   disposeF1Materials,
   mergeParts,
   tubeSection,
-  wrapStrap,
 } from '../f1-kit-core/index.ts'
 import { createModel as createTyre, type F1TyreInstance } from '../f1-tyre/model.ts'
 
@@ -118,11 +118,17 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     const hardware: BufferGeometry[] = []
     const wallH = rows * R * 2 * 0.9
     const wallW = columns * R * 2
-    hardware.push(tubeSection(0.018, wallH + 0.15, [-wallW / 2 + 0.1, wallH / 2, 0], [0, 1, 0], 8))
-    hardware.push(tubeSection(0.018, wallH + 0.15, [wallW / 2 - 0.1, wallH / 2, 0], [0, 1, 0], 8))
+    const frontZ = ((depth - 1) / 2) * W + W * 0.55
+    for (let c = 0; c < columns; c++) {
+      const x = -halfX + c * R * 2
+      hardware.push(tubeSection(0.016, wallH + 0.1, [x, wallH / 2, 0], [0, 1, 0], 8))
+      hardware.push(tubeSection(0.014, depth * W + 0.12, [x, R, 0], [0, 0, 1], 8))
+    }
     for (let r = 0; r < rows; r++) {
       const y = R + r * R * 2 * 0.9
-      hardware.push(wrapStrap(R + 0.02, [0, y, 0], 0.04, 0.012, 20))
+      const band = bevelBox(wallW * 0.92, 0.045, 0.035, 0.006)
+      band.translate(0, y, frontZ)
+      hardware.push(band)
     }
     const merged = mergeParts(hardware, 'straps')
     generated.push(merged)
@@ -163,8 +169,10 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ columns: 4, rows: 3, depth: 2 }), {
     aspect,
-    target: [0, 0.95, 0],
-    distance: 8.2,
-    fov: 32,
+    target: [0, 0.95, 0.1],
+    distance: 7.4,
+    fov: 30,
+    yaw: -0.55,
+    pitch: 0.22,
   })
 }

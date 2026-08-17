@@ -27,7 +27,7 @@ export {
 export type { Vec3 } from './parts.ts'
 export { arcBand, bevelBlade, bevelBox, bevelDisc, bevelPrism, bevelRing } from './bevel.ts'
 export { creased, mergeParts } from './merge.ts'
-export { loftAlongX, loftRoundedBox, ovalTube, roundedRectRing } from './primitives.ts'
+export { loftAlongX, loftRoundedBox, ovalTube, roundedRectRing, uvAlongX } from './primitives.ts'
 export { revolve, taperedTube } from './sculpt.ts'
 export { ResourceBag, clamp01 } from './resourceBag.ts'
 export { finishModel, meshesOf } from './finish.ts'
