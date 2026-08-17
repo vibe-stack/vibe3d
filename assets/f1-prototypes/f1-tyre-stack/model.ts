@@ -1,6 +1,6 @@
-// f1-tyre-stack — a blanketed stack of loose tyres (garage dressing): N `f1-wheel-assembly` tyres laid
+// f1-tyre-stack — a blanketed stack of loose tyres (garage dressing): N `f1-wheel` tyres laid
 // flat and stacked, wrapped in a warmer blanket with a power cable running to the floor. Depends on
-// `f1-wheel-assembly` for the individual tyres, matching the kit's registry-dependency pattern for props
+// `f1-wheel` for the individual tyres, matching the kit's registry-dependency pattern for props
 // composed from other props.
 //
 // The blanket is the whole reason this prop is not just four wheels: it has to read as fabric wrapped
@@ -36,8 +36,8 @@ import {
 import {
   createModel as createWheel,
   type F1Compound,
-  type F1WheelAssemblyInstance,
-} from '../f1-wheel-assembly/model.ts'
+  type F1WheelInstance,
+} from '../f1-wheel/model.ts'
 
 type Slot = 'blanket' | 'strap' | 'cable'
 
@@ -75,7 +75,7 @@ const defaults: F1TyreStackConfig = {
 }
 
 const TH = 0.345      // stacked pitch — a default tyre is 0.33 m wide, so courses very nearly touch
-const R = 0.36        // tyre outer radius, matching a default f1-wheel-assembly (720 mm OD)
+const R = 0.36        // tyre outer radius, matching a default f1-wheel (720 mm OD)
 const TYRE_HALF = 0.165 // half a default tyre's width: the distance from a course's centre to its face
 
 // Buried tyres do not need the hero tread resolution — the blanket hides most of the crown, and only the
@@ -163,7 +163,7 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
   const tyreCover = own(new MeshStandardMaterial({ color: config.coverColor, roughness: 0.4, metalness: 0.2 })) as MeshStandardMaterial
   const tyreAccent = own(new MeshStandardMaterial({ color: config.accentColor, roughness: 0.5, metalness: 0.1 })) as MeshStandardMaterial
 
-  let prototype: F1WheelAssemblyInstance | null = null
+  let prototype: F1WheelInstance | null = null
   const generated: BufferGeometry[] = []
   const meshesBySlot: Record<Slot, Mesh[]> = { blanket: [], strap: [], cable: [] }
 

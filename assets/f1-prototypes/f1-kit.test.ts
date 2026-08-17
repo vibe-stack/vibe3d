@@ -1,13 +1,13 @@
 // Ownership and runtime-contract tests for the three rebuilt F1 props.
 //
 // This kit has leaked a material once already (a per-rebuild sidewall material that was nulled but never
-// disposed), and `f1-wheel-assembly.setMaterial` was a silent no-op for its whole first life, so both are
+// disposed), and `f1-wheel.setMaterial` was a silent no-op for its whole first life, so both are
 // covered here by construction rather than by inspection.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { BufferGeometry, Material, Mesh, MeshStandardMaterial, Box3, Vector3 } from 'three/webgpu'
 
-import { createModel as createWheel } from './f1-wheel-assembly/model.ts'
+import { createModel as createWheel } from './f1-wheel/model.ts'
 import { createModel as createStack } from './f1-tyre-stack/model.ts'
 import { createModel as createReel } from './f1-hose-reel/model.ts'
 import { createModel as createPitBoard } from './f1-pit-board/model.ts'
@@ -66,7 +66,7 @@ afterEach(() => {
 })
 
 const factories = {
-  'f1-wheel-assembly': () => createWheel(),
+  'f1-wheel': () => createWheel(),
   'f1-tyre-stack': () => createStack({ count: 3 }),
   'f1-hose-reel': () => createReel({ wraps: 3, layers: 2 }),
   'f1-pit-board': () => createPitBoard(),

@@ -1,4 +1,4 @@
-// f1-wheel-assembly — a loose F1 tyre/wheel: an 18-inch rim barrel inside a lathe-revolved carcass whose
+// f1-wheel — a loose F1 tyre/wheel: an 18-inch rim barrel inside a lathe-revolved carcass whose
 // crown carries four continuous circumferential grooves and a directional V pattern of bevelled tread
 // blocks, five paired Y spoke arms sunk into a dished barrel, a recessed hub socket with a centre lock
 // nut, and the compound grading arcs on the sidewall. Dressed on BOTH faces (axle along local Z) —
@@ -53,7 +53,7 @@ export const F1_COMPOUND_COLORS = COMPOUND_TOKEN
 
 export type F1Compound = Compound
 
-export interface F1WheelAssemblyConfig {
+export interface F1WheelConfig {
   /** Overall tyre radius, metres. Real F1 tyres run ~0.33 m. */
   radius: number
   /** Tyre width, metres. Real F1 fronts run ~0.30 m, rears ~0.40 m. */
@@ -69,22 +69,22 @@ export interface F1WheelAssemblyConfig {
   treadSegments: number
 }
 
-export interface F1WheelAssemblyOptions extends Partial<F1WheelAssemblyConfig> {
+export interface F1WheelOptions extends Partial<F1WheelConfig> {
   materials?: Partial<Record<Slot, Material>>
 }
 
-export interface F1WheelAssemblyInstance {
+export interface F1WheelInstance {
   readonly root: Group
   readonly parts: { tire: Group; rim: Group; trim: Group }
   readonly materials: Readonly<Record<Slot, Material>>
-  getConfig(): Readonly<F1WheelAssemblyConfig>
-  configure(patch: Partial<F1WheelAssemblyConfig>): void
+  getConfig(): Readonly<F1WheelConfig>
+  configure(patch: Partial<F1WheelConfig>): void
   setMaterial(slot: Slot, material: Material): void
   update(deltaSeconds: number): void
   dispose(): void
 }
 
-const defaults: F1WheelAssemblyConfig = {
+const defaults: F1WheelConfig = {
   // 0.36 m radius = the real 720 mm outer diameter of a current front. The original default of 0.33 m
   // was quoting the diameter figure as a radius and shipped the prop 9% undersized.
   radius: 0.36,
@@ -241,9 +241,9 @@ function sweptTread(options: {
   return geo
 }
 
-export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemblyInstance {
+export function createModel(options: F1WheelOptions = {}): F1WheelInstance {
   const compound = options.compound ?? defaults.compound
-  const config: F1WheelAssemblyConfig = {
+  const config: F1WheelConfig = {
     radius: Math.max(0.1, options.radius ?? defaults.radius),
     width: Math.max(0.05, options.width ?? defaults.width),
     compound,
@@ -276,7 +276,7 @@ export function createModel(options: F1WheelAssemblyOptions = {}): F1WheelAssemb
 
   // Runtime anchors: created once, never replaced, so consumer attachments survive a rebuild (rules 10, 14).
   const root = new Group()
-  root.name = 'f1-wheel-assembly'
+  root.name = 'f1-wheel'
   const tire = new Group(); tire.name = 'tire'
   const rim = new Group(); rim.name = 'rim'
   const trim = new Group(); trim.name = 'trim'
