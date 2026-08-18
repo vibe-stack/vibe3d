@@ -1,9 +1,6 @@
-// f1-lollipop-board — the "brakes / gear" paddle a mechanic holds over the car during a pit stop: a
-// dished paddle on a telescoping pole, with a legible instruction band across the face.
-//
-// The prop's whole job is to read as a two-sided instruction sign, so the face carries a real recessed
-// panel with a raised instruction bar across it rather than a flat colour. Lettering is a DataTexture
-// from the shared 3×5 atlas (no canvas).
+// f1-lollipop-board — the thin two-sided STOP/GO paddle a mechanic holds over the car during a pit stop:
+// a white circular face, narrow dark rim, full-width instruction field, slim metal pole, and rubber grip.
+// Lettering is a deterministic DataTexture from the shared 3×5 atlas (no canvas).
 
 import {
   BufferGeometry,
@@ -58,7 +55,7 @@ export interface F1LollipopBoardInstance {
   dispose(): void
 }
 
-const defaults: F1LollipopBoardConfig = { radius: 0.20, height: 2.05, legend: 'BRAKES' }
+const defaults: F1LollipopBoardConfig = { radius: 0.20, height: 2.05, legend: 'STOP' }
 
 function sanitizeLegend(value: string): string {
   const next = value.replace(/[^A-Za-z]/g, '').slice(0, 8).toUpperCase()
@@ -66,15 +63,16 @@ function sanitizeLegend(value: string): string {
 }
 
 function legendTexture(word: string): DataTexture {
-  const w = 160
-  const h = 40
+  const w = 192
+  const h = 64
   const data = new Uint8Array(w * h * 4)
   const ink: [number, number, number] = [8, 12, 16]
-  const paper: [number, number, number] = [242, 248, 250]
+  const paper: [number, number, number] = [248, 249, 246]
   fillGlyphRect(data, w, 0, 0, w, h, ink)
-  const cell = word.length > 5 ? 5 : 6
-  const ox = 8
-  const oy = Math.max(4, Math.round((h - 5 * cell) / 2))
+  const cell = Math.max(4, Math.min(10, Math.floor((w - 20) / (word.length * 4))))
+  const glyphW = word.length * 4 * cell - cell
+  const ox = Math.round((w - glyphW) / 2)
+  const oy = Math.round((h - 5 * cell) / 2)
   writeGlyphWord(data, w, ox, oy, word, paper, cell)
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = NearestFilter
@@ -95,7 +93,7 @@ export function createModel(options: F1LollipopBoardOptions = {}): F1LollipopBoa
   const m = bundle.materials
   const materialSlots: Record<Slot, Material> = {
     pole: options.materials?.pole ?? m.steel,
-    paddle: options.materials?.paddle ?? m.amber,
+    paddle: options.materials?.paddle ?? m.shell,
     legend: options.materials?.legend ?? m.ink,
   }
 
@@ -136,35 +134,24 @@ export function createModel(options: F1LollipopBoardOptions = {}): F1LollipopBoa
     const { radius: R, height, legend } = config
     const faceZ = 0.0
 
-    const paddleParts: BufferGeometry[] = [
-      ring(R * 0.86, R, 0.042, 0.006),
-      (() => {
-        const face = disc(R * 0.90, 0.020, 0.004)
-        face.translate(0, 0, -0.008)
-        return face
-      })(),
-    ]
+    // The paddle is a thin white disc with only a 6%-radius dark retaining rim.
+    const face = disc(R * 0.955, 0.012, 0.002)
+    face.translate(0, height, 0)
+    emit('paddle', face, paddle, 'white-face')
 
-    const boss = new CylinderGeometry(0.048, 0.055, 0.075, 16)
-    boss.translate(0, -R * 0.92, faceZ)
-    paddleParts.push(boss)
-
-    const paddleGeo = mergeParts(paddleParts, 'paddle')
-    paddleGeo.translate(0, height, 0)
-    emit('paddle', paddleGeo, paddle, 'face')
+    const rim = ring(R * 0.94, R, 0.018, 0.003)
+    rim.translate(0, height, 0)
+    emit('legend', rim, paddle, 'dark-rim')
 
     const legendParts: BufferGeometry[] = []
     for (const sz of [-1, 1] as const) {
-      const bar = bevelBox(R * 1.34, R * 0.34, 0.012, 0.003)
-      bar.translate(0, height + R * 0.16, sz * 0.016)
-      legendParts.push(bar)
-      const strip = bevelBox(R * 1.06, R * 0.20, 0.010, 0.003)
-      strip.translate(0, height - R * 0.32, sz * 0.016)
-      legendParts.push(strip)
+      const field = bevelBox(R * 1.72, R * 0.86, 0.008, 0.002)
+      field.translate(0, height, sz * 0.010)
+      legendParts.push(field)
     }
-    emit('legend', mergeParts(legendParts, 'legend'), paddle, 'legend')
+    emit('legend', mergeParts(legendParts, 'instruction-fields'), paddle, 'instruction-fields')
 
-    const backWord = legend === 'BRAKES' ? 'GEAR' : legend
+    const backWord = legend === 'STOP' ? 'GO' : legend === 'BRAKES' ? 'GEAR' : legend
     const words = [legend, backWord]
     for (let i = 0; i < 2; i++) {
       const sz = i === 0 ? 1 : -1
@@ -176,35 +163,39 @@ export function createModel(options: F1LollipopBoardOptions = {}): F1LollipopBoa
         toneMapped: false,
       })
       extras.push(mat)
-      const face = new PlaneGeometry(R * 1.18, R * 0.26)
-      if (sz < 0) face.rotateY(Math.PI)
-      face.translate(0, height + R * 0.16, sz * (0.016 + 0.006 + LAYER_CLEARANCE))
-      generated.push(face)
-      const mesh = new Mesh(face, mat)
+      const typeFace = new PlaneGeometry(R * 1.62, R * 0.74)
+      if (sz < 0) typeFace.rotateY(Math.PI)
+      typeFace.translate(0, height, sz * (0.010 + 0.004 + LAYER_CLEARANCE))
+      generated.push(typeFace)
+      const mesh = new Mesh(typeFace, mat)
       mesh.name = `legend-type-${i}`
       mesh.castShadow = false
       paddle.add(mesh)
     }
 
+    const boardBottom = height - R * 0.96
+    const upperLen = Math.max(0.08, boardBottom - 0.42)
     const poleParts: BufferGeometry[] = []
-    const upperLen = height - R * 0.92 - 0.60
-    const upper = new CylinderGeometry(0.020, 0.020, upperLen, 12)
-    upper.translate(0, height - R * 0.92 - upperLen / 2, faceZ)
+    const upper = new CylinderGeometry(0.012, 0.012, upperLen, 12)
+    upper.translate(0, boardBottom - upperLen / 2, faceZ)
     poleParts.push(upper)
 
-    const collar = new CylinderGeometry(0.030, 0.030, 0.055, 14)
-    collar.translate(0, height - R * 0.92 - upperLen, faceZ)
+    const collar = new CylinderGeometry(0.017, 0.017, 0.035, 12)
+    collar.translate(0, 0.42, faceZ)
     poleParts.push(collar)
 
-    const lower = new CylinderGeometry(0.027, 0.027, 0.62, 12)
-    lower.translate(0, height - R * 0.92 - upperLen - 0.31, faceZ)
+    const lower = new CylinderGeometry(0.014, 0.014, 0.28, 12)
+    lower.translate(0, 0.28, faceZ)
     poleParts.push(lower)
 
-    const grip = new CylinderGeometry(0.033, 0.033, 0.22, 12)
-    grip.translate(0, height - R * 0.92 - upperLen - 0.50, faceZ)
-    poleParts.push(grip)
-
+    const boss = new CylinderGeometry(0.024, 0.028, 0.050, 16)
+    boss.translate(0, boardBottom - 0.025, faceZ)
+    poleParts.push(boss)
     emit('pole', mergeParts(poleParts, 'pole'), pole, 'shaft')
+
+    const grip = new CylinderGeometry(0.020, 0.020, 0.14, 12)
+    grip.translate(0, 0.07, faceZ)
+    emit('legend', grip, pole, 'rubber-grip')
   }
   rebuild()
 
