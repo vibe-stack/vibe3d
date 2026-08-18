@@ -18,6 +18,7 @@ function categoryFromId(id: string): string {
   if (id.includes('jack') || id.includes('gun') || id.includes('rack')) return 'Pit Tools'
   if (id.includes('board') || id.includes('gantry')) return 'Signage & Structures'
   if (id.includes('cabinet') || id.includes('extinguisher') || id.includes('reel')) return 'Garage Equipment'
+  if (id.includes('oranje')) return 'Trackside'
   return 'Pit Lane'
 }
 

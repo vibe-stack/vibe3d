@@ -233,5 +233,5 @@ export function createModel(options: F1LollipopBoardOptions = {}): F1LollipopBoa
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect })
+  return createF1Preview(createModel(), { aspect, target: [0, 1.85, 0], distance: 1.6, fov: 32 })
 }

@@ -31,6 +31,7 @@ import { createModel as createJumbotron } from './f1-jumbotron/model.ts'
 import { createModel as createMarshalPost } from './f1-marshal-post/model.ts'
 import { createModel as createStartGantry } from './f1-start-gantry/model.ts'
 import { createModel as createGrandstandBay } from './f1-grandstand-bay/model.ts'
+import { createModel as createOranjeCan } from './f1-oranje-can/model.ts'
 
 // --- dispose instrumentation -------------------------------------------------------------------------
 
@@ -103,6 +104,7 @@ const factories = {
   'f1-marshal-post': () => createMarshalPost(),
   'f1-start-gantry': () => createStartGantry({ span: 8, height: 5 }),
   'f1-grandstand-bay': () => createGrandstandBay({ rows: 4, width: 5 }),
+  'f1-oranje-can': () => createOranjeCan({ lit: true }),
 } as const
 
 describe.each(Object.keys(factories) as Array<keyof typeof factories>)('%s ownership', (id) => {
@@ -335,6 +337,16 @@ describe('procedural knobs', () => {
     expect(model.getConfig().legend).toBe('BRAKES')
     model.configure({ legend: 'gear!!' })
     expect(model.getConfig().legend).toBe('GEAR')
+    model.dispose()
+  })
+
+  test('oranje can lit and wind round-trip', () => {
+    const model = createOranjeCan({ lit: true, windXZ: [-0.692, 0.722] })
+    expect(model.getConfig().lit).toBe(true)
+    model.configure({ lit: false, windXZ: [1, 0] })
+    expect(model.getConfig().lit).toBe(false)
+    expect(model.getConfig().windXZ[0]).toBeCloseTo(1, 5)
+    expect(model.getConfig().windXZ[1]).toBeCloseTo(0, 5)
     model.dispose()
   })
 

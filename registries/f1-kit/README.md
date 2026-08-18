@@ -40,7 +40,7 @@ bunx vibe3d add @f1-kit/f1-tool-cabinet
 Thirteen more props for the circuit itself: catch fence, Armco, a tyre barrier
 instanced from `f1-tyre`, a TecPro stack, FIA start lights, a kerb run, a
 floodlight, a timing pylon, a brake marker, a jumbotron, a marshal post, a
-start/finish gantry, and one grandstand bay.
+start/finish gantry, one grandstand bay, and an oranje support can (smoke clouds + spark jets).
 
 ```sh
 bunx vibe3d add @f1-kit/f1-catch-fence
@@ -54,6 +54,8 @@ baked into any prop. Recolor freely via `setMaterial()` or by passing your
 own materials into `createModel()`.
 
 ## What's next
+
+- TODO: SHA-pin the AAA look-pass preview sheets on vibe-stack/vibe3d#7 after this lands.
 
 The assembled car itself — chassis, wings, halo, cockpit, and a paintable
 livery system — is a separate, later addition to this kit, once every
