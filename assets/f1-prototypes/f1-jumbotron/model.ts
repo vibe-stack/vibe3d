@@ -157,6 +157,11 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     map: tex,
     toneMapped: false,
   }))
+  const supportMat = options.materials?.frame ?? own(new MeshBasicMaterial({
+    name: 'f1-kit / jumbotron equipment base',
+    color: 0x070a0e,
+    toneMapped: false,
+  }))
 
   const materialSlots: Record<Slot, Material> = {
     frame: options.materials?.frame ?? kit.graphite,
@@ -235,14 +240,17 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
         }
       }
       for (const dx of [-0.2, 0.2]) {
-        legs.push(member(new Vector3(x + dx, 0.25, -0.34), new Vector3(x + dx, 2.2, -1.35), 0.055, 8))
-        const ballast = bevelBox(0.52, 0.18, 0.62, 0.025)
-        ballast.translate(x + dx, 0.09, -0.05)
+        const ballast = bevelBox(0.58, 0.2, 0.72, 0.025)
+        ballast.translate(x + dx, 0.1, 0.02)
         legs.push(ballast)
       }
-      const rearBallast = bevelBox(0.72, 0.22, 0.62, 0.025)
-      rearBallast.translate(x, 0.11, -1.42)
+      const rearX = x + sx * 0.72
+      const rearBallast = bevelBox(1.15, 0.28, 0.92, 0.035)
+      rearBallast.translate(rearX, 0.14, -1.28)
       legs.push(rearBallast)
+      legs.push(member(new Vector3(x - 0.2, 2.35, -0.34), new Vector3(rearX - 0.34, 0.26, -1.28), 0.075, 8))
+      legs.push(member(new Vector3(x + 0.2, 2.35, -0.34), new Vector3(rearX + 0.34, 0.26, -1.28), 0.075, 8))
+      legs.push(member(new Vector3(x, 0.34, -0.34), new Vector3(rearX, 0.34, -1.28), 0.055, 8))
     }
     emit('leg', mergeParts(legs, 'truss-towers'), frame, 'truss-towers')
 
@@ -257,43 +265,81 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     walk.translate(0, elev - 0.18, -0.43)
     installation.push(walk)
     for (const sx of [-1, 1] as const) {
-      const x = sx * (half + 0.38)
-      for (let i = 0; i < 4; i++) {
-        const speaker = bevelBox(0.38, 0.5, 0.42, 0.025)
-        speaker.translate(x, y + 0.72 - i * 0.55, 0.05 + i * 0.018)
+      const x = sx * (half + 0.42)
+      installation.push(member(new Vector3(x, elev - 0.05, -0.08), new Vector3(x, towerTop - 0.28, -0.08), 0.06, 8))
+      for (let i = 0; i < 5; i++) {
+        const speaker = bevelBox(0.5, 0.56, 0.56, 0.035)
+        speaker.translate(x, y + 1.02 - i * 0.57, 0.08 + i * 0.022)
         installation.push(speaker)
       }
-      const control = bevelBox(0.58, 0.82, 0.4, 0.025)
-      control.translate(sx * (towerX - 0.02), 1.18, -0.57)
-      installation.push(control)
-      for (let cable = 0; cable < 3; cable++) {
+      for (let box = 0; box < 2; box++) {
+        const control = bevelBox(0.68, 0.86, 0.52, 0.03)
+        control.translate(sx * (towerX + 0.02), 1.0 + box * 0.92, -0.52)
+        installation.push(control)
+      }
+      for (let cable = 0; cable < 5; cable++) {
         installation.push(member(
-          new Vector3(x + sx * cable * 0.035, elev + 0.2, -0.24),
-          new Vector3(sx * (towerX - 0.04), 1.52 - cable * 0.12, -0.38),
-          0.018,
+          new Vector3(x + sx * cable * 0.035, elev + 0.18, -0.28),
+          new Vector3(sx * (towerX + 0.02), 1.84 - cable * 0.14, -0.3),
+          0.022,
+          6,
+        ))
+      }
+      for (let rung = 0; rung < 9; rung++) {
+        const rungY = 0.48 + rung * 0.28
+        installation.push(member(
+          new Vector3(sx * towerX - 0.16, rungY, -0.55),
+          new Vector3(sx * towerX + 0.16, rungY, -0.55),
+          0.021,
           6,
         ))
       }
     }
-    for (let rung = 0; rung < 9; rung++) {
-      const rungY = 0.48 + rung * 0.28
-      installation.push(member(new Vector3(towerX - 0.16, rungY, -0.48), new Vector3(towerX + 0.16, rungY, -0.48), 0.018, 6))
-    }
     emit('frame', mergeParts(installation, 'broadcast-installation'), frame, 'broadcast-installation')
 
+    const equipmentBase: BufferGeometry[] = []
+    const baseShell = bevelBox(w * 0.94, 2.32, 0.74, 0.035)
+    baseShell.translate(0, 1.3, -0.18)
+    equipmentBase.push(baseShell)
+    const basePlinth = bevelBox(w + 0.36, 0.24, 0.96, 0.035)
+    basePlinth.translate(0, 0.12, -0.14)
+    equipmentBase.push(basePlinth)
+    const cabinetWidth = (w * 0.9) / 6
+    for (let i = 0; i < 6; i++) {
+      const cabinet = bevelBox(cabinetWidth - 0.055, 1.86, 0.18, 0.018)
+      cabinet.translate(-w * 0.375 + i * cabinetWidth, 1.36, 0.24)
+      equipmentBase.push(cabinet)
+    }
+    emit('frame', mergeParts(equipmentBase, 'equipment-support-base'), frame, 'equipment-support-base', supportMat)
+
+    const baseDetails: BufferGeometry[] = []
+    baseDetails.push(member(new Vector3(-w * 0.45, 2.35, 0.34), new Vector3(w * 0.45, 2.35, 0.34), 0.03, 8))
+    for (let i = 0; i <= 6; i++) {
+      const x = -w * 0.45 + i * cabinetWidth
+      baseDetails.push(member(new Vector3(x, 0.45, 0.34), new Vector3(x, 2.28, 0.34), 0.018, 6))
+    }
+    emit('frame', mergeParts(baseDetails, 'equipment-door-seams'), frame, 'equipment-door-seams')
+
     const barriers: BufferGeometry[] = []
-    for (const z of [0.92, -1.85]) {
-      for (const sx of [-1, 1] as const) {
-        const start = sx * (half + 1.25)
-        const end = sx * 0.55
-        barriers.push(member(new Vector3(start, 0.62, z), new Vector3(end, 0.62, z), 0.035, 8))
-        for (let i = 0; i < 4; i++) {
-          const x = start + (end - start) * i / 3
-          barriers.push(member(new Vector3(x, 0.05, z), new Vector3(x, 0.66, z), 0.028, 8))
-        }
+    const barrierHalf = half + 1.45
+    for (const z of [1.02, -1.72]) {
+      for (const railY of [0.38, 0.76]) {
+        barriers.push(member(new Vector3(-barrierHalf, railY, z), new Vector3(barrierHalf, railY, z), 0.034, 8))
+      }
+      for (let i = 0; i <= 10; i++) {
+        const x = -barrierHalf + i * barrierHalf * 2 / 10
+        barriers.push(member(new Vector3(x, 0.05, z), new Vector3(x, 0.8, z), 0.03, 8))
       }
     }
-    emit('leg', mergeParts(barriers, 'safety-barriers'), frame, 'safety-barriers')
+    for (const sx of [-1, 1] as const) {
+      for (const railY of [0.38, 0.76]) {
+        barriers.push(member(new Vector3(sx * barrierHalf, railY, 1.02), new Vector3(sx * barrierHalf, railY, -1.72), 0.034, 8))
+      }
+      for (const z of [0.55, 0.08, -0.39, -0.86, -1.33]) {
+        barriers.push(member(new Vector3(sx * barrierHalf, 0.05, z), new Vector3(sx * barrierHalf, 0.8, z), 0.03, 8))
+      }
+    }
+    emit('leg', mergeParts(barriers, 'connected-safety-barriers'), frame, 'connected-safety-barriers')
 
     const panel = new PlaneGeometry(w, h)
     panel.translate(0, y, 0.12)
@@ -338,10 +384,10 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ width: 6 }), {
     aspect,
-    target: [0, 3.15, -0.08],
-    distance: 15.2,
+    target: [0, 3.05, -0.18],
+    distance: 17.2,
     fov: 32,
-    pitch: 0.04,
-    yaw: -0.22,
+    pitch: 0.05,
+    yaw: -0.1,
   })
 }
