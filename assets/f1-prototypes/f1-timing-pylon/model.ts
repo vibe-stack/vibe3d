@@ -53,38 +53,44 @@ const defaults: F1TimingPylonConfig = { height: 9, positions: [1, 2, 3] }
 const CAB_W = 0.78
 const CAB_D = 0.08
 const MAST_D = 0.16
-const ROW_CODES = ['AX', 'BR', 'CY', 'DN', 'EV', 'FK'] as const
+const MAX_ROWS = 24
+const YELLOW: [number, number, number] = [255, 214, 32]
+const GREEN: [number, number, number] = [48, 220, 92]
+const PAPER: [number, number, number] = [248, 250, 252]
+const INK: [number, number, number] = [4, 6, 8]
 
 function normalizePositions(positions: readonly number[]): number[] {
   const digits = positions
-    .slice(0, 6)
+    .slice(0, MAX_ROWS)
     .map((n) => ((Math.abs(Math.round(n)) % 10) + 10) % 10)
   return digits.length > 0 ? digits : [...defaults.positions]
 }
 
-function cabinetTexture(digit: number, row: number): DataTexture {
-  const w = 256
-  const h = 64
+function stampTexture(w: number, h: number, paint: (data: Uint8Array) => void): DataTexture {
   const data = new Uint8Array(w * h * 4)
-  const ink: [number, number, number] = [5, 8, 12]
-  const cyan: [number, number, number] = [
-    (TOKEN.CYAN_400 >> 16) & 0xff,
-    (TOKEN.CYAN_400 >> 8) & 0xff,
-    TOKEN.CYAN_400 & 0xff,
-  ]
-  const paper: [number, number, number] = [242, 248, 252]
-  const muted: [number, number, number] = [98, 112, 126]
-  fillGlyphRect(data, w, 0, 0, w, h, ink)
-  fillGlyphRect(data, w, 4, 4, 70, h - 8, row === 0 ? cyan : [18, 22, 28])
-  writeGlyphWord(data, w, 18, 8, String(digit), paper, 10)
-  writeGlyphWord(data, w, 86, 12, ROW_CODES[row % ROW_CODES.length]!, paper, 9)
-  writeGlyphWord(data, w, 196, 18, String(row + 1).padStart(2, '0'), muted, 5)
+  fillGlyphRect(data, w, 0, 0, w, h, INK)
+  paint(data)
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = NearestFilter
   tex.magFilter = NearestFilter
   tex.needsUpdate = true
   tex.flipY = true
   return tex
+}
+
+function headerTexture(): DataTexture {
+  return stampTexture(160, 48, (data) => {
+    writeGlyphWord(data, 160, 8, 10, 'LAP', YELLOW, 5)
+    writeGlyphWord(data, 160, 86, 4, '16', GREEN, 8)
+  })
+}
+
+function cabinetTexture(digit: number, row: number): DataTexture {
+  return stampTexture(160, 40, (data) => {
+    const rank = String(row + 1)
+    writeGlyphWord(data, 160, 8, 4, rank, row < 9 ? YELLOW : PAPER, 6)
+    writeGlyphWord(data, 160, 96, 4, String(digit), PAPER, 6)
+  })
 }
 
 export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonInstance {
@@ -99,6 +105,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
   const textures: DataTexture[] = []
   const ownsScreen = options.materials?.screen === undefined
   let slotMats: Material[] = []
+  let headerMat: Material | undefined
   let markerMat: Material | undefined
 
   const releaseScreens = (): void => {
@@ -109,6 +116,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     }
     extras.length = 0
     slotMats = []
+    headerMat = undefined
     markerMat = undefined
   }
 
@@ -116,6 +124,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     releaseScreens()
     if (!ownsScreen) {
       slotMats = config.positions.map(() => options.materials!.screen!)
+      headerMat = options.materials!.screen!
       markerMat = options.materials!.screen!
       return
     }
@@ -130,9 +139,17 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
       extras.push(material)
       return material
     })
+    const lap = headerTexture()
+    textures.push(lap)
+    headerMat = new MeshBasicMaterial({
+      name: 'f1-kit / timing-pylon lap header',
+      map: lap,
+      toneMapped: false,
+    })
+    extras.push(headerMat)
     markerMat = new MeshBasicMaterial({
-      name: 'f1-kit / timing-pylon top marker',
-      color: TOKEN.CYAN_400,
+      name: 'f1-kit / timing-pylon beacon',
+      color: TOKEN.RED_500,
       toneMapped: false,
     })
     extras.push(markerMat)
@@ -209,20 +226,23 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     parts.push(crown)
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const headerH = 0.62
-    const rowsTop = height - headerH
-    const rowsBottom = 0.38
+    const headerH = 0.42
+    const rowsTop = height - headerH - 0.18
+    const rowsBottom = 0.42
     const rowH = (rowsTop - rowsBottom) / count
     const screenZ = MAST_D / 2 + LAYER_CLEARANCE
+    const header = new PlaneGeometry(CAB_W - 0.10, headerH - 0.06)
+    header.translate(0, height - 0.38, screenZ)
+    emit('screen', header, frame, 'lap-header', headerMat ?? materialSlots.screen)
     for (let i = 0; i < count; i++) {
       const y = rowsTop - (i + 0.5) * rowH
-      const panel = new PlaneGeometry(CAB_W - 0.08, rowH - 0.018)
+      const panel = new PlaneGeometry(CAB_W - 0.10, rowH - 0.012)
       panel.translate(0, y, screenZ)
       emit('screen', panel, screens, `slot-${i}`, slotMats[i] ?? materialSlots.screen)
     }
-    const marker = new PlaneGeometry(CAB_W * 0.62, 0.16)
-    marker.translate(0, height - 0.29, screenZ + CAB_D / 2)
-    emit('screen', marker, frame, 'top-marker', markerMat ?? materialSlots.screen)
+    const beacon = bevelBox(0.10, 0.14, 0.10, 0.02)
+    beacon.translate(0, height - 0.08, 0.02)
+    emit('screen', beacon, frame, 'beacon', markerMat ?? materialSlots.screen)
   }
   rebuild()
 
@@ -259,12 +279,14 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ positions: [1, 2, 3, 4, 5, 6] }), {
+  return createF1Preview(createModel({
+    positions: [1, 4, 6, 3, 5, 4, 1, 8, 2, 3, 0, 8, 1, 7, 2, 0, 3, 7],
+  }), {
     aspect,
-    target: [0, 4.6, 0.12],
-    distance: 16.5,
-    fov: 28,
-    pitch: 0.02,
-    yaw: -0.08,
+    target: [0, 4.7, 0.12],
+    distance: 15.4,
+    fov: 26,
+    pitch: 0.04,
+    yaw: -0.10,
   })
 }

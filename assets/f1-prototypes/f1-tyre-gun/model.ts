@@ -128,75 +128,89 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   const build = (): void => {
     releaseGenerated()
 
-    // --- Rounded carbon clamshell: tapered centre mass with separate side cover halves ---------------
+    // --- Fat T-shaped impact housing: volume behind the grip, not a heat-gun taper -------------------
     const gunmetalParts: BufferGeometry[] = [
-      axial(0.062, 0.075, 0.18, -0.025, 28),
-      axial(0.072, 0.058, 0.055, -0.142, 24),
-      axial(0.058, 0.05, 0.025, -0.182, 20),
+      axial(0.092, 0.112, 0.22, -0.015, 28),
+      axial(0.112, 0.098, 0.09, -0.170, 24),
+      axial(0.098, 0.072, 0.045, -0.238, 20),
     ]
     for (const sz of [-1, 1] as const) {
-      const cover = bevelBox(0.145, 0.094, 0.018, 0.012)
-      cover.translate(-0.02, 0, sz * 0.061)
+      const cover = bevelBox(0.175, 0.118, 0.022, 0.014)
+      cover.translate(-0.02, 0, sz * 0.078)
       gunmetalParts.push(cover)
     }
-    // Rear regulator, hanging lug, and offset cooling ribs break the otherwise smooth shell.
-    gunmetalParts.push(tubeSection(0.024, 0.018, [-0.206, 0, 0], AXIS_X, 14))
-    const lug = bevelBox(0.038, 0.026, 0.014, 0.003)
-    lug.translate(-0.09, 0.075, 0)
+    const flange = bevelBox(0.022, 0.168, 0.168, 0.006)
+    flange.translate(0.078, 0, 0)
+    gunmetalParts.push(flange)
+    for (const [y, z] of [[0.058, 0.058], [0.058, -0.058], [-0.058, 0.058], [-0.058, -0.058]] as const) {
+      const bolt = new CylinderGeometry(0.008, 0.008, 0.016, 10)
+      bolt.rotateZ(Math.PI / 2)
+      bolt.translate(0.092, y, z)
+      gunmetalParts.push(bolt)
+    }
+    gunmetalParts.push(tubeSection(0.028, 0.022, [-0.268, 0, 0], AXIS_X, 14))
+    const lug = bevelBox(0.042, 0.028, 0.016, 0.003)
+    lug.translate(-0.09, 0.098, 0)
     gunmetalParts.push(lug)
-    for (let i = 0; i < 4; i++) {
-      const rib = bevelBox(0.01, 0.018, 0.075, 0.003)
-      rib.translate(-0.11 + i * 0.023, 0.067, 0)
+    for (let i = 0; i < 5; i++) {
+      const rib = bevelBox(0.012, 0.022, 0.095, 0.003)
+      rib.translate(-0.14 + i * 0.026, 0.086, 0)
       gunmetalParts.push(rib)
     }
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
-    // --- Short nose and integrated trigger guard -----------------------------------------------------
-    const steelParts: BufferGeometry[] = [tubeSection(0.046, 0.038, [0.088, 0, 0], AXIS_X, 20)]
+    // --- Short nose and skeletonized two-finger trigger ----------------------------------------------
+    const steelParts: BufferGeometry[] = [tubeSection(0.052, 0.042, [0.108, 0, 0], AXIS_X, 20)]
     steelParts.push(ovalTube([
-      new Vector3(0.018, -0.062, 0),
-      new Vector3(0.055, -0.11, 0),
-      new Vector3(0.035, -0.17, 0),
-    ], 0.008, 0.008, 8))
-    const trigger = bevelBox(0.014, 0.046, 0.026, 0.003)
-    trigger.translate(0.024, -0.105, 0)
-    steelParts.push(trigger)
+      new Vector3(0.018, -0.078, 0),
+      new Vector3(0.062, -0.128, 0),
+      new Vector3(0.038, -0.195, 0),
+    ], 0.009, 0.009, 8))
+    const triggerUpper = bevelBox(0.016, 0.028, 0.028, 0.003)
+    triggerUpper.translate(0.028, -0.092, 0)
+    steelParts.push(triggerUpper)
+    const triggerLower = bevelBox(0.016, 0.028, 0.028, 0.003)
+    triggerLower.translate(0.028, -0.132, 0)
+    steelParts.push(triggerLower)
     emit('steel', mergeParts(steelParts, 'nose-and-guard'), body, 'nose')
 
     // --- Slender rubber grip -------------------------------------------------------------------------
     const gripParts: BufferGeometry[] = [
       ovalTube([
-        new Vector3(-0.025, -0.052, 0),
-        new Vector3(-0.002, -0.12, 0),
-        new Vector3(0.002, -0.20, 0),
-        new Vector3(-0.018, -0.27, 0),
-      ], 0.025, 0.032, 12),
+        new Vector3(-0.025, -0.062, 0),
+        new Vector3(-0.002, -0.135, 0),
+        new Vector3(0.002, -0.215, 0),
+        new Vector3(-0.018, -0.285, 0),
+      ], 0.030, 0.038, 12),
     ]
     emit('gripRubber', mergeParts(gripParts, 'grip'), body, 'grip')
 
-    // --- Air inlet at the grip heel, with a short hose stub trailing back ---------------------------
+    // --- Air inlet at the grip heel, plus a blue nose ring kept clear of the socket ------------------
     const accentParts: BufferGeometry[] = []
     const inlet = new CylinderGeometry(0.016, 0.016, 0.055, 14)
-    inlet.translate(-0.018, -0.297, 0)
+    inlet.translate(-0.018, -0.312, 0)
     accentParts.push(inlet)
     const inletCollar = new CylinderGeometry(0.023, 0.023, 0.018, 14)
-    inletCollar.translate(-0.018, -0.272, 0)
+    inletCollar.translate(-0.018, -0.286, 0)
     accentParts.push(inletCollar)
-    // Accent collar band near the front of the barrel.
-    accentParts.push(tubeSection(0.0575, 0.022, [0.028, 0, 0], AXIS_X, 24))
+    const reverseKnob = new CylinderGeometry(0.022, 0.022, 0.018, 16)
+    reverseKnob.rotateZ(Math.PI / 2)
+    reverseKnob.translate(-0.255, 0.042, 0)
+    accentParts.push(reverseKnob)
+    accentParts.push(tubeSection(0.054, 0.016, [0.028, 0, 0], AXIS_X, 24))
     emit('accent', mergeParts(accentParts, 'accent'), body, 'accent')
 
     const hose = ovalTube([
-      new Vector3(-0.018, -0.325, 0),
-      new Vector3(-0.04, -0.37, 0.015),
-      new Vector3(-0.105, -0.395, 0.045),
+      new Vector3(-0.018, -0.340, 0),
+      new Vector3(-0.04, -0.385, 0.015),
+      new Vector3(-0.105, -0.410, 0.045),
     ], 0.015, 0.015, 10)
     emit('gripRubber', hose, body, 'air-hose')
 
     // --- Status LED on the barrel crown ---------------------------------------------------------------
     const ledGeo = new CylinderGeometry(0.009, 0.009, 0.012, 10)
     ledGeo.rotateX(Math.PI / 2)
-    ledGeo.translate(-0.060, 0.058, 0.045)
+    ledGeo.translate(-0.060, 0.078, 0.055)
     emit('led', ledGeo, body, 'led')
 
     // --- Spinner: short anvil, ribbed spline and visibly hollow round socket -------------------------
@@ -267,7 +281,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel()
-  const preview = createF1Preview(model, { aspect, target: [0, -0.08, 0], distance: 0.95, yaw: 0.82, pitch: 0.12 })
+  const preview = createF1Preview(model, { aspect, target: [0, -0.08, 0], distance: 1.05, yaw: 0.82, pitch: 0.12 })
   let running = false
   return {
     ...preview,
