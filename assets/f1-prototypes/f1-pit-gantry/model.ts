@@ -59,52 +59,65 @@ const defaults: F1PitGantryConfig = { span: 5.0, height: 2.5, bays: 8 }
 const CHORD = 0.032 // truss chord tube radius, world units
 const LACE = 0.020  // lacing tube radius
 
-/**
- * A square box-truss run between two points: four corner chords with zig-zag lacing on all four faces.
- * This is the member that gives a gantry its open, engineered read — a solid beam of the same envelope
- * reads as a kerbstone in the sky.
- */
-function boxTruss(from: Vector3, to: Vector3, size: number, bays: number): BufferGeometry[] {
-  const axis = new Vector3().subVectors(to, from)
-  const length = axis.length()
-  const dir = axis.clone().normalize()
-  // Two perpendiculars spanning the truss's cross-section.
-  const up = Math.abs(dir.y) > 0.9 ? new Vector3(0, 0, 1) : new Vector3(0, 1, 0)
-  const u = new Vector3().crossVectors(dir, up).normalize().multiplyScalar(size / 2)
-  const v = new Vector3().crossVectors(dir, u).normalize().multiplyScalar(size / 2)
+/** Interpolate one structural node along a chord. */
+function pointOn(from: Vector3, to: Vector3, t: number): Vector3 {
+  return from.clone().lerp(to, t)
+}
 
-  const corners = [
-    new Vector3().addVectors(u, v), new Vector3().subVectors(u, v),
-    new Vector3().subVectors(v, u), new Vector3().addVectors(u, v).negate(),
-  ]
-
-  const parts: BufferGeometry[] = []
-  for (const corner of corners) {
+/** A vertical truss face with two continuous chords and an orderly node-to-node Warren web. */
+function planarTruss(
+  parts: BufferGeometry[],
+  lowerFrom: Vector3,
+  lowerTo: Vector3,
+  rise: number,
+  bays: number,
+): void {
+  const upperFrom = lowerFrom.clone().addScaledVector(AXIS_Y, rise)
+  const upperTo = lowerTo.clone().addScaledVector(AXIS_Y, rise)
+  parts.push(member(lowerFrom, lowerTo, CHORD))
+  parts.push(member(upperFrom, upperTo, CHORD))
+  for (let bay = 0; bay < bays; bay++) {
+    const t0 = bay / bays
+    const t1 = (bay + 1) / bays
+    const lowerFirst = bay % 2 === 0
     parts.push(member(
-      new Vector3().addVectors(from, corner),
-      new Vector3().addVectors(to, corner),
+      pointOn(lowerFirst ? lowerFrom : upperFrom, lowerFirst ? lowerTo : upperTo, t0),
+      pointOn(lowerFirst ? upperFrom : lowerFrom, lowerFirst ? upperTo : lowerTo, t1),
+      LACE,
+      6,
+    ))
+  }
+}
+
+/** Four continuous post chords; every diagonal ends on a chord's explicit bay node. */
+function lacedColumn(
+  parts: BufferGeometry[],
+  footprint: readonly Vector3[],
+  bottomY: number,
+  topY: number,
+  bays: number,
+): void {
+  for (const point of footprint) {
+    parts.push(member(
+      new Vector3(point.x, bottomY, point.z),
+      new Vector3(point.x, topY, point.z),
       CHORD,
     ))
   }
-
-  // Lacing: alternate the diagonal direction bay to bay on each face, as real laced truss does.
-  const step = length / bays
   for (let bay = 0; bay < bays; bay++) {
-    const a = from.clone().addScaledVector(dir, bay * step)
-    const b = from.clone().addScaledVector(dir, (bay + 1) * step)
-    for (let face = 0; face < 4; face++) {
-      const c0 = corners[face]!
-      const c1 = corners[(face + 1) % 4]!
-      const forward = (bay + face) % 2 === 0
+    const y0 = bottomY + (topY - bottomY) * (bay / bays)
+    const y1 = bottomY + (topY - bottomY) * ((bay + 1) / bays)
+    for (let face = 0; face < footprint.length; face++) {
+      const a = footprint[face]!
+      const b = footprint[(face + 1) % footprint.length]!
       parts.push(member(
-        new Vector3().addVectors(forward ? a : b, c0),
-        new Vector3().addVectors(forward ? b : a, c1),
+        bay % 2 === 0 ? new Vector3(a.x, y0, a.z) : new Vector3(b.x, y0, b.z),
+        bay % 2 === 0 ? new Vector3(b.x, y1, b.z) : new Vector3(a.x, y1, a.z),
         LACE,
         6,
       ))
     }
   }
-  return parts
 }
 
 export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstance {
@@ -164,98 +177,225 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
     const halfDepth = depth / 2
     const columnSize = 0.30
     const beamSize = 0.42
-    const beamY = height - beamSize / 2
+    const lowerY = height - beamSize
+    const upperY = height
+    const innerHalf = half - columnSize
+    const innerHalfDepth = halfDepth - columnSize
 
-    // --- Four columns: a measured 5 x 3 m garage bay, not a depthless sign portal -------------------
     const postParts: BufferGeometry[] = []
+    const roofParts: BufferGeometry[] = []
     const fittingParts: BufferGeometry[] = []
+
+    // Four measured posts. Their four top nodes are retained through each corner cage rather than
+    // disappearing into intersecting roof runs.
     for (const sx of [-1, 1] as const) {
       for (const sz of [-1, 1] as const) {
-        postParts.push(...boxTruss(
-          new Vector3(sx * half, 0.06, sz * halfDepth),
-          new Vector3(sx * half, beamY - beamSize / 2, sz * halfDepth),
-          columnSize,
+        const xOuter = sx * half
+        const xInner = sx * innerHalf
+        const zOuter = sz * halfDepth
+        const zInner = sz * innerHalfDepth
+        const footprint = [
+          new Vector3(xOuter, 0, zOuter),
+          new Vector3(xInner, 0, zOuter),
+          new Vector3(xInner, 0, zInner),
+          new Vector3(xOuter, 0, zInner),
+        ]
+        lacedColumn(
+          postParts,
+          footprint,
+          0.06,
+          lowerY,
           Math.max(3, Math.round(height / 0.7)),
-        ))
+        )
 
         const plate = bevelBox(0.52, 0.05, 0.52, 0.008)
         plate.translate(sx * half, 0.025, sz * halfDepth)
         postParts.push(plate)
         for (let i = 0; i < 4; i++) {
-          const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+          const angle = (i / 4) * Math.PI * 2 + Math.PI / 4
           fittingParts.push(bolt(
             [
-              sx * half + Math.cos(a) * 0.19,
+              sx * half + Math.cos(angle) * 0.19,
               0.062,
-              sz * halfDepth + Math.sin(a) * 0.19,
+              sz * halfDepth + Math.sin(angle) * 0.19,
             ],
             0.022, 0.030, AXIS_Y,
           ))
         }
+
+        // Eight explicit nodes make the corner load path legible: square rings, verticals, one diagonal.
+        for (const y of [lowerY, upperY]) {
+          for (let edge = 0; edge < footprint.length; edge++) {
+            const a = footprint[edge]!
+            const b = footprint[(edge + 1) % footprint.length]!
+            roofParts.push(member(
+              new Vector3(a.x, y, a.z),
+              new Vector3(b.x, y, b.z),
+              CHORD,
+            ))
+          }
+        }
+        for (const point of footprint) {
+          roofParts.push(member(
+            new Vector3(point.x, lowerY, point.z),
+            new Vector3(point.x, upperY, point.z),
+            LACE,
+            6,
+          ))
+        }
+        roofParts.push(member(
+          new Vector3(xOuter, lowerY, zOuter),
+          new Vector3(xInner, upperY, zInner),
+          LACE,
+          6,
+        ))
       }
     }
 
-    // Front/rear transverse trusses and side trusses close the roof into a rigid rectangular volume.
+    // Continuous outer and inset rectangular trusses. Warren diagonals repeat bay-by-bay, while
+    // transverse ties stop at their paired nodes instead of crossing or floating beyond a chord.
     for (const sz of [-1, 1] as const) {
-      postParts.push(...boxTruss(
-        new Vector3(-half, beamY, sz * halfDepth),
-        new Vector3(half, beamY, sz * halfDepth),
-        beamSize,
-        bays,
-      ))
+      const zOuter = sz * halfDepth
+      const zInner = sz * innerHalfDepth
+      const outerFrom = new Vector3(-half, lowerY, zOuter)
+      const outerTo = new Vector3(half, lowerY, zOuter)
+      const innerFrom = new Vector3(-innerHalf, lowerY, zInner)
+      const innerTo = new Vector3(innerHalf, lowerY, zInner)
+      planarTruss(roofParts, outerFrom, outerTo, beamSize, bays)
+      planarTruss(roofParts, innerFrom, innerTo, beamSize, bays)
+      for (let node = 1; node < bays; node++) {
+        const outer = pointOn(outerFrom, outerTo, node / bays)
+        const inner = pointOn(innerFrom, innerTo, node / bays)
+        roofParts.push(member(outer, inner, LACE, 6))
+        roofParts.push(member(
+          outer.clone().setY(upperY),
+          inner.clone().setY(upperY),
+          LACE,
+          6,
+        ))
+      }
     }
+
+    const depthBays = Math.max(4, Math.round(depth / 0.65))
     for (const sx of [-1, 1] as const) {
-      postParts.push(...boxTruss(
-        new Vector3(sx * half, beamY, -halfDepth),
-        new Vector3(sx * half, beamY, halfDepth),
-        beamSize,
-        Math.max(4, Math.round(depth / 0.65)),
-      ))
+      const xOuter = sx * half
+      const xInner = sx * innerHalf
+      const outerFrom = new Vector3(xOuter, lowerY, -halfDepth)
+      const outerTo = new Vector3(xOuter, lowerY, halfDepth)
+      const innerFrom = new Vector3(xInner, lowerY, -innerHalfDepth)
+      const innerTo = new Vector3(xInner, lowerY, innerHalfDepth)
+      planarTruss(roofParts, outerFrom, outerTo, beamSize, depthBays)
+      planarTruss(roofParts, innerFrom, innerTo, beamSize, depthBays)
+      for (let node = 1; node < depthBays; node++) {
+        const outer = pointOn(outerFrom, outerTo, node / depthBays)
+        const inner = pointOn(innerFrom, innerTo, node / depthBays)
+        roofParts.push(member(outer, inner, LACE, 6))
+        roofParts.push(member(
+          outer.clone().setY(upperY),
+          inner.clone().setY(upperY),
+          LACE,
+          6,
+        ))
+      }
     }
-    emit('post', mergeParts(postParts, 'structure'), beam, 'truss')
+    emit('post', mergeParts(postParts, 'columns'), posts, 'columns')
+    emit('post', mergeParts(roofParts, 'roof-truss'), beam, 'roof-truss')
 
-    // --- Banner: a tensioned panel in a frame, slung under the beam ---------------------------------
-    const bannerParts: BufferGeometry[] = []
-    const bannerW = span * 0.86
+    // The banner frame spans exact front-truss nodes, so its rails end at the same two hangers.
+    const bannerLeft = pointOn(
+      new Vector3(-half, lowerY, halfDepth),
+      new Vector3(half, lowerY, halfDepth),
+      1 / bays,
+    )
+    const bannerRight = pointOn(
+      new Vector3(-half, lowerY, halfDepth),
+      new Vector3(half, lowerY, halfDepth),
+      (bays - 1) / bays,
+    )
+    const bannerW = bannerRight.x - bannerLeft.x
     const bannerH = 0.62
-    const bannerY = beamY - beamSize / 2 - 0.10 - bannerH / 2
-    bannerParts.push((() => {
-      const panel = bevelBox(bannerW, bannerH, 0.030, 0.006)
-      panel.translate(0, bannerY, halfDepth + 0.030)
-      return panel
-    })())
-    emit('banner', mergeParts(bannerParts, 'banner'), banner, 'panel')
+    const bannerY = lowerY - 0.10 - bannerH / 2
+    const bannerTop = bannerY + bannerH / 2
+    const bannerBottom = bannerY - bannerH / 2
+    const bannerZ = halfDepth + 0.030
+    const panel = bevelBox(bannerW, bannerH, 0.030, 0.006)
+    panel.translate(0, bannerY, bannerZ)
+    emit('banner', mergeParts([panel], 'banner'), banner, 'panel')
 
-    // Frame rails top and bottom, plus the drop links that hang the banner off the front beam.
-    for (const sy of [-1, 1] as const) {
-      const rail = bevelBox(bannerW + 0.05, 0.045, 0.050, 0.008)
-      rail.translate(0, bannerY + sy * (bannerH / 2), halfDepth + 0.030)
-      fittingParts.push(rail)
-    }
-    for (let i = 0; i < 4; i++) {
-      const x = (i / 3 - 0.5) * bannerW * 0.9
+    fittingParts.push(member(
+      new Vector3(bannerLeft.x, bannerTop, bannerZ),
+      new Vector3(bannerRight.x, bannerTop, bannerZ),
+      0.023,
+      8,
+    ))
+    fittingParts.push(member(
+      new Vector3(bannerLeft.x, bannerBottom, bannerZ),
+      new Vector3(bannerRight.x, bannerBottom, bannerZ),
+      0.023,
+      8,
+    ))
+    for (const x of [bannerLeft.x, bannerRight.x]) {
       fittingParts.push(member(
-        new Vector3(x, beamY - beamSize / 2, halfDepth),
-        new Vector3(x, bannerY + bannerH / 2, halfDepth + 0.030),
+        new Vector3(x, bannerBottom, bannerZ),
+        new Vector3(x, bannerTop, bannerZ),
+        0.023,
+        8,
+      ))
+      fittingParts.push(member(
+        new Vector3(x, lowerY, halfDepth),
+        new Vector3(x, bannerTop, bannerZ),
         0.010,
         6,
       ))
     }
 
-    // --- Lighting bar and cable tray under the beam --------------------------------------------------
+    // The pale service rail begins and ends at V-hangers rooted on matching inset roof nodes.
+    const serviceStartNode = 1
+    const serviceEndNode = bays - 1
+    const serviceY = lowerY - 0.16
+    const serviceStartX = -innerHalf + (2 * innerHalf * serviceStartNode) / bays
+    const serviceEndX = -innerHalf + (2 * innerHalf * serviceEndNode) / bays
+    fittingParts.push(member(
+      new Vector3(serviceStartX, serviceY, 0),
+      new Vector3(serviceEndX, serviceY, 0),
+      0.024,
+      8,
+    ))
+    const hangerNodes: number[] = []
+    for (let node = serviceStartNode; node <= serviceEndNode; node += 2) hangerNodes.push(node)
+    if (hangerNodes[hangerNodes.length - 1] !== serviceEndNode) hangerNodes.push(serviceEndNode)
+    for (const node of hangerNodes) {
+      const x = -innerHalf + (2 * innerHalf * node) / bays
+      fittingParts.push(member(
+        new Vector3(x, lowerY, -innerHalfDepth),
+        new Vector3(x, serviceY, 0),
+        0.012,
+        6,
+      ))
+      fittingParts.push(member(
+        new Vector3(x, lowerY, innerHalfDepth),
+        new Vector3(x, serviceY, 0),
+        0.012,
+        6,
+      ))
+    }
+
     for (let i = 0; i < 5; i++) {
-      const x = (i / 4 - 0.5) * span * 0.72
+      const x = serviceStartX + (serviceEndX - serviceStartX) * (i / 4)
+      fittingParts.push(member(
+        new Vector3(x, serviceY, 0),
+        new Vector3(x, serviceY - 0.12, 0.16),
+        0.012,
+        6,
+      ))
       const body = new CylinderGeometry(0.085, 0.10, 0.16, 12)
       body.rotateX(Math.PI / 2)
-      body.translate(x, beamY - beamSize / 2 - 0.11, 0.16)
+      body.translate(x, serviceY - 0.18, 0.16)
       fittingParts.push(body)
       const yoke = bevelBox(0.024, 0.16, 0.20, 0.004)
-      yoke.translate(x, beamY - beamSize / 2 - 0.06, 0.16)
+      yoke.translate(x, serviceY - 0.12, 0.16)
       fittingParts.push(yoke)
     }
-    const tray = bevelBox(span * 0.94, 0.06, 0.16, 0.008)
-    tray.translate(0, beamY + beamSize / 2 + 0.05, -0.12)
-    fittingParts.push(tray)
 
     emit('fitting', mergeParts(fittingParts, 'fittings'), posts, 'fittings')
   }
