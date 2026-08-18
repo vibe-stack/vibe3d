@@ -1,6 +1,5 @@
-// f1-timing-pylon — a tall scoring tower: steel frame, stacked LED cabinets, one digit
-// per cabinet from a DataTexture (no floating 3D blocks that spill the bezel).
-// configure({ height, positions }).
+// f1-timing-pylon — a tall scoring blade: tapered black frame, near-continuous LED face,
+// and dense deterministic position/driver rows. configure({ height, positions }).
 
 import {
   BufferGeometry,
@@ -22,11 +21,8 @@ import {
   createF1Preview,
   disposeF1Materials,
   fillGlyphRect,
-  glyphCells,
   mergeParts,
-  stampLedModuleGrid,
-  tubeSection,
-  writeGlyph3x5,
+  writeGlyphWord,
   LAYER_CLEARANCE,
 } from '../f1-kit-core/index.ts'
 
@@ -54,10 +50,10 @@ export interface F1TimingPylonInstance {
 }
 
 const defaults: F1TimingPylonConfig = { height: 9, positions: [1, 2, 3] }
-const CAB_W = 1.15
-const CAB_D = 0.14
-const MAST_W = 0.72
-const MAST_D = 0.42
+const CAB_W = 1.02
+const CAB_D = 0.1
+const MAST_D = 0.22
+const ROW_CODES = ['AX', 'BR', 'CY', 'DN', 'EV', 'FK'] as const
 
 function normalizePositions(positions: readonly number[]): number[] {
   const digits = positions
@@ -66,25 +62,24 @@ function normalizePositions(positions: readonly number[]): number[] {
   return digits.length > 0 ? digits : [...defaults.positions]
 }
 
-function cabinetTexture(digit: number): DataTexture {
-  const w = 128
-  const h = 128
+function cabinetTexture(digit: number, row: number): DataTexture {
+  const w = 256
+  const h = 64
   const data = new Uint8Array(w * h * 4)
-  const ink: [number, number, number] = [6, 10, 16]
+  const ink: [number, number, number] = [5, 8, 12]
   const cyan: [number, number, number] = [
     (TOKEN.CYAN_400 >> 16) & 0xff,
     (TOKEN.CYAN_400 >> 8) & 0xff,
     TOKEN.CYAN_400 & 0xff,
   ]
   const paper: [number, number, number] = [242, 248, 252]
-  stampLedModuleGrid(data, w, h, [10, 14, 20], 4)
-  fillGlyphRect(data, w, 0, 0, w, 8, ink)
-  fillGlyphRect(data, w, 0, h - 8, w, 8, ink)
-  fillGlyphRect(data, w, 0, 0, 8, h, ink)
-  fillGlyphRect(data, w, w - 8, 0, 8, h, ink)
-  const cells = glyphCells(String(digit)) ?? glyphCells('0')!
-  writeGlyph3x5(data, w, 22, 28, cells, paper, 12)
-  fillGlyphRect(data, w, 78, 40, 34, 48, cyan)
+  const muted: [number, number, number] = [98, 112, 126]
+  fillGlyphRect(data, w, 0, 0, w, h, ink)
+  fillGlyphRect(data, w, 0, h - 2, w, 2, muted)
+  fillGlyphRect(data, w, 6, 6, 48, h - 12, row === 0 ? cyan : muted)
+  writeGlyphWord(data, w, 14, 11, String(digit), paper, 8)
+  writeGlyphWord(data, w, 72, 10, ROW_CODES[row % ROW_CODES.length]!, paper, 7)
+  writeGlyphWord(data, w, 174, 15, `L${row + 1}`, cyan, 5)
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = NearestFilter
   tex.magFilter = NearestFilter
@@ -105,6 +100,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
   const textures: DataTexture[] = []
   const ownsScreen = options.materials?.screen === undefined
   let slotMats: Material[] = []
+  let markerMat: Material | undefined
 
   const releaseScreens = (): void => {
     for (const texture of textures) texture.dispose()
@@ -114,25 +110,33 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     }
     extras.length = 0
     slotMats = []
+    markerMat = undefined
   }
 
   const buildScreens = (): void => {
     releaseScreens()
     if (!ownsScreen) {
       slotMats = config.positions.map(() => options.materials!.screen!)
+      markerMat = options.materials!.screen!
       return
     }
     slotMats = config.positions.map((digit, i) => {
-      const tex = cabinetTexture(digit)
+      const tex = cabinetTexture(digit, i)
       textures.push(tex)
       const material = new MeshBasicMaterial({
-        name: `f1-kit / timing-pylon slot ${i}`,
+        name: `f1-kit / timing-pylon row ${i}`,
         map: tex,
         toneMapped: false,
       })
       extras.push(material)
       return material
     })
+    markerMat = new MeshBasicMaterial({
+      name: 'f1-kit / timing-pylon top marker',
+      color: TOKEN.CYAN_400,
+      toneMapped: false,
+    })
+    extras.push(markerMat)
   }
   buildScreens()
 
@@ -180,37 +184,46 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     const { height } = config
     const count = config.positions.length
     const parts: BufferGeometry[] = []
-    const mast = bevelBox(MAST_W, height, MAST_D, 0.02)
-    mast.translate(0, height / 2, 0)
-    parts.push(mast)
-    const pad = bevelBox(1.35, 0.12, 1.1, 0.015)
-    pad.translate(0, 0.06, 0)
+    const bladeBottom = 0.24
+    const bladeH = height - bladeBottom
+    const blade = bevelBox(CAB_W + 0.12, bladeH, MAST_D, 0.018)
+    const bladePosition = blade.getAttribute('position')
+    for (let i = 0; i < bladePosition.count; i++) {
+      const t = bladePosition.getY(i) / bladeH + 0.5
+      bladePosition.setX(i, bladePosition.getX(i) * (1 - t * 0.11))
+    }
+    bladePosition.needsUpdate = true
+    blade.computeVertexNormals()
+    blade.translate(0, bladeBottom + bladeH / 2, 0)
+    parts.push(blade)
+    const rearSpine = bevelBox(0.16, height * 0.9, 0.11, 0.012)
+    rearSpine.translate(0, height * 0.47, -0.15)
+    parts.push(rearSpine)
+    const pad = bevelBox(0.68, 0.07, 0.52, 0.012)
+    pad.translate(0, 0.035, 0)
     parts.push(pad)
-    const cap = bevelBox(0.85, 0.16, 0.55, 0.015)
-    cap.translate(0, height + 0.06, 0)
-    parts.push(cap)
-    parts.push(tubeSection(0.045, 0.55, [0, height + 0.42, 0], [0, 1, 0], 8))
+    const neck = bevelBox(0.32, 0.2, 0.3, 0.018)
+    neck.translate(0, 0.14, 0)
+    parts.push(neck)
+    const crown = bevelBox(CAB_W * 0.82, 0.5, MAST_D + 0.02, 0.035)
+    crown.translate(0, height - 0.29, 0.01)
+    parts.push(crown)
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const panelH = height * 0.18 * (3 / Math.max(3, count))
-    const gap = height * 0.04
-    const stack = count * panelH + Math.max(0, count - 1) * gap
-    const y0 = (height - stack) / 2 + panelH / 2
-    const faceZ = MAST_D / 2 + CAB_D / 2 + LAYER_CLEARANCE
-    const screenZ = faceZ + CAB_D / 2 + LAYER_CLEARANCE
-
-    const bezels: BufferGeometry[] = []
+    const headerH = 0.62
+    const rowsTop = height - headerH
+    const rowsBottom = 0.38
+    const rowH = (rowsTop - rowsBottom) / count
+    const screenZ = MAST_D / 2 + LAYER_CLEARANCE
     for (let i = 0; i < count; i++) {
-      const y = y0 + i * (panelH + gap)
-      const bezel = bevelBox(CAB_W, panelH + 0.08, CAB_D, 0.012)
-      bezel.translate(0, y, faceZ)
-      bezels.push(bezel)
-
-      const panel = new PlaneGeometry(CAB_W - 0.16, panelH - 0.06)
+      const y = rowsTop - (i + 0.5) * rowH
+      const panel = new PlaneGeometry(CAB_W - 0.08, rowH - 0.018)
       panel.translate(0, y, screenZ)
       emit('screen', panel, screens, `slot-${i}`, slotMats[i] ?? materialSlots.screen)
     }
-    emit('frame', mergeParts(bezels, 'bezels'), frame, 'bezels')
+    const marker = new PlaneGeometry(CAB_W * 0.62, 0.16)
+    marker.translate(0, height - 0.29, screenZ + CAB_D / 2)
+    emit('screen', marker, frame, 'top-marker', markerMat ?? materialSlots.screen)
   }
   rebuild()
 
@@ -247,12 +260,12 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), {
+  return createF1Preview(createModel({ positions: [1, 2, 3, 4, 5, 6] }), {
     aspect,
-    target: [0, 4.7, 0.15],
-    distance: 19,
-    fov: 34,
+    target: [0, 4.6, 0.12],
+    distance: 18,
+    fov: 32,
     pitch: 0.03,
-    yaw: -0.25,
+    yaw: -0.18,
   })
 }

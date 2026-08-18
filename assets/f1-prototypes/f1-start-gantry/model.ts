@@ -84,11 +84,18 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     depthWrite: false,
   })
   extras.push(glassMat)
+  const fasciaMat = options.materials?.banner ?? new MeshStandardMaterial({
+    name: 'f1-kit / gantry sponsor fascia',
+    color: 0x0b3b2d,
+    roughness: 0.56,
+    metalness: 0.08,
+  })
+  if (options.materials?.banner === undefined) extras.push(fasciaMat)
 
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ?? kit.graphite,
     beam: options.materials?.beam ?? kit.slate,
-    banner: options.materials?.banner ?? kit.graphite,
+    banner: fasciaMat,
   }
 
   const root = new Group()
@@ -131,54 +138,67 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     const postParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
       const x = sx * half
-      postParts.push(member(new Vector3(x, 0, -0.22), new Vector3(x, height, -0.22), 0.07, 8))
-      postParts.push(member(new Vector3(x, 0, 0.22), new Vector3(x, height, 0.22), 0.07, 8))
-      postParts.push(member(new Vector3(x - 0.22, 0, 0), new Vector3(x - 0.22, height, 0), 0.07, 8))
-      postParts.push(member(new Vector3(x + 0.22, 0, 0), new Vector3(x + 0.22, height, 0), 0.07, 8))
-      const bays = 8
-      for (let i = 0; i < bays; i++) {
-        const y0 = (i / bays) * height
-        const y1 = ((i + 1) / bays) * height
-        postParts.push(member(new Vector3(x, y0, -0.22), new Vector3(x, y1, 0.22), 0.028, 6))
-        postParts.push(member(new Vector3(x, y0, 0.22), new Vector3(x, y1, -0.22), 0.028, 6))
-        postParts.push(member(new Vector3(x - 0.22, y0, 0), new Vector3(x + 0.22, y1, 0), 0.028, 6))
+      for (const z of [-0.16, 0.16] as const) {
+        postParts.push(member(
+          new Vector3(x + sx * 0.22, 0.08, z * 1.35),
+          new Vector3(x, height - 0.08, z),
+          0.045,
+          8,
+        ))
       }
-      const plate = bevelBox(0.9, 0.1, 0.9, 0.015)
-      plate.translate(x, 0.05, 0)
+      const bays = 7
+      for (let i = 0; i < bays; i++) {
+        const y0 = 0.25 + (i / bays) * (height - 0.5)
+        const y1 = 0.25 + ((i + 1) / bays) * (height - 0.5)
+        const z0 = i % 2 === 0 ? -0.16 : 0.16
+        postParts.push(member(
+          new Vector3(x + sx * 0.18 * (1 - y0 / height), y0, z0),
+          new Vector3(x + sx * 0.18 * (1 - y1 / height), y1, -z0),
+          0.018,
+          6,
+        ))
+      }
+      const plate = bevelBox(0.62, 0.07, 0.54, 0.012)
+      plate.translate(x + sx * 0.18, 0.035, 0)
       postParts.push(plate)
+      const bracket = bevelBox(0.3, 0.18, 0.42, 0.015)
+      bracket.translate(x, height - 0.08, 0)
+      postParts.push(bracket)
     }
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
 
     const chord: Array<readonly [number, number]> = [
-      [0.32, -0.22],
-      [0.32, 0.28],
-      [-0.32, 0.28],
-      [-0.32, -0.22],
+      [0.18, -0.18],
+      [0.18, 0.18],
+      [-0.18, 0.18],
+      [-0.18, -0.18],
     ]
-    const box = loftAlongX(chord, span + 0.8, { closed: true })
-    box.translate(0, height + 0.05, 0)
+    const box = loftAlongX(chord, span + 0.5, { closed: true })
+    box.translate(0, height + 0.03, 0)
     const beamParts: BufferGeometry[] = [box]
-    const segs = Math.max(6, Math.round(span / 1.6))
-    for (let i = 0; i <= segs; i++) {
-      const x = -half + (i / segs) * span
+    const segs = Math.max(7, Math.round(span / 1.35))
+    for (let i = 0; i < segs; i++) {
+      const x0 = -half + (i / segs) * span
+      const x1 = -half + ((i + 1) / segs) * span
+      const frontZ = 0.2
+      const backZ = -0.2
+      const lo = height - 0.12
+      const hi = height + 0.18
       beamParts.push(member(
-        new Vector3(x, height - 0.16, -0.28),
-        new Vector3(x, height + 0.26, 0.28),
-        0.028,
+        new Vector3(x0, i % 2 === 0 ? lo : hi, frontZ),
+        new Vector3(x1, i % 2 === 0 ? hi : lo, frontZ),
+        0.018,
         6,
       ))
-      if (i < segs) {
-        const x1 = -half + ((i + 1) / segs) * span
-        beamParts.push(member(
-          new Vector3(x, height - 0.16, 0.28),
-          new Vector3(x1, height + 0.26, -0.28),
-          0.024,
-          6,
-        ))
-      }
+      beamParts.push(member(
+        new Vector3(x0, i % 2 === 0 ? hi : lo, backZ),
+        new Vector3(x1, i % 2 === 0 ? lo : hi, backZ),
+        0.018,
+        6,
+      ))
     }
-    const walk = bevelBox(span * 0.92, 0.04, 0.7, 0.008)
-    walk.translate(0, height - 0.22, -0.35)
+    const walk = bevelBox(span * 0.9, 0.035, 0.5, 0.006)
+    walk.translate(0, height - 0.18, -0.3)
     beamParts.push(walk)
     for (const sx of [-span * 0.22, span * 0.22] as const) {
       const pod = loftRoundedBox(0.28, 0.18, 0.32, 0.04)
@@ -188,16 +208,44 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     }
     emit('beam', mergeParts(beamParts, 'beam'), beam, 'beam')
 
-    const bannerY = height - HOUSE_H / 2 - 0.55
-    const boardW = Math.min(span * 0.24, 2.7)
+    const fascia = bevelBox(span + 0.35, 0.58, 0.1, 0.015)
+    fascia.translate(0, height + 0.03, 0.28)
+    emit('banner', fascia, banner, 'sponsor-fascia')
+    const fasciaMarks: BufferGeometry[] = []
+    for (const x of [-0.38, -0.19, 0, 0.19, 0.38].map((v) => v * span)) {
+      const badge = bevelBox(0.16, 0.16, 0.018, 0.025)
+      badge.translate(x - 0.26, height + 0.03, 0.345)
+      fasciaMarks.push(badge)
+      const wordmark = bevelBox(0.42, 0.055, 0.018, 0.012)
+      wordmark.translate(x + 0.08, height + 0.03, 0.345)
+      fasciaMarks.push(wordmark)
+    }
+    emit('banner', mergeParts(fasciaMarks, 'generic-sponsor-marks'), banner, 'generic-sponsor-marks', kit.shell)
+
+    const bannerY = height - HOUSE_H / 2 - 0.48
+    const boardW = Math.min(span * 0.22, 2.45)
     const boardOffset = LIGHT_PITCH * 2.5 + boardW / 2
     const placards: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
-      const placard = bevelBox(boardW, 0.82, 0.08, 0.012)
+      const placard = bevelBox(boardW, HOUSE_H, 0.08, 0.012)
       placard.translate(sx * boardOffset, bannerY, -0.05)
       placards.push(placard)
     }
-    emit('banner', mergeParts(placards, 'banner'), banner, 'banner')
+    emit('banner', mergeParts(placards, 'display-boards'), banner, 'display-boards', kit.graphite)
+
+    const mounts: BufferGeometry[] = []
+    for (const x of [-boardOffset, -LIGHT_PITCH, 0, LIGHT_PITCH, boardOffset] as const) {
+      mounts.push(member(
+        new Vector3(x, height - 0.12, 0.08),
+        new Vector3(x, bannerY + HOUSE_H / 2 + 0.03, 0.3),
+        0.014,
+        6,
+      ))
+      const bracket = bevelBox(0.11, 0.055, 0.16, 0.01)
+      bracket.translate(x, bannerY + HOUSE_H / 2 + 0.015, 0.28)
+      mounts.push(bracket)
+    }
+    emit('banner', mergeParts(mounts, 'hangers'), banner, 'hangers', kit.slate)
 
     const housings: BufferGeometry[] = []
     const lamps: BufferGeometry[] = []

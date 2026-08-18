@@ -2,7 +2,7 @@
 // with stacked lamps. configure({ lit }) lights that many columns from the left (the TV
 // sequence: 1..5 reds, then all out). configure({ mode, color }) maps through createLampMaterial.
 //
-// Datums: five modules at 0.48 m pitch, each housing 0.28 × 1.05 × 0.22 m, lamps Ø 0.08 m.
+// Datums: five modules at 0.36 m pitch, each housing 0.29 × 1.05 × 0.22 m, lamps Ø 0.08 m.
 // Panel hangs clear of the overhead beam (soffit gap ≥ 0.12 m).
 // Housing is a solid loft. The well is a collar standing ON the face (no boolean hole, no filled
 // cavity in front of the disc). The lens sits inside that collar, behind the lip.
@@ -69,13 +69,13 @@ export interface F1StartLightsInstance {
 const FIA_START_RED = 0xc41820
 const defaults: F1StartLightsConfig = { lit: 5, sequence: false, mode: 'start', rows: 4 }
 const COLS = 5
-const PITCH = 0.48
-const MODULE_W = 0.28
+const PITCH = 0.36
+const MODULE_W = 0.29
 const MODULE_H = 1.05
 const MODULE_D = 0.22
 const LAMP_R = 0.08
 const LENS_THICK = 0.012
-const WELL_DEPTH = 0.016
+const WELL_DEPTH = 0.045
 const DOME_THICK = 0.004
 const HEIGHT = 5.6
 /** Panel centre Y — hung so housing top clears the soffit by ≥ 0.12 m. */
@@ -149,7 +149,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     housing: options.materials?.housing ?? kit.graphite,
     lamp: lampOn,
     post: options.materials?.post ?? kit.slate,
-    bezel: options.materials?.bezel ?? kit.slate,
+    bezel: options.materials?.bezel ?? kit.graphite,
     glass: glassMat,
   }
 
@@ -218,10 +218,17 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     }
     emit('post', mergeParts(postParts, 'posts'), gantry, 'posts')
 
-    const panelW = (COLS - 1) * PITCH + MODULE_W + 0.2
-    const back = bevelBox(panelW, MODULE_H + 0.18, 0.05, 0.01)
-    back.translate(0, PANEL_Y, -0.08)
-    emit('housing', back, panel, 'backboard')
+    const panelW = (COLS - 1) * PITCH + MODULE_W
+    const mountingParts: BufferGeometry[] = []
+    const rail = bevelBox(panelW + 0.12, 0.1, 0.08, 0.012)
+    rail.translate(0, PANEL_Y + MODULE_H / 2 - 0.04, -0.07)
+    mountingParts.push(rail)
+    for (const sx of [-1, 1] as const) {
+      const tab = bevelBox(0.1, 0.24, 0.07, 0.012)
+      tab.translate(sx * (panelW / 2 + 0.02), PANEL_Y + MODULE_H / 2 - 0.12, -0.07)
+      mountingParts.push(tab)
+    }
+    emit('housing', mergeParts(mountingParts, 'mounting-rail'), panel, 'mounting-rail')
 
     const housings: BufferGeometry[] = []
     const bezels: BufferGeometry[] = []
@@ -252,10 +259,10 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
         lamp.translate(x, y, lensZ)
         emit('lamp', lamp, panel, `lamp-${c}-${r}`, on ? lampOn : lampOff)
 
-        const step = bevelRing(LAMP_R * 0.72, LAMP_R * 0.92, 0.005, 0.001, 24)
+        const step = bevelRing(LAMP_R * 0.72, LAMP_R * 0.9, 0.005, 0.0005, 24)
         step.translate(x, y, housingFaceZ + 0.003)
         bezels.push(step)
-        const lip = bevelRing(LAMP_R * 0.92, LAMP_R * 1.16, WELL_DEPTH, 0.0015, 24)
+        const lip = bevelRing(LAMP_R * 0.9, LAMP_R * 1.24, WELL_DEPTH, 0.0007, 24)
         lip.translate(x, y, lipZ)
         bezels.push(lip)
 
@@ -332,10 +339,11 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const lit = litFromEnv()
   return createF1Preview(createModel(lit !== undefined ? { lit } : {}), {
     aspect,
-    target: [0, PANEL_Y, 0.28],
-    distance: 5.5,
-    fov: 30,
-    pitch: 0.02,
+    target: [0, PANEL_Y, 0.26],
+    distance: 4.9,
+    fov: 28,
+    yaw: 0.0001,
+    pitch: 0.0001,
     bloom: true,
   })
 }
