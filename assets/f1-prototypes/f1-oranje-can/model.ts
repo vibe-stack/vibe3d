@@ -76,10 +76,10 @@ const BODY_H = 0.13
 const BODY_R = 0.02
 const MOUTH_Y = 0.14
 
-const PLUME_N = 180
+const PLUME_N = 150
 
-const SMOKE_BASE = new Color(0xff6c12)
-const SMOKE_TOP = new Color(0xee8a38)
+const SMOKE_BASE = new Color(0xffeadb)
+const SMOKE_TOP = new Color(0xfff3e8)
 
 const defaults: F1OranjeCanConfig = { lit: true, windXZ: ZANDVOORT_WIND_XZ }
 
@@ -119,7 +119,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     color: 0xffffff,
     vertexColors: true,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.11,
     depthWrite: false,
     toneMapped: true,
     blending: NormalBlending,
@@ -229,13 +229,22 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       const wPhase = frac(g * PHI5) * Math.PI * 2
       const angle = frac(i * PHI4) * Math.PI * 2
       const spread = frac(i * PHI7) * (0.002 + 0.038 * riseFrac * riseFrac)
-      const x = Math.cos(angle) * spread + wind[0] * drift + Math.cos(wPhase + age * 0.7) * wander
+      const layer = Math.floor(ageN * 9)
+      const layerPhase = frac((layer + 1) * PHI5) * Math.PI * 2
+      const layerOffset = (0.003 + 0.064 * riseFrac) * (0.7 + 0.3 * frac(g * PHI3))
+      const x = Math.cos(angle) * spread
+        + wind[0] * drift
+        + Math.cos(wPhase + age * 0.7) * wander
+        + Math.cos(layerPhase) * layerOffset
       const y = MOUTH_Y + rise
-      const z = Math.sin(angle) * spread + wind[1] * drift + Math.sin(wPhase + age * 0.7) * wander
+      const z = Math.sin(angle) * spread
+        + wind[1] * drift
+        + Math.sin(wPhase + age * 0.7) * wander
+        + Math.sin(layerPhase) * layerOffset
       const t = Math.pow(riseFrac, 1.35)
       const stretch = 0.78 + 0.44 * frac(g * PHI4)
-      const width = (0.018 + 0.17 * t) * stretch
-      const height = (0.035 + 0.14 * t) / Math.max(0.68, stretch)
+      const width = (0.018 + 0.13 * t) * stretch
+      const height = (0.035 + 0.11 * t) / Math.max(0.68, stretch)
       const fadeIn = clamp01(ageN / 0.02)
       const fadeOut = 0.65 + 0.35 * clamp01((1 - ageN) / 0.32)
       const alpha = fadeIn * fadeOut
@@ -251,7 +260,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
       tint.copy(SMOKE_BASE).lerp(SMOKE_TOP, Math.pow(riseFrac, 3.4))
-      tint.offsetHSL(0, 0, 0.08)
+      tint.offsetHSL(0, -0.06, 0.03)
       mesh.setColorAt(i, tint)
     }
     mesh.instanceMatrix.needsUpdate = true
@@ -279,7 +288,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
 
     const orangeBand = revolve(
       [[0, BODY_R * 1.035], [1, BODY_R * 1.035]],
-      { yBot: 0.012, yTop: 0.043, scaleW: 1, segments: 24 },
+      { yBot: 0.012, yTop: 0.034, scaleW: 1, segments: 24 },
     )
     emit('body', orangeBand, body, 'oranje-identity-band', orangeBandMat)
 
@@ -294,9 +303,9 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       )
       return geometry
     }
-    emit('body', labelPanel(0.022, 0.068, 0.084, 0.0009), body, 'blue-label-field', labelBlueMat)
-    for (const [index, y] of [0.062, 0.072, 0.083, 0.094, 0.105].entries()) {
-      const width = index % 2 === 0 ? 0.014 : 0.01
+    emit('body', labelPanel(0.025, 0.082, 0.075, 0.0009), body, 'blue-label-field', labelBlueMat)
+    for (const [index, y] of [0.044, 0.057, 0.07, 0.083, 0.096, 0.109].entries()) {
+      const width = index % 2 === 0 ? 0.017 : 0.013
       emit('body', labelPanel(width, 0.0024, y, 0.00125), body, `white-label-mark-${index}`, labelWhiteMat)
     }
 
@@ -314,28 +323,45 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     const lid = bevelDisc(BODY_R * 0.96, 0.005, 0.0008, 18)
     lid.translate(0, BODY_H + 0.002, 0)
     emit('hardware', lid, body, 'red-cap', redCapMat)
-    const mouth = bevelRing(0.003, 0.007, 0.006, 0.0006, 12)
-    mouth.translate(0, MOUTH_Y, 0)
-    emit('hardware', mouth, body, 'mouth', silverHardwareMat)
-
     const ringAngle = -0.55
     const ringNormal: readonly [number, number, number] = [Math.sin(ringAngle), 0, Math.cos(ringAngle)]
     const ringTangent: readonly [number, number, number] = [Math.cos(ringAngle), 0, -Math.sin(ringAngle)]
+    const ringCentre: readonly [number, number, number] = [
+      ringNormal[0] * (BODY_R + 0.003) - ringTangent[0] * 0.018,
+      BODY_H - 0.004,
+      ringNormal[2] * (BODY_R + 0.003) - ringTangent[2] * 0.018,
+    ]
+    const capAnchor: readonly [number, number, number] = [
+      ringNormal[0] * (BODY_R + 0.002) - ringTangent[0] * 0.005,
+      BODY_H + 0.004,
+      ringNormal[2] * (BODY_R + 0.002) - ringTangent[2] * 0.005,
+    ]
+    const ringAnchor: readonly [number, number, number] = [
+      ringCentre[0],
+      ringCentre[1] + 0.015,
+      ringCentre[2],
+    ]
+    const connectorAxis: readonly [number, number, number] = [
+      ringAnchor[0] - capAnchor[0],
+      ringAnchor[1] - capAnchor[1],
+      ringAnchor[2] - capAnchor[2],
+    ]
+    const connectorLength = Math.hypot(...connectorAxis)
     const hardware: BufferGeometry[] = []
     hardware.push(tubeSection(
-      0.0013,
-      0.018,
-      [ringNormal[0] * 0.018, BODY_H + 0.008, ringNormal[2] * 0.018],
-      ringNormal,
+      0.0012,
+      connectorLength,
+      [
+        (capAnchor[0] + ringAnchor[0]) * 0.5,
+        (capAnchor[1] + ringAnchor[1]) * 0.5,
+        (capAnchor[2] + ringAnchor[2]) * 0.5,
+      ],
+      connectorAxis,
       8,
     ))
     const ring = bevelRing(0.0115, 0.015, 0.0018, 0.00045, 20)
     ring.rotateY(ringAngle)
-    ring.translate(
-      ringNormal[0] * (BODY_R + 0.003) - ringTangent[0] * 0.018,
-      BODY_H - 0.004,
-      ringNormal[2] * (BODY_R + 0.003) - ringTangent[2] * 0.018,
-    )
+    ring.translate(...ringCentre)
     hardware.push(ring)
     emit('hardware', mergeParts(hardware, 'wire-pull'), body, 'wire-pull', silverHardwareMat)
 
