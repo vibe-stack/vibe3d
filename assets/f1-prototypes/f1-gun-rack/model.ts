@@ -1,10 +1,11 @@
-// f1-gun-rack — a low tubular cradle holding idle `f1-tyre-gun` instances horizontally. Depends
+// f1-gun-rack — a compact wheeled cradle holding idle `f1-tyre-gun` instances horizontally. Depends
 // on `f1-tyre-gun` for the individual guns, matching the kit's registry-dependency pattern for
 // props composed from other props. One shared gun material set is owned here so recolouring the rack
 // recolours every staged gun.
 
 import {
   BufferGeometry,
+  CylinderGeometry,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -16,9 +17,9 @@ import {
   AXIS_X,
   TOKEN,
   acquireF1Materials,
+  bevelBox,
   createF1Preview,
   disposeF1Materials,
-  groundPad,
   mergeParts,
   taperedTube,
   tubeSection,
@@ -51,9 +52,9 @@ export interface F1GunRackInstance {
 
 const defaults: F1GunRackConfig = { count: 3, accentColor: TOKEN.ORANGE_500 }
 
-const W = 1.0
-const H = 0.42
-const DEPTH = 0.72
+const W = 0.92
+const H = 0.34
+const DEPTH = 0.58
 
 export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
   const config: F1GunRackConfig = {
@@ -69,13 +70,13 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
     return material
   }
   const materialSlots: Record<Slot, Material> = {
-    frame: options.materials?.frame ?? kit.slate,
+    frame: options.materials?.frame ?? kit.steel,
   }
   const gunAccent = own(kit.orange.clone()) as MeshStandardMaterial
   gunAccent.color.set(config.accentColor)
   const gunMaterials = {
-    gunmetal: kit.slate,
-    steel: kit.steel,
+    gunmetal: kit.red,
+    steel: kit.graphite,
     gripRubber: kit.ink,
     accent: gunAccent,
     led: kit.cyan,
@@ -113,23 +114,70 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
     const parts: BufferGeometry[] = []
     const halfW = W / 2
     const halfD = DEPTH / 2
-    for (const sx of [-1, 1] as const) {
-      for (const sz of [-1, 1] as const) {
-        parts.push(groundPad([0.11, 0.11], [sx * halfW, 0, sz * halfD], 0.022))
-        parts.push(taperedTube([
-          new Vector3(sx * halfW, 0.02, sz * halfD),
-          new Vector3(sx * halfW, H, sz * halfD),
-        ], 0.026, 8))
-      }
-    }
     for (const z of [-halfD, halfD]) {
-      parts.push(tubeSection(0.026, W, [0, H, z], AXIS_X, 10))
-      parts.push(tubeSection(0.022, W, [0, 0.13, z], AXIS_X, 10))
+      parts.push(tubeSection(0.025, W, [0, 0.16, z], AXIS_X, 10))
     }
     for (const x of [-halfW, halfW]) {
-      parts.push(tubeSection(0.026, DEPTH, [x, H, 0], [0, 0, 1], 10))
+      parts.push(tubeSection(0.025, DEPTH, [x, 0.16, 0], [0, 0, 1], 10))
+      for (const z of [-halfD, halfD]) {
+        parts.push(taperedTube([
+          new Vector3(x, 0.16, z),
+          new Vector3(x, H, z),
+        ], 0.024, 8))
+      }
     }
+    for (const x of [-0.27, 0.27]) {
+      parts.push(tubeSection(0.022, DEPTH, [x, H, 0], [0, 0, 1], 10))
+    }
+    parts.push(taperedTube([
+      new Vector3(-halfW, 0.16, -halfD),
+      new Vector3(-halfW - 0.1, 0.58, -halfD),
+      new Vector3(-halfW - 0.1, 0.58, halfD),
+      new Vector3(-halfW, 0.16, halfD),
+    ], 0.024, 10))
     emit('frame', mergeParts(parts, 'frame'), frameGroup, 'frame')
+
+    const wheelParts: BufferGeometry[] = []
+    for (const sx of [-1, 1] as const) {
+      for (const sz of [-1, 1] as const) {
+        const wheel = new CylinderGeometry(0.07, 0.07, 0.038, 14)
+        wheel.rotateZ(Math.PI / 2)
+        wheel.translate(sx * (halfW - 0.04), 0.07, sz * halfD)
+        wheelParts.push(wheel)
+      }
+    }
+    const wheelGeometry = mergeParts(wheelParts, 'wheels')
+    generated.push(wheelGeometry)
+    const wheels = new Mesh(wheelGeometry, kit.ink)
+    wheels.name = 'wheels'
+    frameGroup.add(wheels)
+
+    const padParts: BufferGeometry[] = []
+    for (const x of [-0.27, 0.27]) {
+      const pad = bevelBox(0.075, 0.028, DEPTH * 0.76, 0.01)
+      pad.translate(x, H + 0.046, 0)
+      padParts.push(pad)
+    }
+    const padGeometry = mergeParts(padParts, 'retention-pads')
+    generated.push(padGeometry)
+    const pads = new Mesh(padGeometry, kit.fabric)
+    pads.name = 'retention-pads'
+    frameGroup.add(pads)
+
+    const hoseParts: BufferGeometry[] = []
+    for (const side of [-1, 1] as const) {
+      const points: Vector3[] = []
+      for (let i = 0; i <= 18; i++) {
+        const angle = (i / 6) * Math.PI * 2
+        points.push(new Vector3(-halfW - 0.08 + i * 0.006, 0.29 + Math.cos(angle) * 0.085, side * 0.15 + Math.sin(angle) * 0.085))
+      }
+      hoseParts.push(taperedTube(points, 0.011, 8))
+    }
+    const hoseGeometry = mergeParts(hoseParts, 'hose-coils')
+    generated.push(hoseGeometry)
+    const hoses = new Mesh(hoseGeometry, kit.ink)
+    hoses.name = 'hose-coils'
+    frameGroup.add(hoses)
   }
 
   const clearGuns = (): void => {
@@ -184,5 +232,5 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.32, 0], distance: 2.85, yaw: -0.58, pitch: 0.36 })
+  return createF1Preview(createModel(), { aspect, target: [0, 0.3, 0], distance: 2.25, yaw: -0.58, pitch: 0.32 })
 }

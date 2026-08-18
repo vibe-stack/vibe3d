@@ -1,12 +1,7 @@
-// f1-tyre-stack — a blanketed stack of loose tyres (garage dressing): N `f1-tyre` tyres laid
-// flat and stacked, wrapped in a warmer blanket with a power cable running to the floor. Depends on
-// `f1-tyre` for the individual tyres, matching the kit's registry-dependency pattern for props
-// composed from other props.
-//
-// The blanket is the whole reason this prop is not just four tyres: it has to read as fabric wrapped
-// around a stack, so it carries a scalloped profile that bulges over each tyre course and pinches at the
-// seams between them, a vertical overlap flap where the wrap closes, buckled straps at the seams, and a
-// folded hem top and bottom. The bottom course is left uncovered so the tyres it is wrapping still read.
+// f1-tyre-stack — individually blanketed F1 tyres staged on a chrome two-tier wheeled garage rack.
+// Each padded warmer fully covers its tyre, carries flat identifying webbing and a closure, and terminates
+// in its own short lead and connector. Depends on `f1-tyre` for the concealed tyre anatomy while keeping
+// stable stack-level runtime anchors and configuration.
 
 import {
   BufferGeometry,
@@ -14,7 +9,6 @@ import {
   Group,
   InstancedMesh,
   LatheGeometry,
-  MathUtils,
   Matrix4,
   Mesh,
   MeshStandardMaterial,
@@ -28,12 +22,10 @@ import {
   acquireF1Materials,
   bevelBox,
   createF1Preview,
-  creased,
   disposeF1Materials,
   mergeParts,
   shade,
   taperedTube,
-  wrapStrap,
 } from '../f1-kit-core/index.ts'
 import {
   createModel as createTyre,
@@ -121,15 +113,6 @@ function wobble(geometry: BufferGeometry, amount: number): BufferGeometry {
   return geometry
 }
 
-/** Place a part at `radius`, height `y` and `azimuth` around +Y, keeping it radial. */
-function atAzimuth(
-  geometry: BufferGeometry, radius: number, y: number, azimuthDeg: number,
-): BufferGeometry {
-  geometry.translate(radius, y, 0)
-  geometry.rotateY(-MathUtils.degToRad(azimuthDeg)) // rotation about +Y preserves the height
-  return geometry
-}
-
 export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstance {
   const config: F1TyreStackConfig = {
     count: Math.max(1, Math.round(options.count ?? defaults.count)),
@@ -203,6 +186,14 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
       materials: { cover: tyreCover, accent: tyreAccent },
     })
     prototype.root.updateMatrixWorld(true)
+    const columns = Math.ceil(count / 2)
+    const rackWidth = Math.max(1.1, columns * TH + 0.28)
+    const tierY = [0.46, 1.25] as const
+    const tyrePosition = (index: number): Vector3 => {
+      const tier = index < columns ? 0 : 1
+      const column = index % columns
+      return new Vector3((column - (columns - 1) / 2) * TH, tierY[tier], 0)
+    }
     const pose = new Matrix4()
     const composed = new Matrix4()
     prototype.root.traverse((object) => {
@@ -213,8 +204,8 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
       instanced.castShadow = true
       instanced.receiveShadow = true
       for (let i = 0; i < count; i++) {
-        pose.makeRotationX(Math.PI / 2)
-        pose.setPosition(0, TYRE_HALF + 0.01 + i * TH, 0)
+        pose.makeRotationY(Math.PI / 2)
+        pose.setPosition(tyrePosition(i))
         composed.copy(pose).multiply(mesh.matrixWorld)
         instanced.setMatrixAt(i, composed)
       }
@@ -222,124 +213,108 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
       tyresGroup.add(instanced)
     })
 
-    // F1 heating blankets enclose every mounted tyre in the stack. Keep one scallop registered to each
-    // course and close over both end faces; exposed rubber belongs only on an unplugged tyre set.
-    const covered = count
-    const yBase = 0.01
-    const yTop = yBase + count * TH
-    const height = yTop - yBase
-
-    // --- Blanket: a scalloped revolve that bulges over each course and pinches at the seams -----------
-    // The waist is cinched below the tyre's own radius at each strap, so the straps visibly carry load
-    // rather than hovering as hoops over a straight-sided drum.
-    const rPinch = R + 0.008
-    const rBulge = R + 0.055
-    const hem = 0.008
-    const profile: Array<readonly [number, number]> = []
-
-    // Bottom hem: a rolled fold that hangs past the seam and flares outward, so the blanket visibly
-    // drapes over the exposed tyre's shoulder instead of being sliced off flat against it.
-    profile.push([rPinch - 0.020, yBase + 0.06])
-    profile.push([rPinch - 0.018, yBase - 0.004])
-    for (let i = 0; i <= 4; i++) {
-      const a = Math.PI + (Math.PI / 2) * (i / 4)
-      profile.push([rPinch + 0.004 + Math.cos(a) * hem * 2, yBase - 0.014 + Math.sin(a) * hem * 2])
+    // --- Individual full-coverage warmers ------------------------------------------------------------
+    const blanketParts: BufferGeometry[] = []
+    for (let i = 0; i < count; i++) {
+      const position = tyrePosition(i)
+      const half = TYRE_HALF + 0.018
+      const profile: Array<readonly [number, number]> = [
+        [0.001, -half],
+        [R * 0.82, -half],
+        [R + 0.025, -half + 0.028],
+        [R + 0.045, -half + 0.075],
+        [R + 0.048, 0],
+        [R + 0.045, half - 0.075],
+        [R + 0.025, half - 0.028],
+        [R * 0.82, half],
+        [0.001, half],
+      ]
+      const warmer = wobble(latheY(profile, 48), 0.006)
+      warmer.rotateZ(-Math.PI / 2)
+      warmer.translate(position.x, position.y, position.z)
+      blanketParts.push(warmer)
     }
+    emit('blanket', mergeParts(blanketParts, 'blankets'), blanketGroup, 'blankets')
 
-    // One scallop per covered course: pinch at the seam, bulge across the tyre's own crown. Each course is
-    // broken by quilt seams — a shallow stitched channel every few samples. Without them a swept blanket
-    // reads as smooth moulded plastic, because a bulging revolve has no surface break-up of its own.
-    const quiltDepth = 0.005
-    const quiltWall = 0.004
-    for (let c = 0; c < covered; c++) {
-      const y0 = yBase + (height * c) / covered
-      const y1 = yBase + (height * (c + 1)) / covered
-      const samples = 12
-      /** A raised cosine: pinched at both seams, fullest across the middle of the course. */
-      const skin = (t: number): number => rPinch + (rBulge - rPinch) * Math.sin(Math.PI * t) ** 1.4
-      for (let s = 0; s <= samples; s++) {
-        const t = s / samples
-        const y = y0 + (y1 - y0) * t
-        // Quilt seams at thirds of the course, away from the pinched ends where they would not read.
-        if (s > 0 && s < samples && s % 3 === 0) {
-          profile.push([skin(t), y - quiltWall])
-          profile.push([skin(t) - quiltDepth, y - quiltWall * 0.4])
-          profile.push([skin(t) - quiltDepth, y + quiltWall * 0.4])
-          profile.push([skin(t), y + quiltWall])
-        } else {
-          profile.push([skin(t), y])
-        }
+    // --- Flat webbing, closures and label tabs --------------------------------------------------------
+    const strapParts: BufferGeometry[] = []
+    for (let i = 0; i < count; i++) {
+      const position = tyrePosition(i)
+      const band = latheY([
+        [R + 0.049, -0.038],
+        [R + 0.061, -0.038],
+        [R + 0.061, 0.038],
+        [R + 0.049, 0.038],
+        [R + 0.049, -0.038],
+      ], 40)
+      band.rotateZ(-Math.PI / 2)
+      band.translate(position.x, position.y, position.z)
+      strapParts.push(band)
+      const closure = bevelBox(0.07, 0.048, 0.026, 0.005)
+      closure.translate(position.x, position.y, R + 0.064)
+      strapParts.push(closure)
+      const label = bevelBox(0.085, 0.024, 0.012, 0.003)
+      label.translate(position.x + 0.075, position.y - 0.065, R + 0.059)
+      strapParts.push(label)
+    }
+    emit('strap', mergeParts(strapParts, 'straps'), blanketGroup, 'straps')
+
+    // --- Chrome two-tier wheeled rack ---------------------------------------------------------------
+    const rackParts: BufferGeometry[] = []
+    const halfW = rackWidth / 2
+    const halfD = 0.5
+    for (const sx of [-1, 1] as const) {
+      for (const sz of [-1, 1] as const) {
+        rackParts.push(taperedTube([
+          new Vector3(sx * halfW, 0.12, sz * halfD),
+          new Vector3(sx * halfW, 1.7, sz * halfD),
+        ], 0.026, 10))
+        const wheel = new CylinderGeometry(0.075, 0.075, 0.038, 14)
+        wheel.rotateX(Math.PI / 2)
+        wheel.translate(sx * halfW, 0.075, sz * halfD)
+        rackParts.push(wheel)
       }
     }
-
-    // Top hem: a rolled fold that turns inward over the top tyre's shoulder. Ending in a bare rim leaves
-    // the sleeve's interior wall on show and the whole prop reads as an open bucket.
-    for (let i = 0; i <= 4; i++) {
-      const a = (Math.PI / 2) * (i / 4)
-      profile.push([rPinch - 0.004 + Math.cos(a) * hem * 2, yTop - hem * 2 + Math.sin(a) * hem * 2])
+    for (const y of [0.14, 0.85, 1.64]) {
+      for (const z of [-halfD, halfD]) {
+        rackParts.push(taperedTube([
+          new Vector3(-halfW, y, z),
+          new Vector3(halfW, y, z),
+        ], 0.024, 10))
+      }
     }
-    profile.push([R * 0.86, yTop + 0.004])
-    profile.push([R * 0.72, yTop - 0.010])
-    profile.push([R * 0.70, yTop - 0.030])
-
-    // Crease the sleeve so the quilt seams stay crisp; a lathe smooths normals along the whole profile
-    // and would otherwise round every stitched channel into a soft dent.
-    const blanketParts: BufferGeometry[] = [creased(wobble(latheY(profile, 48), 0.014), 35)]
-
-    // Vertical overlap flap where the wrap closes, plus a shorter secondary flap that only spans the top
-    // two courses — deliberately not mirrored, so the wrap never reads as a machined cylinder (rule 3).
-    // After atAzimuth the flap's local X is radial and its local Z is tangential, so it has to be authored
-    // thin-and-wide (10 mm proud, 55 mm across) to lie down on the wrap instead of standing off it as a fin.
-    blanketParts.push(atAzimuth(
-      bevelBox(0.024, height * 0.96, 0.060, 0.004),
-      rBulge - 0.004, yBase + height / 2, 0,
-    ))
-    blanketParts.push(atAzimuth(
-      bevelBox(0.008, height * 0.45, 0.040, 0.003),
-      rBulge - 0.002, yTop - height * 0.25, 140,
-    ))
-    emit('blanket', mergeParts(blanketParts, 'blanket'), blanketGroup, 'sleeve')
-
-    // --- Straps: one identifying belt per warmer, each with a buckle at an unequal azimuth -----------
-    const strapParts: BufferGeometry[] = []
-    const buckleAt = [25, 155, 290]
-    for (let c = 0; c < covered; c++) {
-      const y = yBase + (height * (c + 0.5)) / covered
-      // Flat identifying webbing follows the blanket's fullest circumference and stands clear enough to
-      // retain its own highlight rather than disappearing into the quilted shell.
-      strapParts.push(wrapStrap(rBulge + 0.006, [0, y, 0], 0.060, 0.020, 40))
-
-      const buckle = bevelBox(0.060, 0.050, 0.022, 0.004)
-      buckle.rotateY(Math.PI / 2) // face the buckle outward before the azimuth places it
-      strapParts.push(atAzimuth(buckle, rBulge + 0.034, y, buckleAt[c % buckleAt.length]!))
+    for (const y of [0.23, 1.02]) {
+      for (const z of [-0.29, 0.29]) {
+        rackParts.push(taperedTube([
+          new Vector3(-halfW, y, z),
+          new Vector3(halfW, y, z),
+        ], 0.022, 10))
+      }
     }
-    if (strapParts.length > 0) emit('strap', mergeParts(strapParts, 'straps'), blanketGroup, 'straps')
+    const rackGeometry = mergeParts(rackParts, 'rack')
+    generated.push(rackGeometry)
+    const rack = new Mesh(rackGeometry, kit.steel)
+    rack.name = 'two-tier-rack'
+    rack.castShadow = true
+    rack.receiveShadow = true
+    blanketGroup.add(rack)
 
-    // --- Cable: routed out of a gland in the blanket, not out of thin air -----------------------------
+    // --- One short lead and connector per warmer ----------------------------------------------------
     const cableParts: BufferGeometry[] = []
-    const glandY = yBase + height * 0.86
-    const gland = new CylinderGeometry(0.018, 0.018, 0.034, 16)
-    gland.rotateZ(Math.PI / 2)
-    cableParts.push(atAzimuth(gland, rBulge + 0.006, glandY, 205))
-
-    const glandDir = MathUtils.degToRad(205)
-    const gx = Math.cos(glandDir)
-    const gz = -Math.sin(glandDir)
-    // The run stands clear of the stack rather than hugging it, so the cable never grazes a tyre's
-    // shoulder on its way down.
-    cableParts.push(taperedTube([
-      new Vector3(gx * (rBulge + 0.03), glandY, gz * (rBulge + 0.03)),
-      new Vector3(gx * (rBulge + 0.18), glandY - 0.22, gz * (rBulge + 0.18)),
-      new Vector3(gx * (rBulge + 0.26), 0.14, gz * (rBulge + 0.28)),
-      new Vector3(gx * (rBulge + 0.40), 0.030, gz * (rBulge + 0.36)),
-    ], 0.016, 10))
-
-    // Strain-relief boot and a floor plug on the end of the run.
-    const plug = bevelBox(0.052, 0.042, 0.030, 0.004)
-    plug.translate(gx * (rBulge + 0.42), 0.022, gz * (rBulge + 0.38))
-    cableParts.push(plug)
-
-    emit('cable', mergeParts(cableParts, 'cable'), cableGroup, 'cable')
+    for (let i = 0; i < count; i++) {
+      const position = tyrePosition(i)
+      const side = i % 2 === 0 ? 1 : -1
+      const start = new Vector3(position.x + side * 0.08, position.y + 0.25, R + 0.045)
+      cableParts.push(taperedTube([
+        start,
+        new Vector3(start.x + side * 0.08, start.y + 0.025, start.z + 0.055),
+        new Vector3(start.x + side * 0.15, start.y - 0.015, start.z + 0.08),
+      ], 0.011, 8))
+      const connector = bevelBox(0.05, 0.026, 0.028, 0.004)
+      connector.translate(start.x + side * 0.17, start.y - 0.02, start.z + 0.08)
+      cableParts.push(connector)
+    }
+    emit('cable', mergeParts(cableParts, 'cables'), cableGroup, 'cables')
   }
   rebuild()
 
@@ -371,5 +346,5 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.7, 0], distance: 3.55 })
+  return createF1Preview(createModel(), { aspect, target: [0, 0.88, 0], distance: 3.65, yaw: -0.62, pitch: 0.22 })
 }

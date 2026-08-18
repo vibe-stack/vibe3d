@@ -1,5 +1,5 @@
-// f1-tyre-barrier — a catch-fence tyre wall of kit f1-tyres laid on their sidewalls and stacked
-// like a real FIA barrier (not standing on the tread), with through-bolts and front wrap bands.
+// f1-tyre-barrier — tightly compressed bare touring-tyre packs with deterministic weather cycling,
+// interlocked courses, and continuous FIA-style webbing that wraps to credible rear anchors.
 
 import {
   BufferGeometry,
@@ -16,7 +16,6 @@ import {
   createF1Preview,
   disposeF1Materials,
   mergeParts,
-  tubeSection,
   type Compound,
 } from '../f1-kit-core/index.ts'
 import { createModel as createTyre, type F1TyreInstance } from '../f1-tyre/model.ts'
@@ -49,9 +48,9 @@ export interface F1TyreBarrierInstance {
 const defaults: F1TyreBarrierConfig = { columns: 5, rows: 5, depth: 2, compound: 'intermediate' }
 const R = 0.32
 const W = 0.22
-const PITCH_X = R * 2 * 0.96
-const PITCH_Y = W * 0.94
-const PITCH_Z = R * 2 * 0.92
+const PITCH_X = R * 2 * 0.88
+const PITCH_Y = W * 0.86
+const PITCH_Z = R * 2 * 0.82
 
 export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierInstance {
   const config: F1TyreBarrierConfig = {
@@ -71,6 +70,15 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
 
   let prototype: F1TyreInstance | null = null
   const materialSlots: Record<Slot, Material> = { tyre: options.materials?.tyre ?? kit.ink }
+  const weatherOwned = options.materials?.tyre ? [] : [kit.ink.clone(), kit.ink.clone(), kit.ink.clone()]
+  if (weatherOwned.length > 0) {
+    weatherOwned[0]!.color.multiplyScalar(0.72)
+    weatherOwned[1]!.color.multiplyScalar(0.84)
+    weatherOwned[2]!.color.multiplyScalar(0.94)
+  }
+  const weatherMaterials: Material[] = options.materials?.tyre ? [options.materials.tyre] : weatherOwned
+  let useWeather = options.materials?.tyre === undefined
+  let disposed = false
   const generated: BufferGeometry[] = []
 
   const releaseGenerated = (): void => {
@@ -84,7 +92,6 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
   const rebuild = (): void => {
     releaseGenerated()
     const { columns, rows, depth } = config
-    const count = columns * rows * depth
     const tyreMaterial = materialSlots.tyre
     prototype = createTyre({
       radius: R,
@@ -111,49 +118,53 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     const halfX = ((columns - 1) * PITCH_X) / 2
     prototype.root.traverse((object) => {
       const mesh = object as Mesh
-      if (!mesh.isMesh) return
-      const instanced = new InstancedMesh(mesh.geometry, mesh.material, count)
-      instanced.name = mesh.name
-      instanced.castShadow = true
-      instanced.receiveShadow = true
-      let i = 0
+      if (!mesh.isMesh || mesh.parent?.name !== 'tire') return
+      let index = 0
       for (let d = 0; d < depth; d++) {
         for (let r = 0; r < rows; r++) {
-          const stagger = (r % 2) * R
+          const stagger = (r % 2) * PITCH_X * 0.46
           for (let c = 0; c < columns; c++) {
             const x = -halfX + c * PITCH_X + stagger
-            const y = W / 2 + r * PITCH_Y
+            const y = W / 2 + r * PITCH_Y + ((index % 3) - 1) * 0.004
             const z = (d - (depth - 1) / 2) * PITCH_Z
             pose.makeRotationX(Math.PI / 2)
-            twist.makeRotationY(d * 0.06 + c * 0.02)
+            twist.makeRotationY(((index % 5) - 2) * 0.018)
             pose.multiply(twist)
             pose.setPosition(x, y, z)
             composed.copy(pose).multiply(mesh.matrixWorld)
-            instanced.setMatrixAt(i, composed)
-            i++
+            const material = useWeather ? weatherMaterials[index % weatherMaterials.length]! : materialSlots.tyre
+            const instanced = new InstancedMesh(mesh.geometry, material, 1)
+            instanced.name = mesh.name
+            instanced.castShadow = true
+            instanced.receiveShadow = true
+            instanced.setMatrixAt(0, composed)
+            instanced.instanceMatrix.needsUpdate = true
+            tyres.add(instanced)
+            index++
           }
         }
       }
-      instanced.instanceMatrix.needsUpdate = true
-      tyres.add(instanced)
     })
 
     const hardware: BufferGeometry[] = []
     const wallH = rows * PITCH_Y
-    const wallW = columns * PITCH_X + R
-    const frontZ = ((depth - 1) / 2) * PITCH_Z + R + 0.04
-    for (let d = 0; d < depth; d++) {
-      const z = (d - (depth - 1) / 2) * PITCH_Z
-      for (let c = 0; c < columns; c++) {
-        const x = -halfX + c * PITCH_X
-        hardware.push(tubeSection(0.016, wallH + 0.08, [x, wallH / 2, z], [0, 1, 0], 8))
-      }
-    }
-    for (let r = 0; r < rows; r += 2) {
-      const y = W / 2 + r * PITCH_Y
-      const band = bevelBox(wallW * 0.94, 0.105, 0.018, 0.006)
-      band.translate(0, y, frontZ)
-      hardware.push(band)
+    const frontZ = ((depth - 1) / 2) * PITCH_Z + R + 0.025
+    const rearZ = -frontZ
+    const wrapDepth = frontZ - rearZ
+    for (let c = 0; c < columns; c++) {
+      const x = -halfX + c * PITCH_X + (c % 2) * 0.018
+      const frontBand = bevelBox(0.09, wallH + 0.08, 0.009, 0.003)
+      frontBand.translate(x, wallH / 2, frontZ)
+      hardware.push(frontBand)
+      const topBand = bevelBox(0.09, 0.009, wrapDepth, 0.003)
+      topBand.translate(x, wallH + 0.035, 0)
+      hardware.push(topBand)
+      const rearBand = bevelBox(0.09, wallH + 0.08, 0.009, 0.003)
+      rearBand.translate(x, wallH / 2, rearZ)
+      hardware.push(rearBand)
+      const anchor = bevelBox(0.15, 0.08, 0.055, 0.008)
+      anchor.translate(x, 0.055, rearZ - 0.03)
+      hardware.push(anchor)
     }
     const merged = mergeParts(hardware, 'straps')
     generated.push(merged)
@@ -178,6 +189,7 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     },
     setMaterial(slot, material) {
       materialSlots[slot] = material
+      useWeather = false
       tyres.traverse((object) => {
         const mesh = object as Mesh
         if (mesh.isMesh && mesh.name !== 'straps') mesh.material = material
@@ -186,7 +198,11 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     update: () => {},
     dispose() {
       releaseGenerated()
-      disposeF1Materials(bundle)
+      if (!disposed) {
+        disposeF1Materials(bundle)
+        for (const material of weatherOwned) material.dispose()
+        disposed = true
+      }
       root.removeFromParent()
     },
   }
@@ -195,8 +211,8 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ columns: 4, rows: 5, depth: 2 }), {
     aspect,
-    target: [0, 0.75, 0.15],
-    distance: 5.8,
+    target: [0, 0.5, 0.08],
+    distance: 4.15,
     fov: 30,
     yaw: -0.62,
     pitch: 0.38,

@@ -65,7 +65,7 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
   const materialSlots: Record<Slot, Material> = {
     metal: options.materials?.metal ?? kit.steel,
     darkMetal: options.materials?.darkMetal ?? kit.graphite,
-    accent: options.materials?.accent ?? kit.orange,
+    accent: options.materials?.accent ?? kit.amber,
     rubber: options.materials?.rubber ?? kit.ink,
   }
 
@@ -116,20 +116,31 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
       side.translate(pivotX, pivotY - 0.005, sz * 0.07)
       metalBase.push(side)
     }
-    const rearTie = bevelBox(0.08, 0.04, 0.305, 0.006)
-    rearTie.translate(-0.22, 0.035, 0)
+    const rearTie = bevelBox(0.18, 0.05, 0.38, 0.007)
+    rearTie.translate(-0.24, 0.04, 0)
     metalBase.push(rearTie)
     emit('metal', mergeParts(metalBase, 'base'), base, 'base')
 
     const rubberBase: BufferGeometry[] = [
-      castor([-0.18, 0, 0.16], 0.0355, 0.25),
-      castor([-0.18, 0, -0.16], 0.0355, -0.25),
-      castor([0.48, 0, 0.16], 0.0355, 0.12),
-      castor([0.48, 0, -0.16], 0.0355, -0.12),
+      castor([-0.18, 0, 0.18], 0.052, 0.25),
+      castor([-0.18, 0, -0.18], 0.052, -0.25),
+      castor([0.48, 0, 0.16], 0.046, 0.12),
+      castor([0.48, 0, -0.16], 0.046, -0.12),
     ]
     emit('rubber', mergeParts(rubberBase, 'casters'), base, 'casters')
 
     emit('darkMetal', bolt([pivotX, pivotY, 0], 0.02, 0.18, AXIS_Z), base, 'pivot')
+
+    const linkage: BufferGeometry[] = []
+    for (const sz of [-1, 1] as const) {
+      linkage.push(ovalTube([
+        new Vector3(0, 0, sz * 0.065),
+        new Vector3(-0.11, 0.19, sz * 0.065),
+      ], 0.014, 0.018, 8))
+    }
+    linkage.push(bevelBox(0.075, 0.035, 0.17, 0.005).translate(-0.11, 0.19, 0))
+    emit('metal', mergeParts(linkage, 'handle-linkage'), lever, 'handle-linkage')
+    emit('darkMetal', bolt([0, 0, 0], 0.018, 0.17, AXIS_Z), lever, 'lever-hinge')
 
     emit('metal', ovalTube([
       new Vector3(0.0, 0.0, 0),
@@ -150,6 +161,12 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
     const HL = 1.08
     emit('metal', tubeSection(0.018, HL, [0, HL / 2, 0], [0, 1, 0], 12), handle, 'shaft')
     emit('accent', tubeSection(0.026, 0.18, [0, HL - 0.09, 0], [0, 1, 0], 12), handle, 'grip')
+    const collarGeometry = tubeSection(0.029, 0.035, [0, HL - 0.195, 0], [0, 1, 0], 12)
+    generated.push(collarGeometry)
+    const collar = new Mesh(collarGeometry, kit.red)
+    collar.name = 'safety-collar'
+    collar.castShadow = true
+    handle.add(collar)
   }
   rebuild()
 

@@ -1,5 +1,5 @@
 // f1-tyre-gun — a pit-lane impact wrench: a two-stage motor barrel with an exhaust tail, a rubber
-// pistol grip with a trigger, an air inlet at the grip heel, and a thick-walled hex socket on the anvil.
+// pistol grip with a guarded trigger, a heel air inlet, and a ribbed hollow socket on the anvil.
 //
 // The read depends on three things a tapered blob cannot give you: a cylindrical motor housing with real
 // volume *behind* the grip, the air inlet (the single most identifiable feature of a pneumatic wrench),
@@ -12,17 +12,13 @@
 import {
   BufferGeometry,
   CylinderGeometry,
-  ExtrudeGeometry,
   Group,
-  MathUtils,
   Mesh,
   MeshStandardMaterial,
-  Path,
-  Shape,
+  TorusGeometry,
   Vector3,
   type Material,
 } from 'three/webgpu'
-import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 import {
   AXIS_X,
@@ -70,44 +66,6 @@ const GUN_SPIN_RATE = 55 // rad/s the socket spins while running (impact-wrench 
 // every `.ts` under f1-kit-core ships to kit consumers as permanent public surface.
 // ---------------------------------------------------------------------------------------------------
 
-/**
- * A thick-walled hex barrel — the socket. Extruded along +X with a hex bore through it, so the drive end
- * reads as something that swallows a nut rather than as a solid nut of its own.
- */
-function hexSocket(acrossFlats: number, bore: number, depth: number): BufferGeometry {
-  const hexPath = (radius: number, target: Shape | Path, reverse: boolean): void => {
-    for (let i = 0; i <= 6; i++) {
-      const k = reverse ? 6 - i : i
-      const a = (k / 6) * Math.PI * 2 + Math.PI / 6
-      const x = Math.cos(a) * radius
-      const y = Math.sin(a) * radius
-      if (i === 0) target.moveTo(x, y)
-      else target.lineTo(x, y)
-    }
-  }
-  const shape = new Shape()
-  hexPath(acrossFlats / 2 / Math.cos(Math.PI / 6), shape, false)
-  const hole = new Path()
-  hexPath(bore / 2 / Math.cos(Math.PI / 6), hole, true)
-  shape.holes.push(hole)
-
-  const geo = new ExtrudeGeometry(shape, {
-    depth,
-    bevelEnabled: true,
-    bevelThickness: 0.004,
-    bevelSize: 0.004,
-    bevelOffset: 0,
-    bevelSegments: 1,
-    steps: 1,
-    curveSegments: 1,
-  })
-  geo.translate(0, 0, -depth / 2)
-  geo.rotateY(Math.PI / 2) // lay the bore onto the tool axis (+X)
-  const creased = toCreasedNormals(geo, MathUtils.degToRad(40))
-  if (creased !== geo) geo.dispose()
-  return creased
-}
-
 /** A tapered cylinder laid along the tool axis (+X). Equal-radius barrels use tubeSection. */
 function axial(rTop: number, rBottom: number, length: number, x: number, radial = 20): BufferGeometry {
   const geo = new CylinderGeometry(rTop, rBottom, length, radial)
@@ -126,10 +84,10 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   const kit = bundle.materials
   const ownsLed = options.materials?.led === undefined
   const materialSlots: Record<Slot, Material> = {
-    gunmetal: options.materials?.gunmetal ?? kit.slate,
+    gunmetal: options.materials?.gunmetal ?? kit.graphite,
     steel: options.materials?.steel ?? kit.steel,
     gripRubber: options.materials?.gripRubber ?? kit.ink,
-    accent: options.materials?.accent ?? kit.orange,
+    accent: options.materials?.accent ?? kit.cobalt,
     led: options.materials?.led ?? kit.cyan,
   }
 
@@ -170,65 +128,69 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   const build = (): void => {
     releaseGenerated()
 
-    // --- Motor clamshell: compact Paoli-style mass with a broad carbon cover and cast rear case -------
-    const shell = bevelBox(0.22, 0.12, 0.11, 0.018)
-    shell.translate(-0.02, 0, 0)
+    // --- Rounded carbon clamshell: tapered centre mass with separate side cover halves ---------------
     const gunmetalParts: BufferGeometry[] = [
-      shell,
-      tubeSection(0.058, 0.065, [-0.162, 0, 0], AXIS_X, 20),
-      axial(0.064, 0.058, 0.022, -0.205),
-      axial(0.052, 0.058, 0.028, 0.105),
+      axial(0.062, 0.075, 0.18, -0.025, 28),
+      axial(0.072, 0.058, 0.055, -0.142, 24),
+      axial(0.058, 0.05, 0.025, -0.182, 20),
     ]
-    // Regulator dial on the tail, hanging lug, and three raised cooling ribs break the shell.
-    gunmetalParts.push(tubeSection(0.026, 0.018, [-0.224, 0, 0], AXIS_X, 14))
-    const lug = bevelBox(0.04, 0.028, 0.014, 0.003)
-    lug.translate(-0.095, 0.068, 0)
+    for (const sz of [-1, 1] as const) {
+      const cover = bevelBox(0.145, 0.094, 0.018, 0.012)
+      cover.translate(-0.02, 0, sz * 0.061)
+      gunmetalParts.push(cover)
+    }
+    // Rear regulator, hanging lug, and offset cooling ribs break the otherwise smooth shell.
+    gunmetalParts.push(tubeSection(0.024, 0.018, [-0.206, 0, 0], AXIS_X, 14))
+    const lug = bevelBox(0.038, 0.026, 0.014, 0.003)
+    lug.translate(-0.09, 0.075, 0)
     gunmetalParts.push(lug)
-    for (let i = 0; i < 3; i++) {
-      const rib = bevelBox(0.012, 0.022, 0.086, 0.003)
-      rib.translate(-0.135 + i * 0.026, 0.057, 0)
+    for (let i = 0; i < 4; i++) {
+      const rib = bevelBox(0.01, 0.018, 0.075, 0.003)
+      rib.translate(-0.11 + i * 0.023, 0.067, 0)
       gunmetalParts.push(rib)
     }
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
-    // --- Nose: bearing housing, static, ahead of the barrel -----------------------------------------
-    const steelParts: BufferGeometry[] = [tubeSection(0.048, 0.046, [0.132, 0, 0], AXIS_X, 20)]
-    emit('steel', mergeParts(steelParts, 'nose'), body, 'nose')
+    // --- Short nose and integrated trigger guard -----------------------------------------------------
+    const steelParts: BufferGeometry[] = [tubeSection(0.046, 0.038, [0.088, 0, 0], AXIS_X, 20)]
+    steelParts.push(ovalTube([
+      new Vector3(0.018, -0.062, 0),
+      new Vector3(0.055, -0.11, 0),
+      new Vector3(0.035, -0.17, 0),
+    ], 0.008, 0.008, 8))
+    const trigger = bevelBox(0.014, 0.046, 0.026, 0.003)
+    trigger.translate(0.024, -0.105, 0)
+    steelParts.push(trigger)
+    emit('steel', mergeParts(steelParts, 'nose-and-guard'), body, 'nose')
 
-    // --- Grip and trigger ----------------------------------------------------------------------------
+    // --- Slender rubber grip -------------------------------------------------------------------------
     const gripParts: BufferGeometry[] = [
       ovalTube([
-        new Vector3(-0.030, -0.050, 0),
-        new Vector3(0.000, -0.120, 0),
-        new Vector3(0.010, -0.200, 0),
-        new Vector3(-0.010, -0.270, 0),
-      ], 0.030, 0.038, 12),
+        new Vector3(-0.025, -0.052, 0),
+        new Vector3(-0.002, -0.12, 0),
+        new Vector3(0.002, -0.20, 0),
+        new Vector3(-0.018, -0.27, 0),
+      ], 0.025, 0.032, 12),
     ]
-    // Trigger blade sitting in front of the grip's throat.
-    const trigger = bevelBox(0.020, 0.052, 0.030, 0.003)
-    trigger.translate(0.028, -0.096, 0)
-    gripParts.push(trigger)
     emit('gripRubber', mergeParts(gripParts, 'grip'), body, 'grip')
 
     // --- Air inlet at the grip heel, with a short hose stub trailing back ---------------------------
     const accentParts: BufferGeometry[] = []
-    const inlet = new CylinderGeometry(0.0175, 0.0175, 0.060, 14)
-    inlet.rotateZ(Math.PI / 2.6)
-    inlet.translate(-0.048, -0.288, 0)
+    const inlet = new CylinderGeometry(0.016, 0.016, 0.055, 14)
+    inlet.translate(-0.018, -0.297, 0)
     accentParts.push(inlet)
-    const inletCollar = new CylinderGeometry(0.023, 0.023, 0.014, 14)
-    inletCollar.rotateZ(Math.PI / 2.6)
-    inletCollar.translate(-0.030, -0.279, 0)
+    const inletCollar = new CylinderGeometry(0.023, 0.023, 0.018, 14)
+    inletCollar.translate(-0.018, -0.272, 0)
     accentParts.push(inletCollar)
     // Accent collar band near the front of the barrel.
-    accentParts.push(tubeSection(0.0575, 0.022, [0.062, 0, 0], AXIS_X, 24))
+    accentParts.push(tubeSection(0.0575, 0.022, [0.028, 0, 0], AXIS_X, 24))
     emit('accent', mergeParts(accentParts, 'accent'), body, 'accent')
 
     const hose = ovalTube([
-      new Vector3(-0.070, -0.300, 0),
-      new Vector3(-0.130, -0.318, 0.020),
-      new Vector3(-0.200, -0.300, 0.050),
-    ], 0.017, 0.017, 10)
+      new Vector3(-0.018, -0.325, 0),
+      new Vector3(-0.04, -0.37, 0.015),
+      new Vector3(-0.105, -0.395, 0.045),
+    ], 0.015, 0.015, 10)
     emit('gripRubber', hose, body, 'air-hose')
 
     // --- Status LED on the barrel crown ---------------------------------------------------------------
@@ -237,15 +199,32 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     ledGeo.translate(-0.060, 0.058, 0.045)
     emit('led', ledGeo, body, 'led')
 
-    // --- Spinner: exposed anvil then the hollow hex socket -------------------------------------------
+    // --- Spinner: short anvil, ribbed spline and visibly hollow round socket -------------------------
     const spinnerParts: BufferGeometry[] = [
-      // The anvil runs back into the bearing housing rather than butting against its face — meeting it
-      // flush leaves a hairline coplanar seam that z-fights and reads as two unrelated parts.
-      tubeSection(0.021, 0.062, [0.166, 0, 0], AXIS_X, 16),
-      hexSocket(0.086, 0.054, 0.066),                  // socket, authored at the origin
+      tubeSection(0.019, 0.038, [0.095, 0, 0], AXIS_X, 16),
     ]
-    spinnerParts[1]!.translate(0.212, 0, 0)
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2
+      const spline = bevelBox(0.034, 0.011, 0.011, 0.002)
+      spline.translate(0, 0.041, 0)
+      spline.rotateX(angle)
+      spline.translate(0.119, 0, 0)
+      spinnerParts.push(spline)
+    }
+    const socketShell = new CylinderGeometry(0.05, 0.046, 0.068, 24, 1, true)
+    socketShell.rotateZ(Math.PI / 2)
+    socketShell.translate(0.157, 0, 0)
+    spinnerParts.push(socketShell)
+    const socketLip = new TorusGeometry(0.04, 0.008, 8, 24)
+    socketLip.rotateY(Math.PI / 2)
+    socketLip.translate(0.191, 0, 0)
+    spinnerParts.push(socketLip)
     emit('steel', mergeParts(spinnerParts, 'socket'), spinner, 'socket')
+
+    const bore = new CylinderGeometry(0.031, 0.031, 0.008, 20)
+    bore.rotateZ(Math.PI / 2)
+    bore.translate(0.189, 0, 0)
+    emit('gripRubber', bore, spinner, 'socket-bore')
   }
   build()
 
@@ -288,7 +267,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel()
-  const preview = createF1Preview(model, { aspect, target: [0.05, -0.05, 0], distance: 1.05 })
+  const preview = createF1Preview(model, { aspect, target: [0, -0.08, 0], distance: 0.95, yaw: 0.82, pitch: 0.12 })
   let running = false
   return {
     ...preview,
