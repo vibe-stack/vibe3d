@@ -255,6 +255,11 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       { yBot: 0, yTop: BODY_H, scaleW: 1, segments: 24 },
     ), body, 'cylinder')
 
+    const base = bevelDisc(BODY_R * 0.92, 0.003, 0.0005, 18)
+    base.rotateX(Math.PI / 2)
+    base.translate(0, 0.0015, 0)
+    emit('body', base, body, 'base')
+
     const lid = bevelDisc(BODY_R * 0.96, 0.004, 0.0008, 18)
     lid.translate(0, BODY_H + 0.002, 0)
     emit('hardware', lid, body, 'lid')
@@ -314,15 +319,16 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
   }
 }
 
-/** Steady-state still — cloud fills the tile, can readable at the base. */
+/** Steady-state still — can base on the ground, plume filling the rest of the tile. */
 export function createPreview({ aspect, time }: { aspect: number; time?: number }) {
   const model = createModel({ lit: true })
   const preview = createF1Preview(model, {
     aspect,
-    target: [0.04, 0.42, 0.06],
-    distance: 1.15,
-    fov: 32,
-    pitch: 0.12,
+    target: [0.03, 0.28, 0.04],
+    distance: 1.35,
+    fov: 36,
+    yaw: -0.55,
+    pitch: 0.22,
     ground: true,
     bloom: true,
   })
