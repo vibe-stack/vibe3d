@@ -43,10 +43,10 @@ export interface F1ToolCabinetInstance {
 
 const defaults: F1ToolCabinetConfig = { width: 0.9 }
 
-const H = 1.05
-const D = 0.6
-const ROWS = 4
-const CASTOR_R = 0.048
+const H = 0.78
+const D = 0.52
+const ROWS = 6
+const CASTOR_R = 0.06
 const PLINTH_H = 0.05
 // Stem top of `castor()` at position.y = 0 is 2.9 * radius (see parts.ts).
 const PLINTH_Y = CASTOR_R * 2.9
@@ -105,32 +105,45 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
     bodyParts.push(plinth)
     emit('body', mergeParts(bodyParts, 'carcass'), bodyGroup, 'carcass')
 
-    const workTop = bevelBox(W + 0.04, 0.04, D + 0.04, 0.006)
+    const workTop = bevelBox(W + 0.06, 0.04, D + 0.05, 0.006)
     workTop.translate(0, BODY_Y + H + 0.02, 0)
     emit('top', workTop, bodyGroup, 'top')
 
-    // Drawer faces bite 8 mm into the carcass (thickness 24 mm) so they read as recessed fronts rather
-    // than coplanar decals on the body's front plane.
-    const rowH = (H - 0.14) / ROWS
-    const faceH = rowH - 0.03
+    // FACOM's measured six-drawer layout uses four shallow drawers over two deep drawers. Keep that
+    // hierarchy as normalized weights so configured widths do not affect the vertical mechanism.
+    const fieldH = H - 0.10
+    const rowGap = 0.014
+    const rowWeights = [1, 1, 1, 1, 1.85, 1.85] as const
+    const weightTotal = rowWeights.reduce((sum, weight) => sum + weight, 0)
     const faceT = 0.024
     const faceZ = D / 2 - 0.008 + faceT / 2
     const drawerParts: BufferGeometry[] = []
     const handleParts: BufferGeometry[] = []
+    let cursorY = BODY_Y + H - 0.05
     for (let i = 0; i < ROWS; i++) {
-      const y = BODY_Y + 0.10 + rowH * (i + 0.5)
-      const face = bevelBox(W - 0.06, faceH, faceT, 0.004)
+      const faceH = (fieldH - rowGap * (ROWS - 1)) * rowWeights[i]! / weightTotal
+      const y = cursorY - faceH / 2
+      const face = bevelBox(W - 0.10, faceH, faceT, 0.004)
       face.translate(0, y, faceZ)
       drawerParts.push(face)
 
-      const pull = bevelBox(W * 0.5, 0.028, 0.028, 0.004)
-      pull.translate(0, y + faceH * 0.18, faceZ + faceT / 2 + 0.006)
+      const pull = bevelBox(W - 0.16, 0.026, 0.030, 0.004)
+      pull.translate(0, y + faceH / 2 - 0.030, faceZ + faceT / 2 + 0.008)
       handleParts.push(pull)
+      cursorY -= faceH + rowGap
     }
     emit('body', mergeParts(drawerParts, 'drawers'), drawers, 'faces')
     emit('handle', mergeParts(handleParts, 'handles'), drawers, 'pulls')
 
     const casterParts: BufferGeometry[] = []
+    // Segmented corner guards are the characteristic protective exoskeleton of a trackside roll cab.
+    for (const sx of [-1, 1] as const) {
+      for (let i = 0; i < 7; i++) {
+        const guard = bevelBox(0.052, H / 7 - 0.008, 0.040, 0.007)
+        guard.translate(sx * (W / 2 + 0.010), BODY_Y + H * (i + 0.5) / 7, D / 2 + 0.018)
+        casterParts.push(guard)
+      }
+    }
     for (const sx of [-1, 1] as const) {
       for (const sz of [-1, 1] as const) {
         casterParts.push(castor(
@@ -140,7 +153,7 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
         ))
       }
     }
-    emit('caster', mergeParts(casterParts, 'casters'), casters, 'castors')
+    emit('caster', mergeParts(casterParts, 'casters-and-guards'), casters, 'castors')
   }
   rebuild()
 
@@ -167,5 +180,5 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.55, 0], distance: 2.33 })
+  return createF1Preview(createModel(), { aspect, target: [0, 0.54, 0], distance: 2.55 })
 }

@@ -35,7 +35,7 @@ import {
 type Slot = 'pole' | 'paddle' | 'legend'
 
 export interface F1LollipopBoardConfig {
-  /** Paddle radius, metres. Real boards run ~0.23 m. */
+  /** Paddle radius, metres. Real boards run about 0.20–0.23 m. */
   radius: number
   /** Height of the paddle's centre above the floor, metres. */
   height: number
@@ -58,7 +58,7 @@ export interface F1LollipopBoardInstance {
   dispose(): void
 }
 
-const defaults: F1LollipopBoardConfig = { radius: 0.23, height: 2.05, legend: 'BRAKES' }
+const defaults: F1LollipopBoardConfig = { radius: 0.20, height: 2.05, legend: 'BRAKES' }
 
 function sanitizeLegend(value: string): string {
   const next = value.replace(/[^A-Za-z]/g, '').slice(0, 8).toUpperCase()
@@ -233,5 +233,5 @@ export function createModel(options: F1LollipopBoardOptions = {}): F1LollipopBoa
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 1.85, 0], distance: 1.6, fov: 32 })
+  return createF1Preview(createModel(), { aspect, target: [0, 1.10, 0], distance: 4.40, fov: 32 })
 }

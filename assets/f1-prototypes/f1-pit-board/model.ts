@@ -63,10 +63,10 @@ const defaults: F1PitBoardConfig = {
   ],
 }
 
-const BOARD_W = 0.70
-const BOARD_H = 1.00
-const BOARD_Y = 1.70
-const BOARD_T = 0.035
+const BOARD_W = 0.85
+const BOARD_H = 1.10
+const BOARD_Y = 2.00
+const BOARD_T = 0.040
 const FRAME_W = 0.030
 const FRAME_PROUD = 0.020
 
@@ -278,5 +278,5 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 1.3, 0], distance: 4.40, fov: 32 })
+  return createF1Preview(createModel(), { aspect, target: [0, 1.28, 0], distance: 4.85, fov: 32 })
 }

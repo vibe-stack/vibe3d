@@ -1,5 +1,5 @@
-// f1-pit-gantry — the overhead structure spanning a pit lane: two braced truss columns carrying a
-// box-truss beam, with a tensioned banner slung beneath it, a lighting bar, and a cable tray.
+// f1-pit-gantry — the overhead structure spanning a pit bay: four braced truss columns carrying a
+// rectangular roof truss, with a tensioned banner slung beneath it, a lighting bar, and a cable tray.
 //
 // Real pit gantries are bolted aluminium box truss, and that is the whole silhouette: four chords per
 // member with zig-zag lacing between them, so the structure reads as open framework against the sky
@@ -54,7 +54,7 @@ export interface F1PitGantryInstance {
   dispose(): void
 }
 
-const defaults: F1PitGantryConfig = { span: 8.0, height: 4.6, bays: 10 }
+const defaults: F1PitGantryConfig = { span: 5.0, height: 2.5, bays: 8 }
 
 const CHORD = 0.032 // truss chord tube radius, world units
 const LACE = 0.020  // lacing tube radius
@@ -160,49 +160,58 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
     releaseGenerated()
     const { span, height, bays } = config
     const half = span / 2
+    const depth = 3.0
+    const halfDepth = depth / 2
     const columnSize = 0.30
     const beamSize = 0.42
     const beamY = height - beamSize / 2
 
-    // --- Columns: braced truss legs on bolted base plates -------------------------------------------
+    // --- Four columns: a measured 5 x 3 m garage bay, not a depthless sign portal -------------------
     const postParts: BufferGeometry[] = []
     const fittingParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
-      postParts.push(...boxTruss(
-        new Vector3(sx * half, 0.06, 0),
-        new Vector3(sx * half, beamY - beamSize / 2, 0),
-        columnSize,
-        Math.max(3, Math.round(height / 0.7)),
-      ))
-
-      // Base plate and its bolt ring — the detail that stops a column floating on the floor.
-      // bevelBox is already thin in Y here (0.52 x 0.05 x 0.52), so it lies flat as authored.
-      const plate = bevelBox(0.52, 0.05, 0.52, 0.008)
-      plate.translate(sx * half, 0.025, 0)
-      postParts.push(plate)
-      for (let i = 0; i < 4; i++) {
-        const a = (i / 4) * Math.PI * 2 + Math.PI / 4
-        fittingParts.push(bolt(
-          [sx * half + Math.cos(a) * 0.19, 0.062, Math.sin(a) * 0.19],
-          0.022, 0.030, AXIS_Y,
+      for (const sz of [-1, 1] as const) {
+        postParts.push(...boxTruss(
+          new Vector3(sx * half, 0.06, sz * halfDepth),
+          new Vector3(sx * half, beamY - beamSize / 2, sz * halfDepth),
+          columnSize,
+          Math.max(3, Math.round(height / 0.7)),
         ))
-      }
 
-      // Knee brace from the column into the beam, so the corner is not a bare butt joint.
-      postParts.push(member(
-        new Vector3(sx * half, beamY - 1.05, 0),
-        new Vector3(sx * (half - 0.95), beamY - beamSize / 2, 0),
-        CHORD,
-      ))
+        const plate = bevelBox(0.52, 0.05, 0.52, 0.008)
+        plate.translate(sx * half, 0.025, sz * halfDepth)
+        postParts.push(plate)
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+          fittingParts.push(bolt(
+            [
+              sx * half + Math.cos(a) * 0.19,
+              0.062,
+              sz * halfDepth + Math.sin(a) * 0.19,
+            ],
+            0.022, 0.030, AXIS_Y,
+          ))
+        }
+      }
     }
 
-    // --- Beam: the span's box truss -----------------------------------------------------------------
-    postParts.push(...boxTruss(
-      new Vector3(-half, beamY, 0),
-      new Vector3(half, beamY, 0),
-      beamSize,
-      bays,
-    ))
+    // Front/rear transverse trusses and side trusses close the roof into a rigid rectangular volume.
+    for (const sz of [-1, 1] as const) {
+      postParts.push(...boxTruss(
+        new Vector3(-half, beamY, sz * halfDepth),
+        new Vector3(half, beamY, sz * halfDepth),
+        beamSize,
+        bays,
+      ))
+    }
+    for (const sx of [-1, 1] as const) {
+      postParts.push(...boxTruss(
+        new Vector3(sx * half, beamY, -halfDepth),
+        new Vector3(sx * half, beamY, halfDepth),
+        beamSize,
+        Math.max(4, Math.round(depth / 0.65)),
+      ))
+    }
     emit('post', mergeParts(postParts, 'structure'), beam, 'truss')
 
     // --- Banner: a tensioned panel in a frame, slung under the beam ---------------------------------
@@ -212,22 +221,22 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
     const bannerY = beamY - beamSize / 2 - 0.10 - bannerH / 2
     bannerParts.push((() => {
       const panel = bevelBox(bannerW, bannerH, 0.030, 0.006)
-      panel.translate(0, bannerY, 0)
+      panel.translate(0, bannerY, halfDepth + 0.030)
       return panel
     })())
     emit('banner', mergeParts(bannerParts, 'banner'), banner, 'panel')
 
-    // Frame rails top and bottom, plus the drop links that hang the banner off the beam.
+    // Frame rails top and bottom, plus the drop links that hang the banner off the front beam.
     for (const sy of [-1, 1] as const) {
       const rail = bevelBox(bannerW + 0.05, 0.045, 0.050, 0.008)
-      rail.translate(0, bannerY + sy * (bannerH / 2), 0)
+      rail.translate(0, bannerY + sy * (bannerH / 2), halfDepth + 0.030)
       fittingParts.push(rail)
     }
     for (let i = 0; i < 4; i++) {
       const x = (i / 3 - 0.5) * bannerW * 0.9
       fittingParts.push(member(
-        new Vector3(x, beamY - beamSize / 2, 0),
-        new Vector3(x, bannerY + bannerH / 2, 0),
+        new Vector3(x, beamY - beamSize / 2, halfDepth),
+        new Vector3(x, bannerY + bannerH / 2, halfDepth + 0.030),
         0.010,
         6,
       ))
@@ -278,5 +287,5 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 2.6, 0], distance: 12.95, fov: 42 })
+  return createF1Preview(createModel(), { aspect, target: [0, 1.3, 0], distance: 9.0, fov: 42 })
 }

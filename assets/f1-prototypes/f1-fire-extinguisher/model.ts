@@ -5,6 +5,7 @@
 
 import {
   BufferGeometry,
+  CylinderGeometry,
   Group,
   Mesh,
   Vector3,
@@ -81,41 +82,52 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
   const rebuild = (): void => {
     releaseGenerated()
 
-    // Handheld unit: ~Ø150 mm body, ~0.38 m tall before the valve. The foot starts at a real radius so
-    // `revolve` does not clamp a 0-width pole into a degenerate fan.
+    // Lifeline's FIA handheld is 375 mm long by 108 mm diameter. The lower protective foot and domed
+    // shoulder are included in that measured envelope; the valve and levers sit above it.
     emit('body', revolve(
       [
-        [0.00, 0.068],
-        [0.04, 0.075],
-        [0.10, 0.075],
-        [0.82, 0.075],
-        [0.90, 0.058],
-        [0.96, 0.036],
-        [1.00, 0.022],
+        [0.00, 0.047],
+        [0.035, 0.054],
+        [0.10, 0.054],
+        [0.78, 0.054],
+        [0.88, 0.050],
+        [0.95, 0.034],
+        [1.00, 0.021],
       ],
-      { yBot: 0, yTop: 0.38, segments: 32 },
+      { yBot: 0, yTop: 0.30, segments: 32 },
     ), bodyGroup, 'cylinder')
 
     const hardware: BufferGeometry[] = []
-    const neck = tubeSection(0.028, 0.05, [0, 0.395, 0], [0, 1, 0], 16)
-    hardware.push(neck)
-    const valve = bevelBox(0.08, 0.05, 0.055, 0.006)
-    valve.translate(0, 0.435, 0)
+    hardware.push(tubeSection(0.021, 0.036, [0, 0.318, 0], [0, 1, 0], 16))
+    const valve = bevelBox(0.066, 0.040, 0.048, 0.006)
+    valve.translate(-0.004, 0.346, 0)
     hardware.push(valve)
-    const handleBar = bevelBox(0.11, 0.016, 0.032, 0.003)
-    handleBar.rotateZ(0.12)
-    handleBar.translate(0.012, 0.475, 0)
-    hardware.push(handleBar)
+
+    // Fixed carry handle and sprung squeeze lever: two separated blades are the key handheld cue.
+    const fixedHandle = bevelBox(0.105, 0.018, 0.026, 0.004)
+    fixedHandle.rotateZ(-0.10)
+    fixedHandle.translate(0.024, 0.370, 0)
+    hardware.push(fixedHandle)
+    const squeezeLever = bevelBox(0.112, 0.013, 0.024, 0.003)
+    squeezeLever.rotateZ(0.15)
+    squeezeLever.translate(0.030, 0.395, 0)
+    hardware.push(squeezeLever)
+
+    // Pressure gauge faces the operator and projects far enough to remain readable in silhouette.
+    const gauge = new CylinderGeometry(0.018, 0.018, 0.012, 16)
+    gauge.rotateX(Math.PI / 2)
+    gauge.translate(-0.038, 0.353, 0.030)
+    hardware.push(gauge)
     emit('hardware', mergeParts(hardware, 'head'), bodyGroup, 'valve')
 
     emit('hose', taperedTube([
-      new Vector3(0.038, 0.445, 0.012),
-      new Vector3(0.12, 0.38, 0.036),
-      new Vector3(0.115, 0.22, -0.024),
-      new Vector3(0.06, 0.12, 0.03),
-    ], 0.012, 8), hoseGroup, 'hose')
+      new Vector3(0.030, 0.346, -0.006),
+      new Vector3(0.082, 0.305, 0.022),
+      new Vector3(0.080, 0.205, -0.010),
+      new Vector3(0.052, 0.125, 0.018),
+    ], 0.008, 8), hoseGroup, 'hose')
 
-    const nozzle = tubeSection(0.014, 0.07, [0.06, 0.11, 0.03], [0.15, -0.85, 0.5], 10)
+    const nozzle = tubeSection(0.011, 0.065, [0.052, 0.115, 0.018], [0.15, -0.85, 0.5], 10)
     emit('hardware', nozzle, hoseGroup, 'nozzle')
   }
   rebuild()

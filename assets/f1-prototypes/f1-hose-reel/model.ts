@@ -1,11 +1,11 @@
 // f1-hose-reel — a pit-garage air-hose reel: a real multi-layer helical coil wound on a drum barrel
-// between two windowed flanges, carried on a tubular stand, with a crank handle on the outboard hub and
+// between two pressed flanges, carried on a tubular stand, with a crank handle on the outboard hub and
 // a lead hose running over a guide roller down to the floor.
 //
 // The coil is the hero. It is one continuous swept tube following a genuine helix — out across the drum,
 // step a layer, wind back — rather than a stack of concentric rings, so it reads as wound hose from any
-// angle. The flanges are pierced with lightening windows and sit only just proud of the outermost wrap,
-// so they retain the coil the way a real flange does instead of walling it off.
+// angle. The rolled plate flanges sit only just proud of the outermost wrap, retaining the coil without
+// swallowing its side profile.
 //
 // The amber flanges are a generic hazard-equipment colour, not team branding, and are kept as the default
 // while still exposed as the `accent` material slot.
@@ -102,30 +102,21 @@ function ringPlate(rIn: number, rOut: number, depth: number, bevel: number): Buf
   return geo
 }
 
-/**
- * One flange, built as an open spoked flange rather than a plate with holes drilled in it.
- *
- * A pierced plate leaves a wide blank annulus of flange between the outermost wrap and the rim, and its
- * windows read as black voids because the hose behind them sits unlit inside the drum. An open spoke
- * frame inverts that: the coil is the face, and the flange is only the rim that retains it plus the
- * arms that carry it. This is how the heavier reels in the reference set are actually made.
- *
- * Built in XY, then laid onto the drum axis (+X).
- */
-function flangeSpoked(spokes: number): BufferGeometry {
+/** A shallow rolled plate flange, matching the pressed-steel Coxreels drum construction. */
+function flangePlate(): BufferGeometry {
   const parts: BufferGeometry[] = [
-    ringPlate(0.258, R_FLANGE, 0.018, 0.005), // outer rim with a rolled lip
-    ringPlate(0.048, 0.100, 0.016, 0.004),    // hub ring
+    ringPlate(0.095, R_FLANGE, 0.016, 0.005),
+    ringPlate(0.048, 0.108, 0.022, 0.004),
   ]
-  for (let i = 0; i < spokes; i++) {
-    const a = (i / spokes) * Math.PI * 2
-    const arm = bevelBox(0.180, 0.034, 0.014, 0.004)
-    arm.translate(0.180, 0, 0)
-    arm.rotateZ(a)
-    parts.push(arm)
+  // Four shallow radial swages keep the broad plate from reading as an unstructured flat disc.
+  for (let i = 0; i < 4; i++) {
+    const rib = bevelBox(0.150, 0.018, 0.010, 0.003)
+    rib.translate(0.175, 0, 0.010)
+    rib.rotateZ(i * Math.PI / 2 + Math.PI / 4)
+    parts.push(rib)
   }
   const geo = mergeParts(parts, 'flange')
-  geo.rotateY(Math.PI / 2) // face the flange along the drum axis
+  geo.rotateY(Math.PI / 2)
   const creased = toCreasedNormals(geo, MathUtils.degToRad(45))
   if (creased !== geo) geo.dispose()
   return creased
@@ -205,10 +196,10 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     const { wraps, layers } = config
     const rOuter = R_BARREL + HOSE_R + (layers - 1) * LAYER_PITCH + HOSE_R
 
-    // --- Flanges: pierced discs standing just proud of the outermost wrap ---------------------------
+    // --- Flanges: rolled plates standing just proud of the outermost wrap ----------------------------
     const flanges: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
-      const disc = flangeSpoked(6)
+      const disc = flangePlate()
       disc.translate(sx * X_FLANGE, AXLE_Y, 0)
       flanges.push(disc)
     }
@@ -292,9 +283,9 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
       new Vector3(-upright + 0.010, AXLE_Y * 0.55, 0),
       new Vector3(-upright + 0.016, AXLE_Y, 0),
       // The bow has to clear the flange's top edge (AXLE_Y + R_FLANGE) or it hides inside the drum.
-      new Vector3(-upright + 0.024, AXLE_Y + R_FLANGE + 0.06, 0),
-      new Vector3(0, AXLE_Y + R_FLANGE + 0.13, 0),
-      new Vector3(upright - 0.024, AXLE_Y + R_FLANGE + 0.06, 0),
+      new Vector3(-upright + 0.024, AXLE_Y + R_FLANGE + 0.035, 0),
+      new Vector3(0, AXLE_Y + R_FLANGE + 0.07, 0),
+      new Vector3(upright - 0.024, AXLE_Y + R_FLANGE + 0.035, 0),
       new Vector3(upright - 0.016, AXLE_Y, 0),
       new Vector3(upright - 0.010, AXLE_Y * 0.55, 0),
       new Vector3(upright, 0.045, 0),
