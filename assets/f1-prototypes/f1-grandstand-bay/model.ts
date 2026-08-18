@@ -151,6 +151,7 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
 
     const roofY = height + 1.6
     const roofParts: BufferGeometry[] = []
+    const frameParts: BufferGeometry[] = []
     const reach = depth * 0.92
     const zBack = -halfD - 0.28
     const zFront = zBack + reach
@@ -171,15 +172,30 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     const lip = bevelBox(width + 1.2, 0.22, 0.28, 0.02)
     lip.translate(0, yFront - 0.08, zFront)
     roofParts.push(lip)
-    for (const sx of [-1, 1] as const) {
-      roofParts.push(member(
-        new Vector3(sx * width * 0.42, height * 0.55, zBack),
-        new Vector3(sx * width * 0.42, yBack - 0.1, zBack),
-        0.09,
+    const frameCount = Math.max(3, Math.ceil(width / 3))
+    for (let frame = 0; frame < frameCount; frame++) {
+      const x = -width / 2 + (frame / (frameCount - 1)) * width
+      frameParts.push(member(
+        new Vector3(x, height * 0.35, zBack),
+        new Vector3(x, yBack - 0.1, zBack),
+        0.075,
+        8,
+      ))
+      frameParts.push(member(
+        new Vector3(x, yBack - 0.12, zBack),
+        new Vector3(x, yFront - 0.12, zFront),
+        0.055,
+        8,
+      ))
+      frameParts.push(member(
+        new Vector3(x, height * 0.7, zBack),
+        new Vector3(x, yFront - 0.16, zFront),
+        0.04,
         8,
       ))
     }
     emit('roof', mergeParts(roofParts, 'roof'), roof, 'roof')
+    emit('structure', mergeParts(frameParts, 'roof-frames'), roof, 'roof-frames')
   }
   rebuild()
 

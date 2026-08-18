@@ -138,6 +138,8 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
   const rebuild = (): void => {
     releaseGenerated()
     const { length, height } = config
+    const extension = Math.min(0.65, height * 0.18)
+    const verticalTop = height - extension
     const spacing = 3
     const count = Math.max(2, Math.round(length / spacing) + 1)
     const half = length / 2
@@ -146,7 +148,13 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
     const railParts: BufferGeometry[] = []
     for (let i = 0; i < count; i++) {
       const x = -half + (i / (count - 1)) * length
-      postParts.push(tubeSection(0.05, height + 0.16, [x, (height + 0.16) / 2, 0], [0, 1, 0], 12))
+      postParts.push(tubeSection(0.05, verticalTop + 0.16, [x, (verticalTop + 0.16) / 2, 0], [0, 1, 0], 12))
+      postParts.push(member(
+        new Vector3(x, verticalTop, 0),
+        new Vector3(x, height, extension),
+        0.05,
+        12,
+      ))
       const base = bevelBox(0.32, 0.09, 0.32, 0.01)
       base.translate(x, 0.045, 0)
       postParts.push(base)
@@ -154,38 +162,42 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
       gusset.translate(x, 0.18, -0.08)
       postParts.push(gusset)
       const cap = bevelBox(0.14, 0.05, 0.14, 0.006)
-      cap.translate(x, height + 0.1, 0)
+      cap.translate(x, height + 0.02, extension)
       railParts.push(cap)
       railParts.push(member(
-        new Vector3(x, height + 0.02, 0),
+        new Vector3(x, verticalTop, 0),
         new Vector3(x, 0.08, -0.95),
         0.012,
         6,
       ))
       railParts.push(member(
-        new Vector3(x, height * 0.55, 0),
+        new Vector3(x, verticalTop * 0.55, 0),
         new Vector3(x, 0.08, -0.55),
         0.01,
         6,
       ))
     }
-    for (const y of [height + 0.02, height * 0.7, height * 0.4, 0.18] as const) {
-      const rail = bevelBox(length + 0.1, y === height + 0.02 ? 0.055 : 0.04, 0.055, 0.005)
+    for (const y of [verticalTop, verticalTop * 0.7, verticalTop * 0.4, 0.18] as const) {
+      const rail = bevelBox(length + 0.1, y === verticalTop ? 0.055 : 0.04, 0.055, 0.005)
       rail.translate(0, y, 0)
       railParts.push(rail)
     }
-    railParts.push(tubeSection(0.01, length, [0, height + 0.08, 0.04], [1, 0, 0], 6))
+    railParts.push(tubeSection(0.01, length, [0, height, extension + 0.04], [1, 0, 0], 6))
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
     emit('rail', mergeParts(railParts, 'rails'), posts, 'rails')
 
     const repeats = Math.max(1, length / 0.32)
-    tex.repeat.set(repeats, height / 0.32)
+    tex.repeat.set(repeats, verticalTop / 0.32)
     tex.needsUpdate = true
-    const front = new PlaneGeometry(length, height - 0.22, 1, 1)
-    front.translate(0, height / 2, 0.03)
+    const front = new PlaneGeometry(length, verticalTop - 0.12, 1, 1)
+    front.translate(0, verticalTop / 2 + 0.06, 0.03)
     emit('mesh', front, meshGroup, 'chain-link')
-    const debris = new PlaneGeometry(length, height * 0.55, 1, 1)
-    debris.translate(0, height * 0.62, -0.04)
+    const overhang = new PlaneGeometry(length, Math.SQRT2 * extension, 1, 1)
+    overhang.rotateX(Math.PI / 4)
+    overhang.translate(0, verticalTop + extension / 2, extension / 2)
+    emit('mesh', overhang, meshGroup, 'trackward-overhang')
+    const debris = new PlaneGeometry(length, verticalTop * 0.55, 1, 1)
+    debris.translate(0, verticalTop * 0.62, -0.04)
     emit('mesh', debris, meshGroup, 'debris-net')
   }
   rebuild()

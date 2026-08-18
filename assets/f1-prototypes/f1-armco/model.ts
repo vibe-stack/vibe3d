@@ -105,28 +105,31 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
 
     for (let i = 0; i <= bays; i++) {
       const x = -half + i * PITCH
-      const web = bevelBox(0.012, 0.78, 0.08, 0.003)
-      web.translate(x, 0.41, -0.09)
+      const web = bevelBox(0.012, 1.18, 0.08, 0.003)
+      web.translate(x, 0.61, -0.09)
       postParts.push(web)
-      const flangeA = bevelBox(0.08, 0.78, 0.012, 0.003)
-      flangeA.translate(x, 0.41, -0.13)
+      const flangeA = bevelBox(0.08, 1.18, 0.012, 0.003)
+      flangeA.translate(x, 0.61, -0.13)
       postParts.push(flangeA)
-      const flangeB = bevelBox(0.08, 0.78, 0.012, 0.003)
-      flangeB.translate(x, 0.41, -0.05)
+      const flangeB = bevelBox(0.08, 1.18, 0.012, 0.003)
+      flangeB.translate(x, 0.61, -0.05)
       postParts.push(flangeB)
       const plate = bevelBox(0.24, 0.05, 0.22, 0.006)
       plate.translate(x, 0.025, -0.04)
       postParts.push(plate)
+      postParts.push(bolt([x, 0.98, 0.04], 0.016, 0.022, AXIS_Y))
       postParts.push(bolt([x, 0.68, 0.04], 0.016, 0.022, AXIS_Y))
-      postParts.push(bolt([x, 0.28, 0.04], 0.016, 0.022, AXIS_Y))
+      postParts.push(bolt([x, 0.38, 0.04], 0.016, 0.022, AXIS_Y))
     }
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
 
     for (let bay = 0; bay < bays; bay++) {
       const x = -half + (bay + 0.5) * PITCH
-      const beam = loftAlongX(profile, PITCH - 0.06, { closed: true, stations: 4 })
-      beam.translate(x, 0.22, 0)
-      emit(bay % 2 === 0 ? 'stripe' : 'rail', beam, rail, `bay-${bay}`)
+      for (let level = 0; level < 3; level++) {
+        const beam = loftAlongX(profile, PITCH + 0.08, { closed: true, stations: 4 })
+        beam.translate(x, 0.12 + level * 0.3, 0)
+        emit(bay % 2 === 0 ? 'stripe' : 'rail', beam, rail, `bay-${bay}-rail-${level}`)
+      }
     }
   }
   rebuild()

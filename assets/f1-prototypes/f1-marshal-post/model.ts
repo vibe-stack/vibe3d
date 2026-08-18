@@ -310,12 +310,17 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     flagParts.push(cloth)
     emit('flag', mergeParts(flagParts, 'flag'), crew, 'flag')
 
-    const bottle = revolve(
-      [[0, 0.04], [0.12, 0.14], [0.55, 0.14], [0.78, 0.1], [0.92, 0.06], [1, 0.02]],
-      { yBot: 0.08, yTop: 0.55, scaleW: 0.55, segments: 16 },
-    )
-    bottle.translate(-HUT_W / 2 - 0.28, 0, HUT_D / 2 + 0.15)
-    emit('flag', bottle, hut, 'extinguisher', kit.red)
+    const rack = bevelBox(0.08, 0.42, 1.12, 0.008)
+    rack.translate(-HUT_W / 2 - 0.18, 0.28, 0.42)
+    emit('hut', rack, hut, 'extinguisher-rack', kit.graphite)
+    for (let i = 0; i < 3; i++) {
+      const bottle = revolve(
+        [[0, 0.04], [0.12, 0.14], [0.55, 0.14], [0.78, 0.1], [0.92, 0.06], [1, 0.02]],
+        { yBot: 0.08, yTop: 0.55, scaleW: 0.55, segments: 16 },
+      )
+      bottle.translate(-HUT_W / 2 - 0.28, 0, 0.05 + i * 0.38)
+      emit('flag', bottle, hut, `extinguisher-${i + 1}`, kit.red)
+    }
   }
   rebuild()
 

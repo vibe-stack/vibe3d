@@ -4,6 +4,7 @@
 
 import {
   BufferGeometry,
+  CylinderGeometry,
   Group,
   Mesh,
   type Material,
@@ -16,7 +17,6 @@ import {
   disposeF1Materials,
   loftAlongX,
   mergeParts,
-  tubeSection,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'block' | 'wrap' | 'strap'
@@ -42,9 +42,10 @@ export interface F1TecproInstance {
 }
 
 const defaults: F1TecproConfig = { columns: 3, rows: 2 }
-const BW = 1.05
-const BH = 0.52
-const BD = 0.48
+// TecPro R1 manufacturer dimensions: 150 × 120 × 58 cm.
+const BW = 1.50
+const BH = 1.20
+const BD = 0.58
 
 function blockProfile(): Array<readonly [number, number]> {
   const h = BH - 0.04
@@ -115,12 +116,15 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
 
     for (let c = 0; c < columns; c++) {
       for (let r = 0; r < rows; r++) {
-        const stagger = (r % 2) * (BW * 0.12)
-        const x = -half + c * BW + stagger
+        const x = -half + c * BW
         const y = 0.02 + r * BH
-        const body = loftAlongX(profile, BW - 0.08, { closed: true, stations: 4 })
-        body.translate(x, y, 0)
-        ;(c % 2 === 0 ? wrap : foam).push(body)
+        const bodyParts = c % 2 === 0 ? wrap : foam
+        const body = loftAlongX(profile, BW - BD / 2, { closed: true, stations: 4 })
+        body.translate(x + BD / 4, y, 0)
+        bodyParts.push(body)
+        const nose = new CylinderGeometry(BD / 2, BD / 2, BH - 0.04, 20)
+        nose.translate(x - BW / 2 + BD / 2, y + (BH - 0.04) / 2, 0)
+        bodyParts.push(nose)
 
         const tab = loftAlongX(tooth, 0.12, { closed: true })
         tab.translate(x + (BW - 0.08) / 2 + 0.05, y, 0)
@@ -128,16 +132,20 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
 
         const core = loftAlongX(
           profile.map(([z, py]) => [z * 0.78, py * 0.78 + 0.05] as const),
-          BW - 0.18,
+          BW - BD / 2 - 0.18,
           { closed: true },
         )
-        core.translate(x, y, 0)
+        core.translate(x + BD / 4 + 0.05, y, 0)
         foam.push(core)
 
-        const recess = bevelBox(0.22, 0.1, 0.06, 0.008)
-        recess.translate(x, y + BH * 0.55, BD / 2 + 0.02)
-        handles.push(recess)
-        handles.push(tubeSection(0.018, 0.28, [x, y + BH * 0.55, BD / 2 + 0.08], [1, 0, 0], 8))
+        for (const seamY of [0.30, 0.60, 0.90] as const) {
+          const seam = bevelBox(BW - 0.20, 0.018, 0.025, 0.006)
+          seam.translate(x - 0.03, y + seamY * BH, BD / 2 + 0.018)
+          handles.push(seam)
+        }
+        const couplingSlot = bevelBox(0.025, BH * 0.16, 0.035, 0.005)
+        couplingSlot.translate(x - BW * 0.38, y + BH * 0.5, BD / 2 + 0.02)
+        handles.push(couplingSlot)
       }
     }
 
@@ -171,9 +179,9 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), {
+  return createF1Preview(createModel({ columns: 1, rows: 1 }), {
     aspect,
-    target: [0, 0.52, 0.12],
+    target: [0, 0.62, 0.12],
     distance: 4.8,
     fov: 28,
     yaw: -0.85,

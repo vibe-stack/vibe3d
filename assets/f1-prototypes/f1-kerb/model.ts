@@ -52,7 +52,7 @@ const CAP_CROWN = 0.050
 const CAP_DUTY = 0.72
 const CAP_PER_BAND = 3
 const SKIRT = 0.04
-const ALONG = 12
+const ALONG = 24
 
 /** Spa fresh-paint red; Singapore kerb-white (neutral, not the Spa illuminant). */
 const KERB_RED = 0xde2f25
