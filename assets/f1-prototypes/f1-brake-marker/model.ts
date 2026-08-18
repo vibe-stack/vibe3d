@@ -6,7 +6,9 @@ import {
   BufferGeometry,
   Group,
   Mesh,
-  PlaneGeometry,
+  Path,
+  Shape,
+  ShapeGeometry,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -44,41 +46,80 @@ export interface F1BrakeMarkerInstance {
 
 const defaults: F1BrakeMarkerConfig = { distance: 100 }
 
-function flatBar(width: number, height: number, x: number, y: number, z: number): BufferGeometry {
-  const geometry = new PlaneGeometry(width, height)
+function roundedRectPath(width: number, height: number, radius: number, clockwise = false): Path {
+  const path = new Path()
+  const x = width / 2
+  const y = height / 2
+  const r = Math.min(radius, x, y)
+  if (clockwise) {
+    path.moveTo(-x, -y + r)
+    path.lineTo(-x, y - r)
+    path.quadraticCurveTo(-x, y, -x + r, y)
+    path.lineTo(x - r, y)
+    path.quadraticCurveTo(x, y, x, y - r)
+    path.lineTo(x, -y + r)
+    path.quadraticCurveTo(x, -y, x - r, -y)
+    path.lineTo(-x + r, -y)
+    path.quadraticCurveTo(-x, -y, -x, -y + r)
+    path.closePath()
+    return path
+  }
+  path.moveTo(-x + r, -y)
+  path.lineTo(x - r, -y)
+  path.quadraticCurveTo(x, -y, x, -y + r)
+  path.lineTo(x, y - r)
+  path.quadraticCurveTo(x, y, x - r, y)
+  path.lineTo(-x + r, y)
+  path.quadraticCurveTo(-x, y, -x, y - r)
+  path.lineTo(-x, -y + r)
+  path.quadraticCurveTo(-x, -y, -x + r, -y)
+  return path
+}
+
+function roundedBar(width: number, height: number, radius: number, x: number, y: number, z: number): BufferGeometry {
+  const shape = new Shape(roundedRectPath(width, height, radius).getPoints(8))
+  const geometry = new ShapeGeometry(shape, 8)
   geometry.translate(x, y, z)
   return geometry
 }
 
 function printedDigit(digit: string, cx: number, cy: number, cz: number): BufferGeometry[] {
-  const w = 0.34
-  const h = 0.48
-  const stroke = 0.095
+  const w = 0.27
+  const h = 0.43
+  const stroke = 0.07
   if (digit === '1') {
-    const cap = new PlaneGeometry(stroke, 0.18)
-    cap.rotateZ(-0.58)
-    cap.translate(cx - 0.015, cy + 0.17, cz)
-    return [
-      flatBar(stroke, h, cx + 0.035, cy, cz),
-      cap,
-      flatBar(0.27, stroke, cx, cy - h / 2 + stroke / 2, cz),
-    ]
+    const one = new Shape()
+    one.moveTo(-0.045, -h / 2)
+    one.quadraticCurveTo(-0.075, -h / 2, -0.075, -h / 2 + 0.03)
+    one.lineTo(-0.075, 0.1)
+    one.lineTo(-0.145, 0.05)
+    one.quadraticCurveTo(-0.17, 0.032, -0.17, 0.064)
+    one.lineTo(-0.17, 0.105)
+    one.quadraticCurveTo(-0.17, 0.13, -0.145, 0.145)
+    one.lineTo(-0.035, h / 2)
+    one.lineTo(0.055, h / 2)
+    one.quadraticCurveTo(0.085, h / 2, 0.085, h / 2 - 0.035)
+    one.lineTo(0.085, -h / 2 + 0.035)
+    one.quadraticCurveTo(0.085, -h / 2, 0.055, -h / 2)
+    one.closePath()
+    const geometry = new ShapeGeometry(one, 10)
+    geometry.translate(cx + 0.015, cy, cz)
+    return [geometry]
   }
   if (digit === '0') {
-    return [
-      flatBar(w, stroke, cx, cy + h / 2 - stroke / 2, cz),
-      flatBar(w, stroke, cx, cy - h / 2 + stroke / 2, cz),
-      flatBar(stroke, h - stroke * 2, cx - w / 2 + stroke / 2, cy, cz),
-      flatBar(stroke, h - stroke * 2, cx + w / 2 - stroke / 2, cy, cz),
-    ]
+    const outer = new Shape(roundedRectPath(w, h, 0.095).getPoints(10))
+    outer.holes.push(roundedRectPath(w - stroke * 2, h - stroke * 2, 0.05, true))
+    const geometry = new ShapeGeometry(outer, 10)
+    geometry.translate(cx, cy, cz)
+    return [geometry]
   }
   if (digit === '5') {
     return [
-      flatBar(w, stroke, cx, cy + h / 2 - stroke / 2, cz),
-      flatBar(w, stroke, cx, cy, cz),
-      flatBar(w, stroke, cx, cy - h / 2 + stroke / 2, cz),
-      flatBar(stroke, h / 2 - stroke, cx - w / 2 + stroke / 2, cy + h / 4, cz),
-      flatBar(stroke, h / 2 - stroke, cx + w / 2 - stroke / 2, cy - h / 4, cz),
+      roundedBar(w, stroke, 0.025, cx, cy + h / 2 - stroke / 2, cz),
+      roundedBar(w, stroke, 0.025, cx, cy, cz),
+      roundedBar(w, stroke, 0.025, cx, cy - h / 2 + stroke / 2, cz),
+      roundedBar(stroke, h / 2, 0.025, cx - w / 2 + stroke / 2, cy + h / 4, cz),
+      roundedBar(stroke, h / 2, 0.025, cx + w / 2 - stroke / 2, cy - h / 4, cz),
     ]
   }
   return []
@@ -86,7 +127,7 @@ function printedDigit(digit: string, cx: number, cy: number, cz: number): Buffer
 
 function numeralParts(value: 50 | 100 | 150, cx: number, cy: number, cz: number): BufferGeometry[] {
   const text = String(value)
-  const pitch = 0.56
+  const pitch = 0.61
   const origin = cy + ((text.length - 1) * pitch) / 2
   const parts: BufferGeometry[] = []
   for (let i = 0; i < text.length; i++) {
@@ -157,16 +198,16 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
     }
     emit('post', mergeParts(postParts, 'catch-fence'), posts, 'catch-fence')
 
-    const plate = bevelBox(0.68, 1.94, 0.045, 0.009)
+    const plate = bevelBox(0.6, 1.94, 0.045, 0.009)
     plate.translate(0, 1.35, -0.035)
     emit('board', plate, board, 'plate')
 
     emit('face', mergeParts(numeralParts(config.distance, 0, 1.35, -0.011), 'printed-numerals'), board, 'printed-numerals')
 
     const ties: BufferGeometry[] = []
-    for (const y of [0.55, 1.35, 2.14]) {
-      ties.push(member(new Vector3(-0.38, y, -0.08), new Vector3(-0.29, y, 0), 0.012, 6))
-      ties.push(member(new Vector3(0.38, y, -0.08), new Vector3(0.29, y, 0), 0.012, 6))
+    for (const y of [0.52, 1.35, 2.18]) {
+      ties.push(member(new Vector3(-0.325, y, -0.075), new Vector3(-0.265, y, -0.002), 0.007, 6))
+      ties.push(member(new Vector3(0.325, y, -0.075), new Vector3(0.265, y, -0.002), 0.007, 6))
     }
     emit('post', mergeParts(ties, 'fence-ties'), posts, 'fence-ties')
   }
