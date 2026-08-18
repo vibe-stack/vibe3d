@@ -1,5 +1,6 @@
-// f1-timing-pylon — a tall scoring tower: steel frame, three stacked LED cabinets, one digit
-// per cabinet from a DataTexture (no floating 3D blocks that spill the bezel). configure({ height }).
+// f1-timing-pylon — a tall scoring tower: steel frame, stacked LED cabinets, one digit
+// per cabinet from a DataTexture (no floating 3D blocks that spill the bezel).
+// configure({ height, positions }).
 
 import {
   BufferGeometry,
@@ -20,8 +21,11 @@ import {
   bevelBox,
   createF1Preview,
   disposeF1Materials,
+  fillGlyphRect,
+  glyphCells,
   mergeParts,
   tubeSection,
+  writeGlyph3x5,
   LAYER_CLEARANCE,
 } from '../f1-kit-core/index.ts'
 
@@ -29,6 +33,8 @@ type Slot = 'frame' | 'screen'
 
 export interface F1TimingPylonConfig {
   height: number
+  /** One integer 0–9 per cabinet, top to bottom. */
+  positions: readonly number[]
 }
 
 export interface F1TimingPylonOptions extends Partial<F1TimingPylonConfig> {
@@ -46,45 +52,20 @@ export interface F1TimingPylonInstance {
   dispose(): void
 }
 
-const defaults: F1TimingPylonConfig = { height: 9 }
+const defaults: F1TimingPylonConfig = { height: 9, positions: [1, 2, 3] }
 const CAB_W = 1.15
 const CAB_D = 0.14
 const MAST_W = 0.72
 const MAST_D = 0.42
 
-function put(data: Uint8Array, w: number, x: number, y: number, rgb: readonly [number, number, number]): void {
-  if (x < 0 || y < 0 || x >= w) return
-  const i = (y * w + x) * 4
-  if (i < 0 || i + 3 >= data.length) return
-  data[i] = rgb[0]
-  data[i + 1] = rgb[1]
-  data[i + 2] = rgb[2]
-  data[i + 3] = 255
+function normalizePositions(positions: readonly number[]): number[] {
+  const digits = positions
+    .slice(0, 6)
+    .map((n) => ((Math.abs(Math.round(n)) % 10) + 10) % 10)
+  return digits.length > 0 ? digits : [...defaults.positions]
 }
 
-function fillRect(
-  data: Uint8Array, w: number, x0: number, y0: number, rw: number, rh: number,
-  rgb: readonly [number, number, number],
-): void {
-  for (let y = y0; y < y0 + rh; y++) {
-    for (let x = x0; x < x0 + rw; x++) put(data, w, x, y, rgb)
-  }
-}
-
-function glyph3x5(
-  data: Uint8Array, w: number, ox: number, oy: number, cells: number[],
-  rgb: readonly [number, number, number], cell: number,
-): void {
-  for (let gy = 0; gy < 5; gy++) {
-    for (let gx = 0; gx < 3; gx++) {
-      if (!cells[gy * 3 + gx]) continue
-      fillRect(data, w, ox + gx * cell, oy + gy * cell, cell - 1, cell - 1, rgb)
-    }
-  }
-}
-
-/** One cabinet face: large position digit + cyan bar. */
-function cabinetTexture(digit: number[]): DataTexture {
+function cabinetTexture(digit: number): DataTexture {
   const w = 128
   const h = 128
   const data = new Uint8Array(w * h * 4)
@@ -95,10 +76,11 @@ function cabinetTexture(digit: number[]): DataTexture {
     TOKEN.CYAN_400 & 0xff,
   ]
   const paper: [number, number, number] = [242, 248, 252]
-  fillRect(data, w, 0, 0, w, h, ink)
-  fillRect(data, w, 8, 8, w - 16, h - 16, [10, 14, 20])
-  glyph3x5(data, w, 22, 28, digit, paper, 12)
-  fillRect(data, w, 78, 40, 34, 48, cyan)
+  fillGlyphRect(data, w, 0, 0, w, h, ink)
+  fillGlyphRect(data, w, 8, 8, w - 16, h - 16, [10, 14, 20])
+  const cells = glyphCells(String(digit)) ?? glyphCells('0')!
+  writeGlyph3x5(data, w, 22, 28, cells, paper, 12)
+  fillGlyphRect(data, w, 78, 40, 34, 48, cyan)
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = NearestFilter
   tex.magFilter = NearestFilter
@@ -108,31 +90,48 @@ function cabinetTexture(digit: number[]): DataTexture {
 }
 
 export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonInstance {
-  const config: F1TimingPylonConfig = { height: Math.max(5, options.height ?? defaults.height) }
+  const config: F1TimingPylonConfig = {
+    height: Math.max(5, options.height ?? defaults.height),
+    positions: normalizePositions(options.positions ?? defaults.positions),
+  }
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
   const extras: Material[] = []
   const textures: DataTexture[] = []
-  const own = (material: Material): Material => {
-    extras.push(material)
-    return material
+  const ownsScreen = options.materials?.screen === undefined
+  let slotMats: Material[] = []
+
+  const releaseScreens = (): void => {
+    for (const texture of textures) texture.dispose()
+    textures.length = 0
+    if (ownsScreen) {
+      for (const material of extras) material.dispose()
+    }
+    extras.length = 0
+    slotMats = []
   }
 
-  const digits: number[][] = [
-    [0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1],
-    [1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
-  ]
-  const slotMats = digits.map((digit, i) => {
-    const tex = cabinetTexture(digit)
-    textures.push(tex)
-    return own(new MeshBasicMaterial({
-      name: `f1-kit / timing-pylon slot ${i}`,
-      map: tex,
-      toneMapped: false,
-    }))
-  })
+  const buildScreens = (): void => {
+    releaseScreens()
+    if (!ownsScreen) {
+      slotMats = config.positions.map(() => options.materials!.screen!)
+      return
+    }
+    slotMats = config.positions.map((digit, i) => {
+      const tex = cabinetTexture(digit)
+      textures.push(tex)
+      const material = new MeshBasicMaterial({
+        name: `f1-kit / timing-pylon slot ${i}`,
+        map: tex,
+        toneMapped: false,
+      })
+      extras.push(material)
+      return material
+    })
+  }
+  buildScreens()
+
   const screenMat = options.materials?.screen ?? slotMats[0]!
 
   const materialSlots: Record<Slot, Material> = {
@@ -175,6 +174,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
   const rebuild = (): void => {
     releaseGenerated()
     const { height } = config
+    const count = config.positions.length
     const parts: BufferGeometry[] = []
     const mast = bevelBox(MAST_W, height, MAST_D, 0.02)
     mast.translate(0, height / 2, 0)
@@ -188,15 +188,15 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     parts.push(tubeSection(0.045, 0.55, [0, height + 0.42, 0], [0, 1, 0], 8))
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const panelH = height * 0.18
+    const panelH = height * 0.18 * (3 / Math.max(3, count))
     const gap = height * 0.04
-    const stack = 3 * panelH + 2 * gap
+    const stack = count * panelH + Math.max(0, count - 1) * gap
     const y0 = (height - stack) / 2 + panelH / 2
     const faceZ = MAST_D / 2 + CAB_D / 2 + LAYER_CLEARANCE
     const screenZ = faceZ + CAB_D / 2 + LAYER_CLEARANCE
 
     const bezels: BufferGeometry[] = []
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < count; i++) {
       const y = y0 + i * (panelH + gap)
       const bezel = bevelBox(CAB_W, panelH + 0.08, CAB_D, 0.012)
       bezel.translate(0, y, faceZ)
@@ -204,8 +204,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
 
       const panel = new PlaneGeometry(CAB_W - 0.16, panelH - 0.06)
       panel.translate(0, y, screenZ)
-      const mat = options.materials?.screen ?? slotMats[i]!
-      emit('screen', panel, screens, `slot-${i}`, mat)
+      emit('screen', panel, screens, `slot-${i}`, slotMats[i] ?? materialSlots.screen)
     }
     emit('frame', mergeParts(bezels, 'bezels'), frame, 'bezels')
   }
@@ -215,9 +214,18 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     root,
     parts: { frame, screens },
     materials: materialSlots,
-    getConfig: () => ({ ...config }),
+    getConfig: () => ({ height: config.height, positions: [...config.positions] }),
     configure(patch) {
+      let dirtyScreens = false
       if (patch.height !== undefined) config.height = Math.max(5, patch.height)
+      if (patch.positions !== undefined) {
+        config.positions = normalizePositions(patch.positions)
+        dirtyScreens = true
+      }
+      if (dirtyScreens) {
+        buildScreens()
+        if (ownsScreen && slotMats[0]) materialSlots.screen = slotMats[0]
+      }
       rebuild()
     },
     setMaterial(slot, material) {
@@ -227,8 +235,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     update: () => {},
     dispose() {
       releaseGenerated()
-      for (const texture of textures) texture.dispose()
-      for (const material of extras) material.dispose()
+      releaseScreens()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },

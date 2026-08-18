@@ -67,6 +67,8 @@ export interface F1TyreConfig {
   band: number
   /** Tread blocks around the crown. Doubles as the LOD knob — the tread is most of the triangle budget. */
   treadSegments: number
+  /** Dry compounds are slicks; intermediates/wets stay grooved unless this is set. */
+  tread: 'slick' | 'grooved'
 }
 
 export interface F1TyreOptions extends Partial<F1TyreConfig> {
@@ -94,6 +96,7 @@ const defaults: F1TyreConfig = {
   // Few, large blocks. A dense ring of small nubs reads as a fuzzy stipple at 1-3 m and drowns out the
   // circumferential grooves, which are what actually say "wet tyre".
   treadSegments: 18,
+  tread: 'grooved',
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -243,6 +246,7 @@ function sweptTread(options: {
 
 export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
   const compound = options.compound ?? defaults.compound
+  const groovedByDefault = compound === 'intermediate' || compound === 'wet'
   const config: F1TyreConfig = {
     radius: Math.max(0.1, options.radius ?? defaults.radius),
     width: Math.max(0.05, options.width ?? defaults.width),
@@ -250,6 +254,7 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
     // An explicit `band` wins; otherwise the grading colour comes from the compound.
     band: options.band ?? F1_COMPOUND_COLORS[compound],
     treadSegments: Math.max(8, Math.round(options.treadSegments ?? defaults.treadSegments)),
+    tread: options.tread ?? (options.compound && !groovedByDefault ? 'slick' : defaults.tread),
   }
 
   const bundle = acquireF1Materials()
@@ -348,7 +353,11 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
     // Under the crown the carcass runs as a plain core, set below the deepest groove so the swept tread
     // band that covers it is never pierced. The band, not the lathe, carries the pattern.
     const core = R - crownDrop - grooveDepth - 0.004
-    carcass.push([core, -zCrown], [core, zCrown])
+    if (config.tread === 'slick') {
+      carcass.push([ribTop(-1), -zCrown], [ribTop(0), 0], [ribTop(1), zCrown])
+    } else {
+      carcass.push([core, -zCrown], [core, zCrown])
+    }
     for (let i = 0; i <= 5; i++) {                                        // upper shoulder fillet
       const a = (Math.PI / 2) * (i / 5)
       carcass.push([ribTop(1) - shoulder + Math.cos(a) * shoulder, zCrown + Math.sin(a) * shoulder])
@@ -362,18 +371,20 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
     // Four continuous circumferential grooves divide the band into five ribs; the four flanking ribs are
     // broken by lateral channels swept off the axial direction and mirrored across the centreline, so
     // the pattern reads as a directional V. The centre rib stays continuous, as a real wet tyre's does.
-    emit('tread', creased(sweptTread({
-      land: ribTop,
-      zCrown,
-      shoulder,
-      segments: treadSegments * 6, // six samples per lateral channel keeps the channel walls crisp
-      grooveAt,
-      grooveHalf,
-      grooveDepth,
-      channels: treadSegments,
-      channelDepth,
-      channelSlant: 0.62, // ~35 degrees off axial across a half-width of crown
-    }), 30), tire, 'tread')
+    if (config.tread !== 'slick') {
+      emit('tread', creased(sweptTread({
+        land: ribTop,
+        zCrown,
+        shoulder,
+        segments: treadSegments * 6, // six samples per lateral channel keeps the channel walls crisp
+        grooveAt,
+        grooveHalf,
+        grooveDepth,
+        channels: treadSegments,
+        channelDepth,
+        channelSlant: 0.62, // ~35 degrees off axial across a half-width of crown
+      }), 30), tire, 'tread')
+    }
 
     // --- Rim barrel: one closed shell, both flanges included, hollow between the two spoke planes ----
     // The spoke plane sits 0.050 m inboard of the flange face, so rim lip and spoke plane read as two
@@ -489,10 +500,14 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
       if (patch.radius !== undefined) config.radius = Math.max(0.1, patch.radius)
       if (patch.width !== undefined) config.width = Math.max(0.05, patch.width)
       if (patch.treadSegments !== undefined) config.treadSegments = Math.max(8, Math.round(patch.treadSegments))
+      if (patch.tread !== undefined) config.tread = patch.tread
       // A compound change re-grades the sidewall; an explicit band still wins over it.
       if (patch.compound !== undefined) {
         config.compound = patch.compound
         config.band = F1_COMPOUND_COLORS[patch.compound]
+        if (patch.tread === undefined) {
+          config.tread = patch.compound === 'intermediate' || patch.compound === 'wet' ? 'grooved' : 'slick'
+        }
       }
       if (patch.band !== undefined) config.band = patch.band
       if (patch.compound !== undefined || patch.band !== undefined) {

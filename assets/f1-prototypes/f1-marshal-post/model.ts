@@ -1,8 +1,9 @@
 // f1-marshal-post — trackside observers' hut: painted GRP cabin, corrugated roof, recessed
-// track window, numbered board, planted yellow flag, pad-mounted extinguisher. No crew figures.
+// track window, numbered board, planted flag, pad-mounted extinguisher. No crew figures.
 //
 // Datums from a typical FIA marshal post (Silverstone-style hut, ~2.2 m wide):
 // hut 2.2 × 2.05 × 1.8 m, roof overhang 0.18 m, window 1.15 × 0.72 m on the track face.
+// configure({ number, flag }).
 
 import {
   BufferGeometry,
@@ -10,11 +11,13 @@ import {
   Group,
   Mesh,
   MeshPhysicalMaterial,
+  MeshStandardMaterial,
   PlaneGeometry,
   type Material,
 } from 'three/webgpu'
 
 import {
+  TOKEN,
   acquireF1Materials,
   bevelBox,
   bevelDisc,
@@ -33,7 +36,13 @@ import {
 
 type Slot = 'hut' | 'crew' | 'flag'
 
-export interface F1MarshalPostConfig {}
+export type F1MarshalFlag = 'yellow' | 'green' | 'blue' | 'red'
+
+export interface F1MarshalPostConfig {
+  /** 1–3 character post number, drawn from the shared 3×5 atlas. */
+  number: string
+  flag: F1MarshalFlag
+}
 
 export interface F1MarshalPostOptions extends Partial<F1MarshalPostConfig> {
   materials?: Partial<Record<Slot, Material>>
@@ -54,6 +63,17 @@ const HUT_W = 2.2
 const HUT_D = 1.8
 const HUT_H = 2.05
 
+const FLAG_COLOR: Record<F1MarshalFlag, number> = {
+  yellow: TOKEN.AMBER_400,
+  green: TOKEN.FIELD_500,
+  blue: TOKEN.COBALT_500,
+  red: TOKEN.RED_500,
+}
+
+function sanitizeNumber(value: string): string {
+  const next = value.replace(/[^0-9A-Za-z]/g, '').slice(0, 3).toUpperCase()
+  return next || '12'
+}
 
 function uvPlanar(geometry: BufferGeometry): BufferGeometry {
   const pos = geometry.getAttribute('position')
@@ -68,7 +88,10 @@ function uvPlanar(geometry: BufferGeometry): BufferGeometry {
 }
 
 export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostInstance {
-  const config: F1MarshalPostConfig = {}
+  const config: F1MarshalPostConfig = {
+    number: sanitizeNumber(options.number ?? '12'),
+    flag: options.flag ?? 'yellow',
+  }
   const bundle = acquireF1Materials()
   const kit = bundle.materials
   const extras: Material[] = []
@@ -79,7 +102,7 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
 
   const paintMap = paintedShellTexture(128)
   const roofMap = roofSheetTexture(128)
-  const plateMap = marshalPlateTexture('12')
+  let plateMap = marshalPlateTexture(config.number)
   const paint = options.materials?.hut ?? own(new MeshPhysicalMaterial({
     name: 'f1-kit / marshal paint',
     map: paintMap,
@@ -107,17 +130,21 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     transmission: 0.35,
     thickness: 0.02,
   }))
-  const plateMat = own(new MeshPhysicalMaterial({
+  const plateMat = new MeshPhysicalMaterial({
     name: 'f1-kit / marshal plate',
     map: plateMap,
     roughness: 0.55,
     metalness: 0.08,
-  }))
+  })
+  own(plateMat)
+  const ownsFlag = options.materials?.flag === undefined
+  const flagMat = options.materials?.flag ?? own(kit.amber.clone())
+  if (ownsFlag) (flagMat as MeshStandardMaterial).color.set(FLAG_COLOR[config.flag])
 
   const materialSlots: Record<Slot, Material> = {
     hut: paint,
     crew: options.materials?.crew ?? kit.orange,
-    flag: options.materials?.flag ?? kit.amber,
+    flag: flagMat,
   }
 
   const root = new Group()
@@ -285,7 +312,19 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     parts: { hut, crew },
     materials: materialSlots,
     getConfig: () => ({ ...config }),
-    configure() {},
+    configure(patch) {
+      if (patch.number !== undefined) {
+        config.number = sanitizeNumber(patch.number)
+        plateMap.dispose()
+        plateMap = marshalPlateTexture(config.number)
+        plateMat.map = plateMap
+        plateMat.needsUpdate = true
+      }
+      if (patch.flag !== undefined) {
+        config.flag = patch.flag
+        if (ownsFlag) (materialSlots.flag as MeshStandardMaterial).color.set(FLAG_COLOR[config.flag])
+      }
+    },
     setMaterial(slot, material) {
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) mesh.material = material

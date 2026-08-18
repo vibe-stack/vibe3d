@@ -1,6 +1,6 @@
 // f1-start-lights — FIA five-column start-light panel. Each column is a lofted rounded-rect housing
-// with four stacked red lamps. configure({ lit }) lights that many columns from the left (the TV
-// sequence: 1..5 reds, then all out).
+// with stacked lamps. configure({ lit }) lights that many columns from the left (the TV
+// sequence: 1..5 reds, then all out). configure({ mode, color }) maps through createLampMaterial.
 //
 // Datums: five modules at 0.48 m pitch, each housing 0.28 × 1.05 × 0.22 m, lamps Ø 0.08 m.
 // Panel hangs clear of the overhead beam (soffit gap ≥ 0.12 m).
@@ -17,6 +17,7 @@ import {
 } from 'three/webgpu'
 
 import {
+  TOKEN,
   acquireF1Materials,
   applyPolarCapUVs,
   bevelBox,
@@ -32,11 +33,19 @@ import {
 
 type Slot = 'housing' | 'lamp' | 'post' | 'bezel'
 
+export type F1StartLightMode = 'start' | 'formation' | 'go'
+
 export interface F1StartLightsConfig {
   /** Lit columns, 0–5. */
   lit: number
   /** When true, update() runs the FIA 1..5 then all-out sequence. Sheets stay static. */
   sequence: boolean
+  /** Named colour: start=FIA red, formation=amber, go=green. */
+  mode: F1StartLightMode
+  /** Explicit lamp hex; wins over `mode` when set. */
+  color?: number
+  /** Lamp rows per column. FIA TV unit is 4. */
+  rows: number
 }
 
 export interface F1StartLightsOptions extends Partial<F1StartLightsConfig> {
@@ -54,9 +63,9 @@ export interface F1StartLightsInstance {
   dispose(): void
 }
 
-const defaults: F1StartLightsConfig = { lit: 5, sequence: false }
+const FIA_START_RED = 0xc41820
+const defaults: F1StartLightsConfig = { lit: 5, sequence: false, mode: 'start', rows: 4 }
 const COLS = 5
-const ROWS = 4
 const PITCH = 0.48
 const MODULE_W = 0.28
 const MODULE_H = 1.05
@@ -68,10 +77,20 @@ const HEIGHT = 5.6
 /** Panel centre Y — hung so housing top clears the soffit by ≥ 0.12 m. */
 const PANEL_Y = HEIGHT - MODULE_H / 2 - 0.28
 
+function lampHex(mode: F1StartLightMode, color?: number): number {
+  if (color !== undefined) return color
+  if (mode === 'formation') return TOKEN.AMBER_400
+  if (mode === 'go') return TOKEN.FIELD_500
+  return FIA_START_RED
+}
+
 export function createModel(options: F1StartLightsOptions = {}): F1StartLightsInstance {
   const config: F1StartLightsConfig = {
     lit: Math.min(5, Math.max(0, Math.round(options.lit ?? defaults.lit))),
     sequence: options.sequence ?? defaults.sequence,
+    mode: options.mode ?? defaults.mode,
+    color: options.color,
+    rows: Math.min(6, Math.max(1, Math.round(options.rows ?? defaults.rows))),
   }
   let elapsed = 0
 
@@ -82,12 +101,35 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     extras.push(material)
     return material
   }
+  const ownsLamp = options.materials?.lamp === undefined
 
-  const lampOn = options.materials?.lamp ?? own(createLampMaterial({
+  let lampOn: Material = options.materials?.lamp ?? own(createLampMaterial({
     on: true,
+    color: lampHex(config.mode, config.color),
     name: 'f1-kit / start-lamp on',
   }))
-  const lampOff = own(createLampMaterial({ on: false, name: 'f1-kit / start-lamp off' }))
+  let lampOff: Material = own(createLampMaterial({
+    on: false,
+    color: lampHex(config.mode, config.color),
+    name: 'f1-kit / start-lamp off',
+  }))
+
+  const relamp = (): void => {
+    const hex = lampHex(config.mode, config.color)
+    if (ownsLamp) {
+      const previousOn = extras.indexOf(lampOn)
+      lampOn.dispose()
+      lampOn = createLampMaterial({ on: true, color: hex, name: 'f1-kit / start-lamp on' })
+      if (previousOn >= 0) extras[previousOn] = lampOn
+      else extras.push(lampOn)
+    }
+    const previousOff = extras.indexOf(lampOff)
+    lampOff.dispose()
+    lampOff = createLampMaterial({ on: false, color: hex, name: 'f1-kit / start-lamp off' })
+    if (previousOff >= 0) extras[previousOff] = lampOff
+    else extras.push(lampOff)
+    materialSlots.lamp = lampOn
+  }
 
   const materialSlots: Record<Slot, Material> = {
     housing: options.materials?.housing ?? kit.graphite,
@@ -130,6 +172,8 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
 
   const rebuild = (): void => {
     releaseGenerated()
+    const rows = config.rows
+    const hex = lampHex(config.mode, config.color)
     const span = 6.4
     const half = span / 2
     const postParts: BufferGeometry[] = []
@@ -169,7 +213,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     const faceZ = MODULE_D / 2 + 0.02
     const housingFaceZ = faceZ + MODULE_D / 2
     const lensZ = housingFaceZ + LAYER_CLEARANCE + LENS_THICK / 2
-    const rowPitch = 0.2
+    const rowPitch = 0.2 * (4 / rows)
     for (let c = 0; c < COLS; c++) {
       const x = (c - (COLS - 1) / 2) * PITCH
       const body = loftRoundedBox(MODULE_W, MODULE_H, MODULE_D, 0.045)
@@ -181,8 +225,8 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     for (let c = 0; c < COLS; c++) {
       const on = c < config.lit
       const x = (c - (COLS - 1) / 2) * PITCH
-      for (let r = 0; r < ROWS; r++) {
-        const y = PANEL_Y + (1.5 - r) * rowPitch
+      for (let r = 0; r < rows; r++) {
+        const y = PANEL_Y + ((rows - 1) / 2 - r) * rowPitch
         const lamp = new CylinderGeometry(LAMP_R * 0.92, LAMP_R * 0.88, LENS_THICK, 18)
         lamp.rotateX(Math.PI / 2)
         applyPolarCapUVs(lamp)
@@ -194,7 +238,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
         bezels.push(bezel)
       }
       if (on) {
-        const spot = new SpotLight(0xc41820, 1.0, 2.2, Math.PI / 7, 0.55, 2)
+        const spot = new SpotLight(hex, 1.0, 2.2, Math.PI / 7, 0.55, 2)
         spot.name = `spot-${c}`
         spot.position.set(x, PANEL_Y, lensZ)
         spot.target.position.set(x, PANEL_Y - 0.5, lensZ + 4)
@@ -213,6 +257,17 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     configure(patch) {
       if (patch.lit !== undefined) config.lit = Math.min(5, Math.max(0, Math.round(patch.lit)))
       if (patch.sequence !== undefined) config.sequence = patch.sequence
+      if (patch.rows !== undefined) config.rows = Math.min(6, Math.max(1, Math.round(patch.rows)))
+      let dirtyLamps = false
+      if (patch.mode !== undefined) {
+        config.mode = patch.mode
+        dirtyLamps = true
+      }
+      if (patch.color !== undefined) {
+        config.color = patch.color
+        dirtyLamps = true
+      }
+      if (dirtyLamps) relamp()
       rebuild()
     },
     setMaterial(slot, material) {

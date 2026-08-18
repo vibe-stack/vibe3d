@@ -36,5 +36,15 @@ export { createLampLensMaterial, createLampMaterial } from './lamps.ts'
 export type { F1LampMaterialOptions } from './lamps.ts'
 export { lampLensTexture, paintedShellTexture, roofSheetTexture, marshalPlateTexture } from './textures.ts'
 export type { LampLensTextureOptions } from './textures.ts'
+export {
+  GLYPH_3X5,
+  GLYPH_COLS,
+  GLYPH_ROWS,
+  fillGlyphRect,
+  glyphAdvance,
+  glyphCells,
+  writeGlyph3x5,
+  writeGlyphWord,
+} from './glyphs.ts'
 export { DEFAULT_PITCH, DEFAULT_YAW, createF1Preview } from './preview.ts'
 export type { F1Preview, F1PreviewModel, F1PreviewOptions } from './preview.ts'

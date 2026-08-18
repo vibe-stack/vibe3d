@@ -17,6 +17,8 @@ export interface F1LampMaterialOptions {
   readonly name?: string
   /** White flood lenses — scales the baked on-map. */
   readonly intensity?: number
+  /** LED cell grid in the CPU lens map. Default on. */
+  readonly grid?: boolean
 }
 
 export function createLampLensMaterial(options: F1LampMaterialOptions): MeshStandardMaterial {
@@ -25,6 +27,7 @@ export function createLampLensMaterial(options: F1LampMaterialOptions): MeshStan
     variant: options.on ? 'on' : 'off',
     color: options.color,
     intensity: options.on ? options.intensity : undefined,
+    grid: options.grid,
   })
   const material = new MeshStandardMaterial({
     name,

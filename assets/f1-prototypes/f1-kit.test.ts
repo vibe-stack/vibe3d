@@ -260,3 +260,86 @@ describe('applied-layer clearance (rule 8)', () => {
     model.dispose()
   })
 })
+
+describe('procedural knobs', () => {
+  test('glyph atlas covers 0-9 and timing-sheet letters', async () => {
+    const { GLYPH_3X5 } = await import('./f1-kit-core/glyphs.ts')
+    for (const ch of '0123456789PLATIME') {
+      expect(GLYPH_3X5[ch]).toHaveLength(15)
+    }
+    expect(GLYPH_3X5['1']).toEqual([0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1])
+    expect(GLYPH_3X5['2']).toEqual([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1])
+  })
+
+  test('jumbotron entries round-trip through configure', () => {
+    const model = createJumbotron({ width: 4 })
+    expect(model.getConfig().entries).toHaveLength(4)
+    const entries = [
+      { p: 9, code: 'Z9', lap: 3, time: '1:19.9' },
+      { p: 10, code: 'Y8', lap: 3, time: '1:20.1' },
+    ]
+    model.configure({ entries })
+    expect(model.getConfig().entries).toEqual([
+      { p: 9, code: 'Z9', lap: 3, time: '1:19.9' },
+      { p: 10, code: 'Y8', lap: 3, time: '1:20.1' },
+    ])
+    model.dispose()
+  })
+
+  test('timing pylon positions drive cabinet count', () => {
+    const model = createTimingPylon({ height: 6, positions: [9, 8, 7, 6] })
+    expect(model.getConfig().positions).toEqual([9, 8, 7, 6])
+    expect(model.parts.screens.children).toHaveLength(4)
+    model.configure({ positions: [1, 2] })
+    expect(model.parts.screens.children).toHaveLength(2)
+    model.dispose()
+  })
+
+  test('marshal post number and flag are knobs', () => {
+    const model = createMarshalPost({ number: '7', flag: 'green' })
+    expect(model.getConfig()).toEqual({ number: '7', flag: 'green' })
+    model.configure({ number: '42', flag: 'red' })
+    expect(model.getConfig()).toEqual({ number: '42', flag: 'red' })
+    model.dispose()
+  })
+
+  test('start-lights mode and color round-trip', () => {
+    const model = createStartLights({ lit: 3, mode: 'formation' })
+    expect(model.getConfig().mode).toBe('formation')
+    model.configure({ mode: 'go', color: 0x57b57a })
+    expect(model.getConfig().mode).toBe('go')
+    expect(model.getConfig().color).toBe(0x57b57a)
+    model.configure({ rows: 3 })
+    expect(model.getConfig().rows).toBe(3)
+    model.dispose()
+  })
+
+  test('tyre barrier compound is a knob', () => {
+    const model = createTyreBarrier({ columns: 2, rows: 2, depth: 1, compound: 'soft' })
+    expect(model.getConfig().compound).toBe('soft')
+    model.configure({ compound: 'wet' })
+    expect(model.getConfig().compound).toBe('wet')
+    model.dispose()
+  })
+
+  test('a dry-compound tyre defaults to slick and skips the grooved tread mesh', () => {
+    const slick = createTyre({ compound: 'soft' })
+    expect(slick.getConfig().tread).toBe('slick')
+    let treadMeshes = 0
+    slick.root.traverse((object) => {
+      const mesh = object as Mesh
+      if (mesh.isMesh && mesh.name === 'tread') treadMeshes++
+    })
+    expect(treadMeshes).toBe(0)
+    slick.dispose()
+
+    const wet = createTyre({ compound: 'intermediate' })
+    expect(wet.getConfig().tread).toBe('grooved')
+    wet.root.traverse((object) => {
+      const mesh = object as Mesh
+      if (mesh.isMesh && mesh.name === 'tread') treadMeshes++
+    })
+    expect(treadMeshes).toBe(1)
+    wet.dispose()
+  })
+})

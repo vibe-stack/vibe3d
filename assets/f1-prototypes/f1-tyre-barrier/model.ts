@@ -17,6 +17,7 @@ import {
   disposeF1Materials,
   mergeParts,
   tubeSection,
+  type Compound,
 } from '../f1-kit-core/index.ts'
 import { createModel as createTyre, type F1TyreInstance } from '../f1-tyre/model.ts'
 
@@ -26,6 +27,8 @@ export interface F1TyreBarrierConfig {
   columns: number
   rows: number
   depth: number
+  /** Sidewall grading for every tyre in the wall. */
+  compound: Compound
 }
 
 export interface F1TyreBarrierOptions extends Partial<F1TyreBarrierConfig> {
@@ -43,7 +46,7 @@ export interface F1TyreBarrierInstance {
   dispose(): void
 }
 
-const defaults: F1TyreBarrierConfig = { columns: 5, rows: 5, depth: 2 }
+const defaults: F1TyreBarrierConfig = { columns: 5, rows: 5, depth: 2, compound: 'intermediate' }
 const R = 0.36
 const W = 0.33
 const PITCH_X = R * 2 * 0.96
@@ -55,6 +58,7 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     columns: Math.max(1, Math.round(options.columns ?? defaults.columns)),
     rows: Math.max(1, Math.round(options.rows ?? defaults.rows)),
     depth: Math.max(1, Math.round(options.depth ?? defaults.depth)),
+    compound: options.compound ?? defaults.compound,
   }
 
   const bundle = acquireF1Materials()
@@ -83,6 +87,7 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     const count = columns * rows * depth
     prototype = createTyre({
       treadSegments: 10,
+      compound: config.compound,
       materials: options.materials?.tyre ? { rubber: options.materials.tyre } : undefined,
     })
     prototype.root.updateMatrixWorld(true)
@@ -156,6 +161,7 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
       if (patch.columns !== undefined) config.columns = Math.max(1, Math.round(patch.columns))
       if (patch.rows !== undefined) config.rows = Math.max(1, Math.round(patch.rows))
       if (patch.depth !== undefined) config.depth = Math.max(1, Math.round(patch.depth))
+      if (patch.compound !== undefined) config.compound = patch.compound
       rebuild()
     },
     setMaterial(slot, material) {

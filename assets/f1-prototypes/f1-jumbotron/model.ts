@@ -23,14 +23,25 @@ import {
   bevelBox,
   createF1Preview,
   disposeF1Materials,
+  fillGlyphRect,
   member,
   mergeParts,
+  writeGlyphWord,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'frame' | 'screen' | 'leg'
 
+/** One timing-sheet row. `code` is a short alphanumeric — never a driver or team name. */
+export interface F1JumbotronEntry {
+  p: number
+  code?: string
+  lap: number | string
+  time: string
+}
+
 export interface F1JumbotronConfig {
   width: number
+  entries: readonly F1JumbotronEntry[]
 }
 
 export interface F1JumbotronOptions extends Partial<F1JumbotronConfig> {
@@ -48,66 +59,32 @@ export interface F1JumbotronInstance {
   dispose(): void
 }
 
-const defaults: F1JumbotronConfig = { width: 8 }
+const DEFAULT_ENTRIES: readonly F1JumbotronEntry[] = [
+  { p: 1, code: 'A1', lap: 14, time: '1:22.4' },
+  { p: 2, code: 'B2', lap: 14, time: '1:22.7' },
+  { p: 3, code: 'C3', lap: 14, time: '1:23.1' },
+  { p: 4, code: 'D4', lap: 13, time: '1:23.4' },
+]
 
-function put(data: Uint8Array, w: number, x: number, y: number, rgb: readonly [number, number, number]): void {
-  if (x < 0 || y < 0 || x >= w) return
-  const i = (y * w + x) * 4
-  if (i < 0 || i + 3 >= data.length) return
-  data[i] = rgb[0]
-  data[i + 1] = rgb[1]
-  data[i + 2] = rgb[2]
-  data[i + 3] = 255
+const defaults: F1JumbotronConfig = { width: 8, entries: DEFAULT_ENTRIES }
+
+function sanitizeCode(code: string | undefined): string | undefined {
+  if (!code) return undefined
+  const next = code.replace(/[^0-9A-Za-z-]/g, '').slice(0, 4).toUpperCase()
+  return next || undefined
 }
 
-function fillRect(
-  data: Uint8Array, w: number, x0: number, y0: number, rw: number, rh: number,
-  rgb: readonly [number, number, number],
-): void {
-  for (let y = y0; y < y0 + rh; y++) {
-    for (let x = x0; x < x0 + rw; x++) put(data, w, x, y, rgb)
-  }
+function normalizeEntries(entries: readonly F1JumbotronEntry[]): F1JumbotronEntry[] {
+  const rows = entries.slice(0, 8).map((entry, i) => ({
+    p: Math.max(1, Math.round(entry.p || i + 1)),
+    code: sanitizeCode(entry.code),
+    lap: entry.lap,
+    time: String(entry.time ?? ''),
+  }))
+  return rows.length > 0 ? rows : [...DEFAULT_ENTRIES]
 }
 
-function glyph3x5(
-  data: Uint8Array, w: number, ox: number, oy: number, cells: number[],
-  rgb: readonly [number, number, number], cell: number,
-): void {
-  for (let gy = 0; gy < 5; gy++) {
-    for (let gx = 0; gx < 3; gx++) {
-      if (!cells[gy * 3 + gx]) continue
-      fillRect(data, w, ox + gx * cell, oy + gy * cell, cell - 1, cell - 1, rgb)
-    }
-  }
-}
-
-const GLYPH: Record<string, number[]> = {
-  P: [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0],
-  L: [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1],
-  A: [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1],
-  T: [1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
-  I: [1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1],
-  M: [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1],
-  E: [1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1],
-  '1': [0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1],
-  '2': [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1],
-  '3': [1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
-  '4': [1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1],
-}
-
-function writeWord(
-  data: Uint8Array, w: number, ox: number, oy: number, word: string,
-  rgb: readonly [number, number, number], cell: number,
-): void {
-  const advance = cell * 3 + Math.max(4, Math.round(cell * 0.4))
-  for (let i = 0; i < word.length; i++) {
-    const cells = GLYPH[word[i]!]
-    if (!cells) continue
-    glyph3x5(data, w, ox + i * advance, oy, cells, rgb, cell)
-  }
-}
-
-function timingSheet(): DataTexture {
+function timingSheet(entries: readonly F1JumbotronEntry[]): DataTexture {
   const w = 512
   const h = 256
   const data = new Uint8Array(w * h * 4)
@@ -123,20 +100,26 @@ function timingSheet(): DataTexture {
     (TOKEN.CYAN_400 >> 8) & 0xff,
     TOKEN.CYAN_400 & 0xff,
   ]
-  fillRect(data, w, 0, 0, w, h, ink)
-  fillRect(data, w, 0, 0, w, 72, accent)
-  fillRect(data, w, 0, h - 28, w, 28, accent)
-  writeWord(data, w, 16, 8, 'P', paper, 14)
-  writeWord(data, w, 120, 8, 'LAP', paper, 14)
-  writeWord(data, w, 300, 8, 'TIME', paper, 14)
-  const rowH = 36
-  for (let row = 0; row < 4; row++) {
+  fillGlyphRect(data, w, 0, 0, w, h, ink)
+  fillGlyphRect(data, w, 0, 0, w, 72, accent)
+  fillGlyphRect(data, w, 0, h - 28, w, 28, accent)
+  writeGlyphWord(data, w, 16, 8, 'P', paper, 14)
+  writeGlyphWord(data, w, 120, 8, 'LAP', paper, 14)
+  writeGlyphWord(data, w, 300, 8, 'TIME', paper, 14)
+  const n = Math.max(1, entries.length)
+  const rowH = Math.max(22, Math.floor((h - 84 - 28) / n))
+  for (let row = 0; row < n; row++) {
+    const entry = entries[row]!
     const y = 84 + row * rowH
-    if (row % 2 === 1) fillRect(data, w, 0, y, w, rowH, [12, 16, 22])
-    writeWord(data, w, 18, y + 6, String(row + 1), paper, 6)
-    fillRect(data, w, 70, y + 8, 220, 20, cyan)
-    fillRect(data, w, 310, y + 10, 70, 16, [160, 170, 180])
-    fillRect(data, w, 400, y + 8, 96, 20, paper)
+    if (row % 2 === 1) fillGlyphRect(data, w, 0, y, w, rowH, [12, 16, 22])
+    writeGlyphWord(data, w, 18, y + 6, String(entry.p), paper, 6)
+    if (entry.code) {
+      writeGlyphWord(data, w, 70, y + 6, entry.code, cyan, 6)
+    } else {
+      fillGlyphRect(data, w, 70, y + 8, 90, 20, cyan)
+    }
+    writeGlyphWord(data, w, 220, y + 6, String(entry.lap), paper, 6)
+    writeGlyphWord(data, w, 310, y + 6, entry.time, paper, 6)
   }
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = NearestFilter
@@ -147,7 +130,10 @@ function timingSheet(): DataTexture {
 }
 
 export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstance {
-  const config: F1JumbotronConfig = { width: Math.max(3, options.width ?? defaults.width) }
+  const config: F1JumbotronConfig = {
+    width: Math.max(3, options.width ?? defaults.width),
+    entries: normalizeEntries(options.entries ?? defaults.entries),
+  }
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
@@ -157,7 +143,8 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     extras.push(material)
     return material
   }
-  const tex = timingSheet()
+  const ownsScreen = options.materials?.screen === undefined
+  let tex = timingSheet(config.entries)
   textures.push(tex)
   const screenMat = options.materials?.screen ?? own(new MeshBasicMaterial({
     name: 'f1-kit / jumbotron screen',
@@ -201,6 +188,19 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)
     group.add(mesh)
+  }
+
+  const applySheet = (): void => {
+    const next = timingSheet(config.entries)
+    const previous = textures.pop()
+    previous?.dispose()
+    textures.push(next)
+    tex = next
+    if (ownsScreen) {
+      const material = screenMat as MeshBasicMaterial
+      material.map = next
+      material.needsUpdate = true
+    }
   }
 
   const rebuild = (): void => {
@@ -255,10 +255,20 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
     root,
     parts: { frame, screen },
     materials: materialSlots,
-    getConfig: () => ({ ...config }),
+    getConfig: () => ({ width: config.width, entries: config.entries.map((entry) => ({ ...entry })) }),
     configure(patch) {
-      if (patch.width !== undefined) config.width = Math.max(3, patch.width)
-      rebuild()
+      let dirtyGeo = false
+      let dirtySheet = false
+      if (patch.width !== undefined) {
+        config.width = Math.max(3, patch.width)
+        dirtyGeo = true
+      }
+      if (patch.entries !== undefined) {
+        config.entries = normalizeEntries(patch.entries)
+        dirtySheet = true
+      }
+      if (dirtySheet) applySheet()
+      if (dirtyGeo) rebuild()
     },
     setMaterial(slot, material) {
       materialSlots[slot] = material
