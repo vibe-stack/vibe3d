@@ -1,5 +1,5 @@
-// f1-brake-marker — Silverstone-style 150 / 100 / 50 board: kerb-red plate, chunky 7-seg numerals
-// lofted as geometry (a DataTexture never survived a 320 px cell), twin posts, crown beacon.
+// f1-brake-marker — circuit-style 150 / 100 / 50 board: reflective-white plate, dark 7-seg
+// numerals lofted as geometry (a DataTexture never survived a 320 px cell), twin posts, crown beacon.
 // configure({ distance }).
 
 import {
@@ -107,7 +107,6 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
     return material
   }
 
-  const faceMat = options.materials?.face ?? kit.shell
   const beaconMat = own(new MeshBasicMaterial({
     name: 'f1-kit / brake-marker beacon',
     color: TOKEN.RED_500,
@@ -116,8 +115,8 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
 
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ?? kit.graphite,
-    board: options.materials?.board ?? kit.red,
-    face: faceMat,
+    board: options.materials?.board ?? kit.shell,
+    face: options.materials?.face ?? kit.graphite,
   }
 
   const root = new Group()
@@ -207,10 +206,10 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
-    target: [0, 1.55, 0.12],
-    distance: 3.4,
-    fov: 26,
-    yaw: -0.28,
-    pitch: 0.08,
+    target: [0, 1.3, 0.08],
+    distance: 4.6,
+    fov: 30,
+    yaw: -0.18,
+    pitch: 0.04,
   })
 }

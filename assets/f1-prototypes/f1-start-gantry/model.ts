@@ -88,7 +88,7 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ?? kit.graphite,
     beam: options.materials?.beam ?? kit.slate,
-    banner: options.materials?.banner ?? kit.shell,
+    banner: options.materials?.banner ?? kit.graphite,
   }
 
   const root = new Group()
@@ -189,9 +189,15 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     emit('beam', mergeParts(beamParts, 'beam'), beam, 'beam')
 
     const bannerY = height - HOUSE_H / 2 - 0.55
-    const placard = bevelBox(Math.min(span * 0.55, 6.2), 1.05, 0.08, 0.012)
-    placard.translate(0, bannerY, -0.05)
-    emit('banner', placard, banner, 'banner')
+    const boardW = Math.min(span * 0.24, 2.7)
+    const boardOffset = LIGHT_PITCH * 2.5 + boardW / 2
+    const placards: BufferGeometry[] = []
+    for (const sx of [-1, 1] as const) {
+      const placard = bevelBox(boardW, 0.82, 0.08, 0.012)
+      placard.translate(sx * boardOffset, bannerY, -0.05)
+      placards.push(placard)
+    }
+    emit('banner', mergeParts(placards, 'banner'), banner, 'banner')
 
     const housings: BufferGeometry[] = []
     const lamps: BufferGeometry[] = []
@@ -270,10 +276,11 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ span: 10, height: 6.2 }), {
     aspect,
-    target: [0, 5.2, 0.4],
-    distance: 8.8,
-    fov: 28,
-    pitch: 0.1,
+    target: [0, 4, 0.25],
+    distance: 18.5,
+    fov: 36,
+    pitch: 0.03,
+    yaw: -0.12,
     ground: true,
     bloom: true,
   })

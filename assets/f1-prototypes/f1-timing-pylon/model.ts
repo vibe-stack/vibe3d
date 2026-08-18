@@ -249,10 +249,10 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
-    target: [0, 4.5, 0.35],
-    distance: 7.2,
-    fov: 26,
-    pitch: 0.06,
-    yaw: -0.55,
+    target: [0, 4.7, 0.15],
+    distance: 19,
+    fov: 34,
+    pitch: 0.03,
+    yaw: -0.25,
   })
 }

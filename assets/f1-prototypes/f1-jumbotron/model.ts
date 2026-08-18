@@ -288,10 +288,10 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ width: 6 }), {
     aspect,
-    target: [0, 4.7, 0.18],
-    distance: 9.2,
-    fov: 26,
-    pitch: 0.06,
-    yaw: -0.28,
+    target: [0, 3.25, 0.12],
+    distance: 13.5,
+    fov: 32,
+    pitch: 0.04,
+    yaw: -0.18,
   })
 }

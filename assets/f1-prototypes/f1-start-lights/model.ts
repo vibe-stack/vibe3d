@@ -333,10 +333,9 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(lit !== undefined ? { lit } : {}), {
     aspect,
     target: [0, PANEL_Y, 0.28],
-    distance: 4.8,
-    fov: 28,
-    pitch: 0.06,
-    ground: true,
+    distance: 5.5,
+    fov: 30,
+    pitch: 0.02,
     bloom: true,
   })
 }

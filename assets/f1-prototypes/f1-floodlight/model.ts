@@ -1,8 +1,8 @@
-// f1-floodlight — a circuit flood mast: tapered pole, access ladder, yoke, and a 2×2 cluster of
-// rectangular Musco-style cans with barn doors and round unlit-emissive lenses.
+// f1-floodlight — a circuit flood mast: tapered pole, access ladder, yoke, and four linear
+// Musco TLC-style luminaires with broad optics and glare-control visors.
 //
-// Datums: 12 m mast (configurable), 0.14→0.22 m taper, 2.2 m crossbar, each can 0.62 × 0.38 × 0.28 m
-// pitched +32° (rotateX > 0 so the +Z lens face aims down onto the track). Preview frames the HEAD.
+// Datums: 12 m mast (configurable), 0.14→0.22 m taper, 2.35 m crossbar, each can 0.60 × 0.38 × 0.30 m
+// based on the TLC-LED-550 envelope and pitched down onto the track.
 
 import {
   BufferGeometry,
@@ -25,11 +25,8 @@ import {
   loftRoundedBox,
   member,
   mergeParts,
-  AXIS_X,
   AXIS_Y,
-  applyPolarCapUVs,
   createLampMaterial,
-  tubeSection,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'mast' | 'can' | 'lens'
@@ -133,78 +130,41 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     emit('can', member(new Vector3(0, height - 0.22, 0), new Vector3(0, height + 0.05, 0.05), 0.05, 10), head, 'pivot')
 
     const cans: BufferGeometry[] = []
-    const doors: BufferGeometry[] = []
+    const shields: BufferGeometry[] = []
     const lenses: BufferGeometry[] = []
-    // rotateX > 0 pitches the can's +Z (lens face) down onto the track.
-    const tilt = 0.55
-    const placeOnCan = (geo: BufferGeometry, sx: number, cy: number): BufferGeometry => {
+    // The measured TLC-LED head is one broad optic per wedge-shaped luminaire.
+    const tilt = 0.48
+    const cy = height - 0.2
+    const placeOnCan = (geo: BufferGeometry, sx: number): BufferGeometry => {
       geo.rotateX(tilt)
-      geo.translate(sx, cy, 0.42)
+      geo.translate(sx, cy, 0.38)
       return geo
     }
-    for (const sx of [-0.88, 0.88] as const) {
-      for (const sy of [-0.28, 0.28] as const) {
-        const cy = height - 0.22 + sy
-        cans.push(placeOnCan(loftRoundedBox(0.62, 0.38, 0.28, 0.04), sx, cy))
+    const lampXs = [-1.05, -0.35, 0.35, 1.05] as const
+    for (const sx of lampXs) {
+      cans.push(placeOnCan(loftRoundedBox(0.6, 0.38, 0.3, 0.045), sx))
 
-        const top = bevelBox(0.64, 0.018, 0.14, 0.003)
-        top.rotateX(-0.35)
-        top.translate(0, 0.205, 0.12)
-        doors.push(placeOnCan(top, sx, cy))
-        const bot = bevelBox(0.64, 0.018, 0.14, 0.003)
-        bot.rotateX(0.35)
-        bot.translate(0, -0.205, 0.12)
-        doors.push(placeOnCan(bot, sx, cy))
-        const left = bevelBox(0.018, 0.4, 0.14, 0.003)
-        left.translate(-0.32, 0, 0.12)
-        doors.push(placeOnCan(left, sx, cy))
-        const right = bevelBox(0.018, 0.4, 0.14, 0.003)
-        right.translate(0.32, 0, 0.12)
-        doors.push(placeOnCan(right, sx, cy))
+      const visor = bevelBox(0.62, 0.025, 0.18, 0.004)
+      visor.rotateX(-0.22)
+      visor.translate(0, 0.205, 0.13)
+      shields.push(placeOnCan(visor, sx))
 
-        for (const hx of [-0.2, 0, 0.2] as const) {
-          const topKn = tubeSection(0.008, 0.032, [0, 0, 0], AXIS_X, 8)
-          topKn.translate(hx, 0.19, 0.10)
-          doors.push(placeOnCan(topKn, sx, cy))
-          const botKn = tubeSection(0.008, 0.032, [0, 0, 0], AXIS_X, 8)
-          botKn.translate(hx, -0.19, 0.10)
-          doors.push(placeOnCan(botKn, sx, cy))
-        }
-        for (const hy of [-0.1, 0.1] as const) {
-          const leftKn = tubeSection(0.008, 0.028, [0, 0, 0], AXIS_Y, 8)
-          leftKn.translate(-0.31, hy, 0.10)
-          doors.push(placeOnCan(leftKn, sx, cy))
-          const rightKn = tubeSection(0.008, 0.028, [0, 0, 0], AXIS_Y, 8)
-          rightKn.translate(0.31, hy, 0.10)
-          doors.push(placeOnCan(rightKn, sx, cy))
-        }
-
-        for (const lx of [-0.14, 0.14] as const) {
-          for (const ly of [-0.1, 0.1] as const) {
-            const lens = new CylinderGeometry(0.08, 0.08, 0.03, 16)
-            lens.rotateX(Math.PI / 2)
-            applyPolarCapUVs(lens)
-            lens.translate(lx, ly, 0.155)
-            lenses.push(placeOnCan(lens, sx, cy))
-          }
-        }
-      }
+      const lens = bevelBox(0.48, 0.25, 0.018, 0.012)
+      lens.translate(0, 0, 0.16)
+      lenses.push(placeOnCan(lens, sx))
     }
     emit('can', mergeParts(cans, 'cans'), head, 'cans')
-    emit('can', mergeParts(doors, 'barn-doors'), head, 'barn-doors')
+    emit('can', mergeParts(shields, 'visors'), head, 'visors')
     emit('lens', mergeParts(lenses, 'lenses'), head, 'lenses')
-    for (const sx of [-0.88, 0.88] as const) {
-      for (const sy of [-0.28, 0.28] as const) {
-        const cy = height - 0.22 + sy
-        const spot = new SpotLight(0xfff3e0, 12, 14, Math.PI / 4, 0.45, 1.8)
-        spot.name = `spot-${sx}-${sy}`
-        const origin = new Vector3(sx, cy, 0.42)
-        const aim = new Vector3(0, -Math.sin(tilt), Math.cos(tilt))
-        spot.position.copy(origin).addScaledVector(aim, 0.22)
-        spot.target.position.copy(spot.position).addScaledVector(aim, 10)
-        head.add(spot)
-        head.add(spot.target)
-      }
+    for (const sx of lampXs) {
+      const spot = new SpotLight(0xfff3e0, 8, 14, Math.PI / 5, 0.45, 1.8)
+      spot.name = `spot-${sx}`
+      const origin = new Vector3(sx, cy, 0.38)
+      const aim = new Vector3(0, -Math.sin(tilt), Math.cos(tilt))
+      spot.position.copy(origin).addScaledVector(aim, 0.2)
+      spot.target.position.copy(spot.position).addScaledVector(aim, 10)
+      head.add(spot)
+      head.add(spot.target)
     }
   }
   rebuild()
@@ -236,12 +196,11 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel({ height: 8 })
   return createF1Preview(model, {
     aspect,
-    target: [0, 7.5, 0.35],
-    distance: 4.8,
-    fov: 28,
-    yaw: -1.05,
-    pitch: 0.08,
+    target: [0, 4.2, 0.2],
+    distance: 14,
+    fov: 32,
+    yaw: -0.45,
+    pitch: 0.04,
     ground: true,
-    bloom: true,
   })
 }
