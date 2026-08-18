@@ -4,7 +4,7 @@
 // Real pit gantries are bolted aluminium box truss, and that is the whole silhouette: four chords per
 // member with zig-zag lacing between them, so the structure reads as open framework against the sky
 // rather than as a solid beam. A post-and-beam of plain boxes has no such read at any distance, which is
-// what this prop was before. Everything here is merged per material slot, so the truss costs one draw.
+// what this prop was before. Geometry is merged into a small, stable set of semantic meshes.
 //
 // The banner colour is genericised (no team livery — plain corporate blue by default).
 
@@ -72,8 +72,8 @@ function planarTruss(
   rise: number,
   bays: number,
 ): void {
-  const upperFrom = lowerFrom.clone().addScaledVector(AXIS_Y, rise)
-  const upperTo = lowerTo.clone().addScaledVector(AXIS_Y, rise)
+  const upperFrom = lowerFrom.clone().setY(lowerFrom.y + rise)
+  const upperTo = lowerTo.clone().setY(lowerTo.y + rise)
   parts.push(member(lowerFrom, lowerTo, CHORD))
   parts.push(member(upperFrom, upperTo, CHORD))
   for (let bay = 0; bay < bays; bay++) {
