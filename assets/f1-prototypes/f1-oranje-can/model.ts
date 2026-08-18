@@ -30,12 +30,12 @@ import {
 } from 'three/webgpu'
 
 import {
-  TOKEN,
   acquireF1Materials,
   bevelDisc,
   bevelRing,
   createF1Preview,
   disposeF1Materials,
+  fillGlyphRect,
   mergeParts,
   oranjeSmokeTexture,
   revolve,
@@ -87,6 +87,10 @@ const PLUME_N = 150
 const SMOKE_BASE = new Color(0xffeadb)
 const SMOKE_TOP = new Color(0xfff3e8)
 
+const BILLOW_WIDTH_CYCLE: readonly number[] = [0.78, 1.14, 0.92, 1.22, 0.84]
+const BILLOW_HEIGHT_CYCLE: readonly number[] = [1.18, 0.82, 1.06, 0.76, 1.12]
+const BILLOW_ROTATION_CYCLE: readonly number[] = [-0.3, 0.12, -0.08, 0.28, 0]
+
 const defaults: F1OranjeCanConfig = { lit: true, windXZ: ZANDVOORT_WIND_XZ }
 
 function frac(x: number): number {
@@ -107,12 +111,15 @@ function createOranjeLabelTexture(): DataTexture {
   const height = 256
   const data = new Uint8Array(width * height * 4)
   const blue: readonly [number, number, number] = [46, 94, 206]
+  const red: readonly [number, number, number] = [198, 38, 42]
   const white: readonly [number, number, number] = [242, 244, 238]
-  writeGlyphWord(data, width, 7, 5, 'WIRE', white, 3)
+  fillGlyphRect(data, width, 3, 0, 58, 22, red)
+  writeGlyphWord(data, width, 7, 4, 'WIRE', white, 3)
   for (const [index, letter] of [...'SMOKE'].entries()) {
-    writeGlyphWord(data, width, 21, 26 + index * 39, letter, blue, 7)
+    writeGlyphWord(data, width, 18, 26 + index * 39, letter, blue, 8)
   }
-  writeGlyphWord(data, width, 7, 232, 'PULL', white, 3)
+  fillGlyphRect(data, width, 3, 228, 58, 28, white)
+  writeGlyphWord(data, width, 7, 234, 'PULL', blue, 3)
   const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType)
   texture.colorSpace = SRGBColorSpace
   texture.magFilter = LinearFilter
@@ -170,7 +177,6 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     if (bodyOverride) return bodyOverride
     return own(new MeshStandardMaterial({ name, color, roughness, metalness }))
   }
-  const orangeBandMat = makeDetailMaterial('f1-kit / oranje identity band', TOKEN.ORANGE_500, 0.88)
   const labelMap = bodyOverride ? null : createOranjeLabelTexture()
   if (labelMap) extras.push(labelMap)
   const labelMat = bodyOverride ?? own(new MeshBasicMaterial({
@@ -263,8 +269,10 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       const wPhase = frac(g * PHI5) * Math.PI * 2
       const angle = frac(i * PHI4) * Math.PI * 2
       const spread = frac(i * PHI7) * (0.001 + 0.032 * riseFrac * riseFrac)
-      const layer = Math.floor(ageN * 9)
-      const layerPhase = frac((layer + 1) * PHI5) * Math.PI * 2
+      const shapeIndex = i % BILLOW_WIDTH_CYCLE.length
+      const layerCount = 7 + (i % 4)
+      const layer = Math.floor(ageN * layerCount)
+      const layerPhase = frac((layer + 1) * PHI5 + shapeIndex * PHI4) * Math.PI * 2
       const layerOffset = (0.002 + 0.044 * riseFrac) * (0.68 + 0.32 * frac(g * PHI3))
       const x = Math.cos(angle) * spread
         + wind[0] * drift
@@ -276,9 +284,9 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
         + Math.sin(wPhase + age * 0.7) * wander
         + Math.sin(layerPhase) * layerOffset
       const t = Math.pow(riseFrac, 1.35)
-      const stretch = 0.78 + 0.44 * frac(g * PHI4)
-      const width = (0.012 + 0.115 * t) * stretch
-      const height = (0.027 + 0.095 * t) / Math.max(0.68, stretch)
+      const stretch = 0.84 + 0.32 * frac(g * PHI4)
+      const width = (0.007 + 0.115 * t) * stretch * BILLOW_WIDTH_CYCLE[shapeIndex]!
+      const height = (0.018 + 0.095 * t) / Math.max(0.72, stretch) * BILLOW_HEIGHT_CYCLE[shapeIndex]!
       const fadeIn = clamp01(ageN / 0.02)
       const fadeOut = 0.65 + 0.35 * clamp01((1 - ageN) / 0.32)
       const alpha = fadeIn * fadeOut
@@ -290,7 +298,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       dummy.position.set(x, y - height * scale * 0.42, z)
       dummy.scale.set(width * scale, height * scale, 1)
       dummy.lookAt(cameraPos)
-      dummy.rotateZ((frac(g * PHI7) - 0.5) * 0.7)
+      dummy.rotateZ(BILLOW_ROTATION_CYCLE[shapeIndex]! + (frac(g * PHI7) - 0.5) * 0.22)
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
       tint.copy(SMOKE_BASE).lerp(SMOKE_TOP, Math.pow(riseFrac, 3.4))
@@ -320,12 +328,6 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       { yBot: 0, yTop: BODY_H, scaleW: 1, segments: 24 },
     ), body, 'cylinder')
 
-    const orangeBand = revolve(
-      [[0, BODY_R * 1.035], [1, BODY_R * 1.035]],
-      { yBot: 0.012, yTop: 0.034, scaleW: 1, segments: 24 },
-    )
-    emit('body', orangeBand, body, 'oranje-identity-band', orangeBandMat)
-
     const labelAngle = -0.55
     const labelPanel = (width: number, height: number, y: number, lift: number): BufferGeometry => {
       const geometry = new PlaneGeometry(width, height)
@@ -337,7 +339,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       )
       return geometry
     }
-    emit('body', labelPanel(0.029, 0.088, 0.075, 0.0011), body, 'wire-pull-typography', labelMat)
+    emit('body', labelPanel(0.031, 0.088, 0.075, 0.0011), body, 'wire-pull-typography', labelMat)
 
     const base = bevelDisc(BODY_R * 0.92, 0.004, 0.0007, 18)
     base.rotateX(Math.PI / 2)
@@ -345,8 +347,14 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     emit('body', base, body, 'base')
 
     const capCollar = revolve(
-      [[0, BODY_R * 1.025], [1, BODY_R * 1.025]],
-      { yBot: BODY_H - 0.012, yTop: BODY_H + 0.001, scaleW: 1, segments: 24 },
+      [
+        [0, BODY_R * 1.025],
+        [0.74, BODY_R * 1.025],
+        [0.8, BODY_R * 0.96],
+        [0.82, 0],
+        [1, 0],
+      ],
+      { yBot: BODY_H - 0.012, yTop: BODY_H + 0.004, scaleW: 1, segments: 24 },
     )
     emit('hardware', capCollar, body, 'red-cap-collar', redCapMat)
 
@@ -375,6 +383,13 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     ]
     const connectorLength = Math.hypot(...connectorAxis)
     const hardware: BufferGeometry[] = []
+    hardware.push(tubeSection(
+      0.0016,
+      0.008,
+      [capAnchor[0], BODY_H, capAnchor[2]],
+      [0, 1, 0],
+      8,
+    ))
     hardware.push(tubeSection(
       0.0012,
       connectorLength,
@@ -445,7 +460,7 @@ export function createPreview({ aspect, time }: { aspect: number; time?: number 
     distance: 1.05,
     fov: 34,
     yaw: -0.55,
-    pitch: 0.18,
+    pitch: 0.3,
     ground: false,
     bloom: true,
   })
