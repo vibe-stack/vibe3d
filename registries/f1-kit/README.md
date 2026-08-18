@@ -55,7 +55,7 @@ own materials into `createModel()`.
 
 ## What's next
 
-- TODO: SHA-pin the AAA look-pass preview sheets on vibe-stack/vibe3d#7 after this lands.
+Preview sheets on vibe-stack/vibe3d#7 are SHA-pinned to `b8dd9ed` (`docs/assets/f1-kit-previews/`).
 
 The assembled car itself — chassis, wings, halo, cockpit, and a paintable
 livery system — is a separate, later addition to this kit, once every
