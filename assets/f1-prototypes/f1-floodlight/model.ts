@@ -2,7 +2,7 @@
 // rectangular Musco-style cans with barn doors and round unlit-emissive lenses.
 //
 // Datums: 12 m mast (configurable), 0.14→0.22 m taper, 2.2 m crossbar, each can 0.62 × 0.38 × 0.28 m
-// pitched −32°. Preview frames the HEAD, not the whole needle.
+// pitched +32° (rotateX > 0 so the +Z lens face aims down onto the track). Preview frames the HEAD.
 
 import {
   BufferGeometry,
@@ -135,51 +135,48 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     const cans: BufferGeometry[] = []
     const doors: BufferGeometry[] = []
     const lenses: BufferGeometry[] = []
-    const tilt = -0.55
+    // rotateX > 0 pitches the can's +Z (lens face) down onto the track.
+    const tilt = 0.55
+    const placeOnCan = (geo: BufferGeometry, sx: number, cy: number): BufferGeometry => {
+      geo.rotateX(tilt)
+      geo.translate(sx, cy, 0.42)
+      return geo
+    }
     for (const sx of [-0.88, 0.88] as const) {
       for (const sy of [-0.28, 0.28] as const) {
         const cy = height - 0.22 + sy
-        const can = loftRoundedBox(0.62, 0.38, 0.28, 0.04)
-        can.rotateX(tilt)
-        can.translate(sx, cy, 0.42)
-        cans.push(can)
+        cans.push(placeOnCan(loftRoundedBox(0.62, 0.38, 0.28, 0.04), sx, cy))
 
         const top = bevelBox(0.64, 0.018, 0.14, 0.003)
-        top.rotateX(tilt - 0.35)
-        top.translate(sx, cy + 0.2, 0.54)
-        doors.push(top)
+        top.rotateX(-0.35)
+        top.translate(0, 0.205, 0.12)
+        doors.push(placeOnCan(top, sx, cy))
         const bot = bevelBox(0.64, 0.018, 0.14, 0.003)
-        bot.rotateX(tilt + 0.35)
-        bot.translate(sx, cy - 0.2, 0.54)
-        doors.push(bot)
+        bot.rotateX(0.35)
+        bot.translate(0, -0.205, 0.12)
+        doors.push(placeOnCan(bot, sx, cy))
         const left = bevelBox(0.018, 0.4, 0.14, 0.003)
-        left.rotateX(tilt)
-        left.translate(sx - 0.32, cy, 0.54)
-        doors.push(left)
+        left.translate(-0.32, 0, 0.12)
+        doors.push(placeOnCan(left, sx, cy))
         const right = bevelBox(0.018, 0.4, 0.14, 0.003)
-        right.rotateX(tilt)
-        right.translate(sx + 0.32, cy, 0.54)
-        doors.push(right)
+        right.translate(0.32, 0, 0.12)
+        doors.push(placeOnCan(right, sx, cy))
 
         for (const hx of [-0.2, 0, 0.2] as const) {
           const topKn = tubeSection(0.008, 0.032, [0, 0, 0], AXIS_X, 8)
-          topKn.rotateX(tilt)
-          topKn.translate(sx + hx, cy + 0.19, 0.50)
-          doors.push(topKn)
+          topKn.translate(hx, 0.19, 0.10)
+          doors.push(placeOnCan(topKn, sx, cy))
           const botKn = tubeSection(0.008, 0.032, [0, 0, 0], AXIS_X, 8)
-          botKn.rotateX(tilt)
-          botKn.translate(sx + hx, cy - 0.19, 0.50)
-          doors.push(botKn)
+          botKn.translate(hx, -0.19, 0.10)
+          doors.push(placeOnCan(botKn, sx, cy))
         }
         for (const hy of [-0.1, 0.1] as const) {
           const leftKn = tubeSection(0.008, 0.028, [0, 0, 0], AXIS_Y, 8)
-          leftKn.rotateX(tilt)
-          leftKn.translate(sx - 0.31, cy + hy, 0.50)
-          doors.push(leftKn)
+          leftKn.translate(-0.31, hy, 0.10)
+          doors.push(placeOnCan(leftKn, sx, cy))
           const rightKn = tubeSection(0.008, 0.028, [0, 0, 0], AXIS_Y, 8)
-          rightKn.rotateX(tilt)
-          rightKn.translate(sx + 0.31, cy + hy, 0.50)
-          doors.push(rightKn)
+          rightKn.translate(0.31, hy, 0.10)
+          doors.push(placeOnCan(rightKn, sx, cy))
         }
 
         for (const lx of [-0.14, 0.14] as const) {
@@ -187,9 +184,8 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
             const lens = new CylinderGeometry(0.08, 0.08, 0.03, 16)
             lens.rotateX(Math.PI / 2)
             applyPolarCapUVs(lens)
-            lens.rotateX(tilt)
-            lens.translate(sx + lx, cy + ly, 0.62)
-            lenses.push(lens)
+            lens.translate(lx, ly, 0.155)
+            lenses.push(placeOnCan(lens, sx, cy))
           }
         }
       }
@@ -202,8 +198,10 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
         const cy = height - 0.22 + sy
         const spot = new SpotLight(0xfff3e0, 12, 14, Math.PI / 4, 0.45, 1.8)
         spot.name = `spot-${sx}-${sy}`
-        spot.position.set(sx, cy, 0.72)
-        spot.target.position.set(sx, cy - 4.5, 6)
+        const origin = new Vector3(sx, cy, 0.42)
+        const aim = new Vector3(0, -Math.sin(tilt), Math.cos(tilt))
+        spot.position.copy(origin).addScaledVector(aim, 0.22)
+        spot.target.position.copy(spot.position).addScaledVector(aim, 10)
         head.add(spot)
         head.add(spot.target)
       }
@@ -238,10 +236,10 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel({ height: 8 })
   return createF1Preview(model, {
     aspect,
-    target: [0, 7.55, 0.35],
+    target: [0, 7.45, 0.55],
     distance: 4.6,
     fov: 30,
-    pitch: 0.15,
+    pitch: 0.22,
     ground: true,
     bloom: true,
   })

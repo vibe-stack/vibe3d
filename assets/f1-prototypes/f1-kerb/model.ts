@@ -1,9 +1,11 @@
-// f1-kerb — FIA rumble-strip: one lofted ~80 mm trapezoid with 45° painted stripes as
-// 3D bars on the top face (LoftGeometry UVs smear a DataTexture at contact-sheet scale).
-// configure({ modules }) sets how many 0.4 m modules long the run is.
+// f1-kerb — FIA rumble-strip: one measured 800 mm module, lofted from the published
+// 0 → 50 mm ramp over the first 400 mm, with a raised-cosine blister cap (Singapore elevation)
+// seated on the flat. Paint is 800 × 800 mm red/white squares in the photo hexes, not 45° bars.
+// configure({ modules }) sets how many 800 mm bands long the run is.
 
 import {
   BufferGeometry,
+  Float32BufferAttribute,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -11,14 +13,10 @@ import {
 } from 'three/webgpu'
 
 import {
-  TOKEN,
   acquireF1Materials,
-  bevelBox,
   createF1Preview,
   disposeF1Materials,
-  loftAlongX,
   mergeParts,
-  uvAlongX,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'shell' | 'paint'
@@ -43,13 +41,152 @@ export interface F1KerbInstance {
 }
 
 const defaults: F1KerbConfig = { modules: 8 }
-const MOD = 0.4
+
+/** Published FIA apex-kerb / 800 × 800 mm squares. See curbShader PROFILE_DEF. */
+const BAND = 0.80
+const WIDTH = 0.80
+const RAMP_LEN = 0.40
+const RAMP_RISE = 0.050
+const LIP = 0.005
+const CAP_CROWN = 0.050
+const CAP_DUTY = 0.72
+const CAP_PER_BAND = 3
+const SKIRT = 0.04
+const ALONG = 12
+
+/** Spa fresh-paint red; Singapore kerb-white (neutral, not the Spa illuminant). */
+const KERB_RED = 0xde2f25
+const KERB_WHITE = 0xe5e0da
+
+function kerbCap(xLocal: number): number {
+  const pitch = BAND / CAP_PER_BAND
+  const v = xLocal / pitch + 0.5
+  const q = v - Math.floor(v) - 0.5
+  const u = Math.max(-1, Math.min(1, q / (0.5 * CAP_DUTY)))
+  return 0.5 * (1 + Math.cos(Math.PI * u))
+}
+
+function kerbHeight(d: number, xLocal: number): number {
+  const t = Math.max(0, Math.min(1, d / RAMP_LEN))
+  const s = t * t * (3 - 2 * t)
+  return LIP + (RAMP_RISE - LIP + CAP_CROWN * kerbCap(xLocal)) * s
+}
+
+/** `out = (∂h/∂d, ∂h/∂x)`. Analytic so the blister silhouette and the shading share one field. */
+function kerbGradient(d: number, xLocal: number, out: [number, number]): void {
+  const rl = RAMP_LEN
+  const t = Math.max(0, Math.min(1, d / rl))
+  const s = t * t * (3 - 2 * t)
+  const ds = (6 * t * (1 - t)) / rl
+  const pitch = BAND / CAP_PER_BAND
+  const v = xLocal / pitch + 0.5
+  const q = v - Math.floor(v) - 0.5
+  const uRaw = q / (0.5 * CAP_DUTY)
+  const u = Math.max(-1, Math.min(1, uRaw))
+  const cap = 0.5 * (1 + Math.cos(Math.PI * u))
+  const dcap = Math.abs(uRaw) >= 1 ? 0 : (-Math.PI * Math.sin(Math.PI * u)) / (CAP_DUTY * pitch)
+  out[0] = (RAMP_RISE - LIP + CAP_CROWN * cap) * ds
+  out[1] = CAP_CROWN * dcap * s
+}
+
+/**
+ * One 800 mm band. Track-side lip at +Z (d = 0), rear edge at −Z. Along-kerb is X, centred on 0.
+ * Port of `buildCurbModuleGeometry` into the kit's X-along / Z-across frame.
+ */
+function buildKerbModule(): BufferGeometry {
+  const pos: number[] = []
+  const nor: number[] = []
+  const uvs: number[] = []
+  const idx: number[] = []
+  const halfW = WIDTH * 0.5
+  const halfL = BAND * 0.5
+  const yBot = -SKIRT
+  const g: [number, number] = [0, 0]
+  const dKnots = [0, RAMP_LEN * 0.25, RAMP_LEN * 0.5, RAMP_LEN * 0.75, RAMP_LEN, WIDTH]
+  const zs = dKnots.map((d) => halfW - d)
+  const nZ = zs.length - 1
+
+  const xAt = (k: number): number => -halfL + (k / ALONG) * BAND
+  const dAt = (z: number): number => halfW - z
+
+  const push = (x: number, y: number, z: number, nx: number, ny: number, nz: number): void => {
+    pos.push(x, y, z)
+    nor.push(nx, ny, nz)
+    uvs.push((x + halfL) / BAND, (z + halfW) / WIDTH)
+  }
+
+  for (let i = 0; i <= nZ; i++) {
+    const z = zs[i]!
+    for (let k = 0; k <= ALONG; k++) {
+      const x = xAt(k)
+      kerbGradient(dAt(z), x, g)
+      // n = normalize(−∂h/∂x, 1, −∂h/∂z); ∂h/∂z = −∂h/∂d so n.z = ∂h/∂d.
+      const nx = -g[1]
+      const nz = g[0]
+      const inv = 1 / Math.hypot(nx, 1, nz)
+      push(x, kerbHeight(dAt(z), x), z, nx * inv, inv, nz * inv)
+    }
+  }
+  const top = (i: number, k: number): number => i * (ALONG + 1) + k
+  for (let i = 0; i < nZ; i++) {
+    for (let k = 0; k < ALONG; k++) {
+      idx.push(top(i, k), top(i, k + 1), top(i + 1, k))
+      idx.push(top(i + 1, k), top(i, k + 1), top(i + 1, k + 1))
+    }
+  }
+
+  const yAt = (x: number, z: number): number => kerbHeight(dAt(z), x)
+  const wall = (
+    pts: ReadonlyArray<readonly [number, number]>,
+    normal: readonly [number, number, number],
+    flip: boolean,
+  ): void => {
+    const base = pos.length / 3
+    for (const [x, z] of pts) {
+      push(x, yAt(x, z), z, normal[0], normal[1], normal[2])
+      push(x, yBot, z, normal[0], normal[1], normal[2])
+    }
+    for (let i = 0; i < pts.length - 1; i++) {
+      const t0 = base + i * 2
+      const b0 = t0 + 1
+      const t1 = t0 + 2
+      const b1 = t0 + 3
+      if (flip) idx.push(t0, t1, b0, t1, b1, b0)
+      else idx.push(t0, b0, t1, t1, b0, b1)
+    }
+  }
+
+  const xAll: number[] = []
+  for (let k = 0; k <= ALONG; k++) xAll.push(xAt(k))
+  const zTrack = zs[0]!
+  const zRear = zs[nZ]!
+  wall(xAll.map((x) => [x, zRear] as const), [0, 0, -1], false)
+  wall([[-halfL, zTrack], [halfL, zTrack]], [0, 0, 1], true)
+  wall(zs.map((z) => [-halfL, z] as const), [-1, 0, 0], true)
+  wall(zs.map((z) => [halfL, z] as const), [1, 0, 0], false)
+
+  const b = pos.length / 3
+  const zLo = Math.min(zTrack, zRear)
+  const zHi = Math.max(zTrack, zRear)
+  push(-halfL, yBot, zLo, 0, -1, 0)
+  push(halfL, yBot, zLo, 0, -1, 0)
+  push(-halfL, yBot, zHi, 0, -1, 0)
+  push(halfL, yBot, zHi, 0, -1, 0)
+  idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2)
+
+  const geo = new BufferGeometry()
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3))
+  geo.setAttribute('normal', new Float32BufferAttribute(nor, 3))
+  geo.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
+  geo.setIndex(idx)
+  geo.computeBoundingSphere()
+  return geo
+}
 
 export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
   const config: F1KerbConfig = { modules: Math.max(2, Math.round(options.modules ?? defaults.modules)) }
 
   const bundle = acquireF1Materials()
-  const kit = bundle.materials
   const extras: Material[] = []
   const own = (material: Material): Material => {
     extras.push(material)
@@ -57,14 +194,20 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
   }
 
   const paintMat = options.materials?.paint ?? own(new MeshStandardMaterial({
-    name: 'f1-kit / kerb paint',
-    color: TOKEN.RED_500,
-    roughness: 0.72,
-    metalness: 0.05,
+    name: 'f1-kit / kerb red',
+    color: KERB_RED,
+    roughness: 0.74,
+    metalness: 0.02,
+  }))
+  const whiteMat = options.materials?.shell ?? own(new MeshStandardMaterial({
+    name: 'f1-kit / kerb white',
+    color: KERB_WHITE,
+    roughness: 0.78,
+    metalness: 0.02,
   }))
 
   const materialSlots: Record<Slot, Material> = {
-    shell: options.materials?.shell ?? kit.shell,
+    shell: whiteMat,
     paint: paintMat,
   }
 
@@ -95,31 +238,16 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
 
   const rebuild = (): void => {
     releaseGenerated()
-    const length = config.modules * MOD
-    // FIA kerb: ~350 mm wide, 80 mm high, 60 mm front chamfer down to the asphalt.
-    const profile: Array<readonly [number, number]> = [
-      [0.14, 0.00],
-      [0.16, 0.05],
-      [0.10, 0.13],
-      [-0.04, 0.13],
-      [-0.14, 0.07],
-      [-0.18, 0.00],
-    ]
-    const body = uvAlongX(loftAlongX(profile, length, { closed: true, stations: 8 }), length, 0.38)
-    emit('shell', body, 'kerb')
-
     const red: BufferGeometry[] = []
     const white: BufferGeometry[] = []
-    const pitch = 0.16
-    const count = Math.ceil(length / pitch) + 2
-    for (let i = 0; i < count; i++) {
-      const bar = bevelBox(0.09, 0.018, 0.36, 0.004)
-      bar.rotateY(Math.PI / 4)
-      bar.translate(-length / 2 + i * pitch, 0.128, 0.0)
-      ;(i % 2 === 0 ? red : white).push(bar)
+    const origin = -((config.modules - 1) * BAND) / 2
+    for (let i = 0; i < config.modules; i++) {
+      const module = buildKerbModule()
+      module.translate(origin + i * BAND, 0, 0)
+      ;(i % 2 === 0 ? red : white).push(module)
     }
-    if (red.length) emit('paint', mergeParts(red, 'red-stripes'), 'red-stripes')
-    if (white.length) emit('shell', mergeParts(white, 'white-stripes'), 'white-stripes')
+    if (red.length) emit('paint', mergeParts(red, 'kerb-red'), 'kerb-red')
+    if (white.length) emit('shell', mergeParts(white, 'kerb-white'), 'kerb-white')
   }
   rebuild()
 
@@ -147,12 +275,12 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ modules: 5 }), {
+  return createF1Preview(createModel({ modules: 6 }), {
     aspect,
-    target: [0.2, 0.08, 0.0],
-    distance: 1.55,
+    target: [0, 0.04, 0.08],
+    distance: 3.4,
     fov: 28,
-    yaw: -1.35,
-    pitch: 0.28,
+    yaw: -1.12,
+    pitch: 0.38,
   })
 }

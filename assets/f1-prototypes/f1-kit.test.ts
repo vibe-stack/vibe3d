@@ -370,4 +370,52 @@ describe('procedural knobs', () => {
     expect(treadMeshes).toBe(1)
     wet.dispose()
   })
+
+  test('kerb modules are 800 mm red/white bands with a 50 mm ramp', () => {
+    const model = createKerb({ modules: 4 })
+    expect(model.getConfig().modules).toBe(4)
+    model.root.updateMatrixWorld(true)
+    const box = new Box3().setFromObject(model.root)
+    const size = box.getSize(new Vector3())
+    expect(size.x).toBeCloseTo(3.2, 1)
+    expect(size.z).toBeCloseTo(0.8, 1)
+    expect(box.max.y).toBeGreaterThan(0.08)
+    expect(box.max.y).toBeLessThan(0.14)
+    expect(box.min.y).toBeLessThan(0)
+    model.configure({ modules: 6 })
+    expect(model.getConfig().modules).toBe(6)
+    const next = new Box3().setFromObject(model.root).getSize(new Vector3())
+    expect(next.x).toBeCloseTo(4.8, 1)
+    model.dispose()
+  })
+
+  test('floodlight cans pitch the lens face down onto the track', () => {
+    const model = createFloodlight({ height: 8 })
+    model.root.updateMatrixWorld(true)
+    let cans: Mesh | undefined
+    let lenses: Mesh | undefined
+    const spots: Array<{ position: Vector3; target: { position: Vector3 } }> = []
+    model.root.traverse((object) => {
+      const mesh = object as Mesh
+      if (mesh.isMesh && mesh.name === 'cans') cans = mesh
+      if (mesh.isMesh && mesh.name === 'lenses') lenses = mesh
+      if ((object as { isSpotLight?: boolean }).isSpotLight) {
+        spots.push(object as { position: Vector3; target: { position: Vector3 } })
+      }
+    })
+    expect(cans).toBeDefined()
+    expect(lenses).toBeDefined()
+    expect(spots.length).toBe(4)
+    const centre = (mesh: Mesh): Vector3 => {
+      mesh.geometry.computeBoundingBox()
+      return mesh.geometry.boundingBox!.getCenter(new Vector3())
+    }
+    // Lenses live on the +Z face; after rotateX(+0.55) that face drops below the can centroid.
+    expect(centre(lenses!).y).toBeLessThan(centre(cans!).y)
+    for (const spot of spots) {
+      expect(spot.target.position.y).toBeLessThan(spot.position.y)
+      expect(spot.target.position.z).toBeGreaterThan(spot.position.z)
+    }
+    model.dispose()
+  })
 })
