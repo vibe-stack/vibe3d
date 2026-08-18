@@ -90,6 +90,7 @@ const SMOKE_TOP = new Color(0xfff3e8)
 const BILLOW_WIDTH_CYCLE: readonly number[] = [0.78, 1.14, 0.92, 1.22, 0.84]
 const BILLOW_HEIGHT_CYCLE: readonly number[] = [1.18, 0.82, 1.06, 0.76, 1.12]
 const BILLOW_ROTATION_CYCLE: readonly number[] = [-0.3, 0.12, -0.08, 0.28, 0]
+const BILLOW_EDGE_CYCLE: readonly number[] = [0.72, 1.34, 0.88, 1.18, 0.78, 1.42, 0.96]
 
 const defaults: F1OranjeCanConfig = { lit: true, windXZ: ZANDVOORT_WIND_XZ }
 
@@ -113,13 +114,31 @@ function createOranjeLabelTexture(): DataTexture {
   const blue: readonly [number, number, number] = [46, 94, 206]
   const red: readonly [number, number, number] = [198, 38, 42]
   const white: readonly [number, number, number] = [242, 244, 238]
+
   fillGlyphRect(data, width, 3, 0, 58, 22, red)
-  writeGlyphWord(data, width, 7, 4, 'WIRE', white, 3)
-  for (const [index, letter] of [...'SMOKE'].entries()) {
-    writeGlyphWord(data, width, 18, 26 + index * 39, letter, blue, 8)
+  writeGlyphWord(data, width, 13, 1, 'WP', white, 5)
+  fillGlyphRect(data, width, 3, 224, 58, 32, white)
+  writeGlyphWord(data, width, 13, 227, '40', blue, 5)
+
+  const wordWidth = 256
+  const wordHeight = 64
+  const word = new Uint8Array(wordWidth * wordHeight * 4)
+  writeGlyphWord(word, wordWidth, 24, 4, 'SMOKE', blue, 11)
+  for (let sy = 0; sy < wordHeight; sy++) {
+    for (let sx = 0; sx < wordWidth; sx++) {
+      const source = (sy * wordWidth + sx) * 4
+      if (word[source + 3] === 0) continue
+      const dx = width - 1 - sy
+      const dy = sx
+      if (dy >= height) continue
+      const target = (dy * width + dx) * 4
+      data[target] = word[source]!
+      data[target + 1] = word[source + 1]!
+      data[target + 2] = word[source + 2]!
+      data[target + 3] = 255
+    }
   }
-  fillGlyphRect(data, width, 3, 228, 58, 28, white)
-  writeGlyphWord(data, width, 7, 234, 'PULL', blue, 3)
+
   const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType)
   texture.colorSpace = SRGBColorSpace
   texture.magFilter = LinearFilter
@@ -274,18 +293,24 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       const layer = Math.floor(ageN * layerCount)
       const layerPhase = frac((layer + 1) * PHI5 + shapeIndex * PHI4) * Math.PI * 2
       const layerOffset = (0.002 + 0.044 * riseFrac) * (0.68 + 0.32 * frac(g * PHI3))
+      const edgeFactor = BILLOW_EDGE_CYCLE[i % BILLOW_EDGE_CYCLE.length]!
+      const edgePhase = frac((i % BILLOW_EDGE_CYCLE.length) * PHI3) * Math.PI * 2
+      const edgeOffset = 0.018 * Math.pow(riseFrac, 3.2) * edgeFactor
       const x = Math.cos(angle) * spread
         + wind[0] * drift
         + Math.cos(wPhase + age * 0.7) * wander
         + Math.cos(layerPhase) * layerOffset
+        + Math.cos(edgePhase) * edgeOffset
       const y = MOUTH_Y + rise
       const z = Math.sin(angle) * spread
         + wind[1] * drift
         + Math.sin(wPhase + age * 0.7) * wander
         + Math.sin(layerPhase) * layerOffset
+        + Math.sin(edgePhase) * edgeOffset
       const t = Math.pow(riseFrac, 1.35)
       const stretch = 0.84 + 0.32 * frac(g * PHI4)
-      const width = (0.007 + 0.115 * t) * stretch * BILLOW_WIDTH_CYCLE[shapeIndex]!
+      const edgeScale = 1 + (edgeFactor - 1) * Math.pow(riseFrac, 2.6)
+      const width = (0.007 + 0.115 * t) * stretch * BILLOW_WIDTH_CYCLE[shapeIndex]! * edgeScale
       const height = (0.018 + 0.095 * t) / Math.max(0.72, stretch) * BILLOW_HEIGHT_CYCLE[shapeIndex]!
       const fadeIn = clamp01(ageN / 0.02)
       const fadeOut = 0.65 + 0.35 * clamp01((1 - ageN) / 0.32)
@@ -362,13 +387,13 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     const ringNormal: readonly [number, number, number] = [Math.sin(ringAngle), 0, Math.cos(ringAngle)]
     const ringTangent: readonly [number, number, number] = [Math.cos(ringAngle), 0, -Math.sin(ringAngle)]
     const ringCentre: readonly [number, number, number] = [
-      ringNormal[0] * (BODY_R + 0.003) - ringTangent[0] * 0.018,
-      BODY_H - 0.004,
-      ringNormal[2] * (BODY_R + 0.003) - ringTangent[2] * 0.018,
+      ringNormal[0] * (BODY_R + 0.003) - ringTangent[0] * 0.023,
+      BODY_H - 0.012,
+      ringNormal[2] * (BODY_R + 0.003) - ringTangent[2] * 0.023,
     ]
     const capAnchor: readonly [number, number, number] = [
       ringNormal[0] * (BODY_R + 0.002) - ringTangent[0] * 0.005,
-      BODY_H + 0.004,
+      BODY_H + 0.002,
       ringNormal[2] * (BODY_R + 0.002) - ringTangent[2] * 0.005,
     ]
     const ringAnchor: readonly [number, number, number] = [
@@ -384,9 +409,9 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     const connectorLength = Math.hypot(...connectorAxis)
     const hardware: BufferGeometry[] = []
     hardware.push(tubeSection(
-      0.0016,
-      0.008,
-      [capAnchor[0], BODY_H, capAnchor[2]],
+      0.0021,
+      0.01,
+      [capAnchor[0], BODY_H - 0.001, capAnchor[2]],
       [0, 1, 0],
       8,
     ))
