@@ -1,21 +1,22 @@
-// f1-brake-marker — circuit-style 150 / 100 / 50 board: reflective-white plate, dark 7-seg
-// numerals lofted as geometry (a DataTexture never survived a 320 px cell), twin posts, crown beacon.
+// f1-brake-marker — narrow reflective circuit distance panel fixed directly to a catch-fence.
+// Flat printed numerals remain legible without turning the marker into a freestanding billboard.
 // configure({ distance }).
 
 import {
   BufferGeometry,
   Group,
   Mesh,
-  MeshBasicMaterial,
+  PlaneGeometry,
+  Vector3,
   type Material,
 } from 'three/webgpu'
 
 import {
-  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
   disposeF1Materials,
+  member,
   mergeParts,
   tubeSection,
 } from '../f1-kit-core/index.ts'
@@ -43,55 +44,53 @@ export interface F1BrakeMarkerInstance {
 
 const defaults: F1BrakeMarkerConfig = { distance: 100 }
 
-/** 7-seg bits: a top, b UR, c LR, d bot, e LL, f UL, g mid. */
-const SEG: Record<string, readonly number[]> = {
-  '0': [1, 1, 1, 1, 1, 1, 0],
-  '1': [0, 1, 1, 0, 0, 0, 0],
-  '5': [1, 0, 1, 1, 0, 1, 1],
+function flatBar(width: number, height: number, x: number, y: number, z: number): BufferGeometry {
+  const geometry = new PlaneGeometry(width, height)
+  geometry.translate(x, y, z)
+  return geometry
 }
 
-function sevenSeg(digit: string, cx: number, cy: number, cz: number): BufferGeometry[] {
-  const W = 0.38
-  const H = 0.72
-  const T = 0.1
-  const D = 0.06
+function printedDigit(digit: string, cx: number, cy: number, cz: number): BufferGeometry[] {
+  const w = 0.34
+  const h = 0.48
+  const stroke = 0.095
   if (digit === '1') {
-    const bar = bevelBox(0.16, H, D, 0.012)
-    bar.translate(cx, cy, cz)
-    return [bar]
+    const cap = new PlaneGeometry(stroke, 0.18)
+    cap.rotateZ(-0.58)
+    cap.translate(cx - 0.015, cy + 0.17, cz)
+    return [
+      flatBar(stroke, h, cx + 0.035, cy, cz),
+      cap,
+      flatBar(0.27, stroke, cx, cy - h / 2 + stroke / 2, cz),
+    ]
   }
-  const segs = SEG[digit]
-  if (!segs) return []
-  const parts: BufferGeometry[] = []
-  const horiz = (on: number, y: number): void => {
-    if (!on) return
-    const g = bevelBox(W, T, D, 0.012)
-    g.translate(cx, cy + y, cz)
-    parts.push(g)
+  if (digit === '0') {
+    return [
+      flatBar(w, stroke, cx, cy + h / 2 - stroke / 2, cz),
+      flatBar(w, stroke, cx, cy - h / 2 + stroke / 2, cz),
+      flatBar(stroke, h - stroke * 2, cx - w / 2 + stroke / 2, cy, cz),
+      flatBar(stroke, h - stroke * 2, cx + w / 2 - stroke / 2, cy, cz),
+    ]
   }
-  const vert = (on: number, x: number, y: number): void => {
-    if (!on) return
-    const g = bevelBox(T, H / 2 - T * 0.35, D, 0.012)
-    g.translate(cx + x, cy + y, cz)
-    parts.push(g)
+  if (digit === '5') {
+    return [
+      flatBar(w, stroke, cx, cy + h / 2 - stroke / 2, cz),
+      flatBar(w, stroke, cx, cy, cz),
+      flatBar(w, stroke, cx, cy - h / 2 + stroke / 2, cz),
+      flatBar(stroke, h / 2 - stroke, cx - w / 2 + stroke / 2, cy + h / 4, cz),
+      flatBar(stroke, h / 2 - stroke, cx + w / 2 - stroke / 2, cy - h / 4, cz),
+    ]
   }
-  horiz(segs[0]!, H / 2)
-  vert(segs[1]!, W / 2, H / 4)
-  vert(segs[2]!, W / 2, -H / 4)
-  horiz(segs[3]!, -H / 2)
-  vert(segs[4]!, -W / 2, -H / 4)
-  vert(segs[5]!, -W / 2, H / 4)
-  horiz(segs[6]!, 0)
-  return parts
+  return []
 }
 
 function numeralParts(value: 50 | 100 | 150, cx: number, cy: number, cz: number): BufferGeometry[] {
   const text = String(value)
-  const pitch = 0.48
-  const origin = cx - ((text.length - 1) * pitch) / 2
+  const pitch = 0.56
+  const origin = cy + ((text.length - 1) * pitch) / 2
   const parts: BufferGeometry[] = []
   for (let i = 0; i < text.length; i++) {
-    parts.push(...sevenSeg(text[i]!, origin + i * pitch, cy, cz))
+    parts.push(...printedDigit(text[i]!, cx, origin - i * pitch, cz))
   }
   return parts
 }
@@ -101,17 +100,6 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
-  const extras: Material[] = []
-  const own = (material: Material): Material => {
-    extras.push(material)
-    return material
-  }
-
-  const beaconMat = own(new MeshBasicMaterial({
-    name: 'f1-kit / brake-marker beacon',
-    color: TOKEN.RED_500,
-    toneMapped: false,
-  }))
 
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ?? kit.graphite,
@@ -154,29 +142,33 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
   const rebuild = (): void => {
     releaseGenerated()
     const postParts: BufferGeometry[] = []
-    for (const sx of [-0.55, 0.55] as const) {
-      postParts.push(tubeSection(0.045, 1.45, [sx, 0.74, 0], [0, 1, 0], 10))
-      const pad = bevelBox(0.18, 0.06, 0.18, 0.008)
-      pad.translate(sx, 0.03, 0)
-      postParts.push(pad)
+    const fenceWidth = 1.8
+    const fenceHeight = 2.5
+    for (const sx of [-fenceWidth / 2, fenceWidth / 2] as const) {
+      postParts.push(tubeSection(0.025, fenceHeight, [sx, fenceHeight / 2, -0.09], [0, 1, 0], 8))
     }
-    emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
+    for (let i = 0; i <= 6; i++) {
+      const x = -fenceWidth / 2 + i * fenceWidth / 6
+      postParts.push(member(new Vector3(x, 0.12, -0.09), new Vector3(x, fenceHeight, -0.09), 0.008, 4))
+    }
+    for (let i = 0; i <= 10; i++) {
+      const y = 0.12 + i * (fenceHeight - 0.12) / 10
+      postParts.push(member(new Vector3(-fenceWidth / 2, y, -0.09), new Vector3(fenceWidth / 2, y, -0.09), 0.008, 4))
+    }
+    emit('post', mergeParts(postParts, 'catch-fence'), posts, 'catch-fence')
 
-    const plate = bevelBox(1.85, 1.28, 0.09, 0.014)
-    plate.translate(0, 1.62, 0.04)
+    const plate = bevelBox(0.68, 1.94, 0.045, 0.009)
+    plate.translate(0, 1.35, -0.035)
     emit('board', plate, board, 'plate')
 
-    const frame: BufferGeometry[] = []
-    frame.push(bevelBox(1.85, 0.06, 0.04, 0.006).translate(0, 1.62 + 0.64, 0.1))
-    frame.push(bevelBox(1.85, 0.06, 0.04, 0.006).translate(0, 1.62 - 0.64, 0.1))
-    frame.push(bevelBox(0.06, 1.28, 0.04, 0.006).translate(-0.9, 1.62, 0.1))
-    frame.push(bevelBox(0.06, 1.28, 0.04, 0.006).translate(0.9, 1.62, 0.1))
-    emit('face', mergeParts(frame, 'frame'), board, 'frame')
+    emit('face', mergeParts(numeralParts(config.distance, 0, 1.35, -0.011), 'printed-numerals'), board, 'printed-numerals')
 
-    emit('face', mergeParts(numeralParts(config.distance, 0, 1.62, 0.12), 'numerals'), board, 'numerals')
-
-    const beacon = tubeSection(0.05, 0.16, [0, 2.36, 0.06], [0, 1, 0], 12)
-    emit('board', beacon, board, 'beacon', beaconMat)
+    const ties: BufferGeometry[] = []
+    for (const y of [0.55, 1.35, 2.14]) {
+      ties.push(member(new Vector3(-0.38, y, -0.08), new Vector3(-0.29, y, 0), 0.012, 6))
+      ties.push(member(new Vector3(0.38, y, -0.08), new Vector3(0.29, y, 0), 0.012, 6))
+    }
+    emit('post', mergeParts(ties, 'fence-ties'), posts, 'fence-ties')
   }
   rebuild()
 
@@ -196,7 +188,6 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
     update: () => {},
     dispose() {
       releaseGenerated()
-      for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -206,10 +197,10 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
-    target: [0, 1.3, 0.08],
-    distance: 4.6,
-    fov: 30,
-    yaw: -0.18,
+    target: [0, 1.3, -0.02],
+    distance: 4.2,
+    fov: 28,
+    yaw: -0.24,
     pitch: 0.04,
   })
 }

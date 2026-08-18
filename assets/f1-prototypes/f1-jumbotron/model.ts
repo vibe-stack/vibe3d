@@ -1,7 +1,6 @@
-// f1-jumbotron — trackside LED screen on a steel truss: lattice legs, hood, walkway, speakers,
-// and a generic timing-sheet DataTexture (P / LAP / TIME blocks — no names, no teams).
-// Glyphs are sized to read at a 320 px contact-sheet cell; the LED face is a PlaneGeometry so
-// the sheet maps 0–1 instead of smearing across a bevelBox.
+// f1-jumbotron — trackside broadcast installation with a continuous LED video wall,
+// symmetric braced truss towers, ballast, rear stabilization, speaker arrays, services,
+// access equipment, and safety barriers. The video feed remains deterministic and generic.
 
 import {
   BufferGeometry,
@@ -18,7 +17,6 @@ import {
 } from 'three/webgpu'
 
 import {
-  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -26,7 +24,6 @@ import {
   fillGlyphRect,
   member,
   mergeParts,
-  stampLedModuleGrid,
   writeGlyphWord,
 } from '../f1-kit-core/index.ts'
 
@@ -87,39 +84,47 @@ function normalizeEntries(entries: readonly F1JumbotronEntry[]): F1JumbotronEntr
 
 function timingSheet(entries: readonly F1JumbotronEntry[]): DataTexture {
   const w = 512
-  const h = 256
+  const h = 288
   const data = new Uint8Array(w * h * 4)
-  const ink: [number, number, number] = [8, 12, 18]
-  const paper: [number, number, number] = [242, 244, 248]
-  const accent: [number, number, number] = [
-    (TOKEN.COBALT_500 >> 16) & 0xff,
-    (TOKEN.COBALT_500 >> 8) & 0xff,
-    TOKEN.COBALT_500 & 0xff,
-  ]
-  const cyan: [number, number, number] = [
-    (TOKEN.CYAN_400 >> 16) & 0xff,
-    (TOKEN.CYAN_400 >> 8) & 0xff,
-    TOKEN.CYAN_400 & 0xff,
-  ]
-  stampLedModuleGrid(data, w, h, ink, 4)
-  fillGlyphRect(data, w, 0, 0, w, 72, accent)
-  fillGlyphRect(data, w, 0, h - 28, w, 28, accent)
-  writeGlyphWord(data, w, 16, 8, 'P', paper, 14)
-  writeGlyphWord(data, w, 120, 8, 'LAP', paper, 14)
-  writeGlyphWord(data, w, 300, 8, 'TIME', paper, 14)
-  const n = Math.max(1, entries.length)
-  const rowH = Math.max(22, Math.floor((h - 84 - 28) / n))
-  for (let row = 0; row < n; row++) {
-    const entry = entries[row]!
-    const y = 84 + row * rowH
-    writeGlyphWord(data, w, 18, y + 6, String(entry.p), paper, 6)
-    if (entry.code) {
-      writeGlyphWord(data, w, 70, y + 6, entry.code, cyan, 6)
-    } else {
-      fillGlyphRect(data, w, 70, y + 8, 90, 20, cyan)
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const x = px / w
+      const y = py / h
+      const centre = 0.57 + Math.sin(x * 5.2 - 0.9) * 0.12
+      const trackDistance = Math.abs(y - centre)
+      const horizon = y < 0.42
+      const base = horizon ? 12 + Math.floor(y * 22) : 7
+      const offset = (py * w + px) * 4
+      data[offset] = base
+      data[offset + 1] = base + (horizon ? 10 : 4)
+      data[offset + 2] = base + (horizon ? 15 : 7)
+      if (trackDistance < 0.115) {
+        const shade = 42 + Math.floor((0.115 - trackDistance) * 90)
+        data[offset] = shade
+        data[offset + 1] = shade + 2
+        data[offset + 2] = shade + 7
+      }
+      if (trackDistance > 0.103 && trackDistance < 0.122) {
+        const kerb = Math.floor(x * 38) % 2 === 0
+        data[offset] = kerb ? 210 : 230
+        data[offset + 1] = kerb ? 26 : 230
+        data[offset + 2] = kerb ? 34 : 230
+      }
+      data[offset + 3] = 255
     }
-    writeGlyphWord(data, w, 220, y + 6, String(entry.lap), paper, 6)
-    writeGlyphWord(data, w, 310, y + 6, entry.time, paper, 6)
+  }
+  const pale: [number, number, number] = [224, 233, 240]
+  const cyan: [number, number, number] = [42, 190, 224]
+  const red: [number, number, number] = [225, 42, 48]
+  fillGlyphRect(data, w, 0, 0, 76, 26, [4, 7, 12])
+  writeGlyphWord(data, w, 8, 5, 'LIVE', pale, 3)
+  fillGlyphRect(data, w, 8, 32, 52, 6, red)
+  const carCount = Math.max(3, Math.min(7, entries.length + 1))
+  for (let i = 0; i < carCount; i++) {
+    const x = 178 + i * 39
+    const y = 163 + Math.round(Math.sin((x / w) * 5.2 - 0.9) * h * 0.12)
+    fillGlyphRect(data, w, x, y, 18, 7, i % 2 === 0 ? cyan : red)
+    fillGlyphRect(data, w, x + 4, y - 4, 10, 4, pale)
   }
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = NearestFilter
@@ -148,6 +153,7 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
   textures.push(tex)
   const screenMat = options.materials?.screen ?? own(new MeshBasicMaterial({
     name: 'f1-kit / jumbotron screen',
+    color: 0x59636c,
     map: tex,
     toneMapped: false,
   }))
@@ -206,48 +212,92 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
   const rebuild = (): void => {
     releaseGenerated()
     const w = config.width
-    const h = w * 0.48
-    const elev = 3.2
+    const h = w * 0.5625
+    const elev = 2.85
     const y = elev + h / 2
     const half = w / 2
+    const towerX = half + 0.58
+    const towerTop = elev + h + 0.24
     const legs: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
-      const x = sx * half * 0.78
-      legs.push(member(new Vector3(x, 0, -0.35), new Vector3(x, elev + h * 0.15, -0.35), 0.09, 8))
-      legs.push(member(new Vector3(x, 0, 0.15), new Vector3(x, elev + h * 0.15, 0.15), 0.07, 8))
-      for (let i = 0; i < 6; i++) {
-        const y0 = (i / 6) * elev
-        const y1 = ((i + 1) / 6) * elev
-        legs.push(member(new Vector3(x, y0, -0.35), new Vector3(x, y1, 0.15), 0.028, 6))
-        legs.push(member(new Vector3(x, y0, 0.15), new Vector3(x, y1, -0.35), 0.028, 6))
+      const x = sx * towerX
+      for (const dx of [-0.2, 0.2]) {
+        for (const z of [-0.34, 0.34]) {
+          legs.push(member(new Vector3(x + dx, 0.12, z), new Vector3(x + dx, towerTop, z), 0.065, 8))
+        }
       }
-      const pad = bevelBox(0.55, 0.1, 0.55, 0.012)
-      pad.translate(x, 0.05, -0.1)
-      legs.push(pad)
+      for (let i = 0; i < 7; i++) {
+        const y0 = 0.18 + i * (towerTop - 0.2) / 7
+        const y1 = 0.18 + (i + 1) * (towerTop - 0.2) / 7
+        for (const z of [-0.34, 0.34]) {
+          legs.push(member(new Vector3(x - 0.2, y0, z), new Vector3(x + 0.2, y1, z), 0.028, 6))
+          legs.push(member(new Vector3(x + 0.2, y0, z), new Vector3(x - 0.2, y1, z), 0.028, 6))
+        }
+      }
+      for (const dx of [-0.2, 0.2]) {
+        legs.push(member(new Vector3(x + dx, 0.25, -0.34), new Vector3(x + dx, 2.2, -1.35), 0.055, 8))
+        const ballast = bevelBox(0.52, 0.18, 0.62, 0.025)
+        ballast.translate(x + dx, 0.09, -0.05)
+        legs.push(ballast)
+      }
+      const rearBallast = bevelBox(0.72, 0.22, 0.62, 0.025)
+      rearBallast.translate(x, 0.11, -1.42)
+      legs.push(rearBallast)
     }
-    emit('leg', mergeParts(legs, 'legs'), frame, 'legs')
+    emit('leg', mergeParts(legs, 'truss-towers'), frame, 'truss-towers')
 
-    const bezel = bevelBox(w + 0.45, h + 0.45, 0.32, 0.03)
-    bezel.translate(0, y, -0.08)
-    emit('frame', bezel, frame, 'bezel')
-    const hood = bevelBox(w + 0.5, 0.22, 0.7, 0.02)
-    hood.translate(0, y + h / 2 + 0.18, 0.12)
-    emit('frame', hood, frame, 'hood')
-    const walk = bevelBox(w * 0.9, 0.05, 0.55, 0.008)
-    walk.translate(0, elev - 0.15, -0.45)
-    emit('frame', walk, frame, 'walkway')
-    const speakers: BufferGeometry[] = []
+    const installation: BufferGeometry[] = []
+    const housing = bevelBox(w + 0.34, h + 0.34, 0.34, 0.025)
+    housing.translate(0, y, -0.06)
+    installation.push(housing)
+    const hood = bevelBox(w + 0.48, 0.16, 0.62, 0.018)
+    hood.translate(0, y + h / 2 + 0.16, 0.02)
+    installation.push(hood)
+    const walk = bevelBox(w + 0.4, 0.07, 0.72, 0.01)
+    walk.translate(0, elev - 0.18, -0.43)
+    installation.push(walk)
     for (const sx of [-1, 1] as const) {
-      const can = bevelBox(0.35, 0.45, 0.28, 0.02)
-      can.translate(sx * (half + 0.15), y + h * 0.2, 0.05)
-      speakers.push(can)
+      const x = sx * (half + 0.38)
+      for (let i = 0; i < 4; i++) {
+        const speaker = bevelBox(0.38, 0.5, 0.42, 0.025)
+        speaker.translate(x, y + 0.72 - i * 0.55, 0.05 + i * 0.018)
+        installation.push(speaker)
+      }
+      const control = bevelBox(0.58, 0.82, 0.4, 0.025)
+      control.translate(sx * (towerX - 0.02), 1.18, -0.57)
+      installation.push(control)
+      for (let cable = 0; cable < 3; cable++) {
+        installation.push(member(
+          new Vector3(x + sx * cable * 0.035, elev + 0.2, -0.24),
+          new Vector3(sx * (towerX - 0.04), 1.52 - cable * 0.12, -0.38),
+          0.018,
+          6,
+        ))
+      }
     }
-    emit('frame', mergeParts(speakers, 'speakers'), frame, 'speakers')
+    for (let rung = 0; rung < 9; rung++) {
+      const rungY = 0.48 + rung * 0.28
+      installation.push(member(new Vector3(towerX - 0.16, rungY, -0.48), new Vector3(towerX + 0.16, rungY, -0.48), 0.018, 6))
+    }
+    emit('frame', mergeParts(installation, 'broadcast-installation'), frame, 'broadcast-installation')
 
-    // LED face carries P/LAP/TIME — no second 3D glyph layer (that clipped the header bar).
+    const barriers: BufferGeometry[] = []
+    for (const z of [0.92, -1.85]) {
+      for (const sx of [-1, 1] as const) {
+        const start = sx * (half + 1.25)
+        const end = sx * 0.55
+        barriers.push(member(new Vector3(start, 0.62, z), new Vector3(end, 0.62, z), 0.035, 8))
+        for (let i = 0; i < 4; i++) {
+          const x = start + (end - start) * i / 3
+          barriers.push(member(new Vector3(x, 0.05, z), new Vector3(x, 0.66, z), 0.028, 8))
+        }
+      }
+    }
+    emit('leg', mergeParts(barriers, 'safety-barriers'), frame, 'safety-barriers')
+
     const panel = new PlaneGeometry(w, h)
-    panel.translate(0, y, 0.18)
-    emit('screen', panel, screen, 'panel')
+    panel.translate(0, y, 0.12)
+    emit('screen', panel, screen, 'continuous-led-video')
   }
   rebuild()
 
@@ -288,10 +338,10 @@ export function createModel(options: F1JumbotronOptions = {}): F1JumbotronInstan
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ width: 6 }), {
     aspect,
-    target: [0, 3.25, 0.12],
-    distance: 13.5,
+    target: [0, 3.15, -0.08],
+    distance: 15.2,
     fov: 32,
     pitch: 0.04,
-    yaw: -0.18,
+    yaw: -0.22,
   })
 }
