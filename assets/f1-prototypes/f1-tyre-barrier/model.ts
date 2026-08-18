@@ -47,8 +47,8 @@ export interface F1TyreBarrierInstance {
 }
 
 const defaults: F1TyreBarrierConfig = { columns: 5, rows: 5, depth: 2, compound: 'intermediate' }
-const R = 0.36
-const W = 0.33
+const R = 0.32
+const W = 0.22
 const PITCH_X = R * 2 * 0.96
 const PITCH_Y = W * 0.94
 const PITCH_Z = R * 2 * 0.92
@@ -70,7 +70,7 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
   root.add(tyres)
 
   let prototype: F1TyreInstance | null = null
-  const materialSlots: Record<Slot, Material> = { tyre: options.materials?.tyre as Material }
+  const materialSlots: Record<Slot, Material> = { tyre: options.materials?.tyre ?? kit.ink }
   const generated: BufferGeometry[] = []
 
   const releaseGenerated = (): void => {
@@ -85,10 +85,22 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
     releaseGenerated()
     const { columns, rows, depth } = config
     const count = columns * rows * depth
+    const tyreMaterial = materialSlots.tyre
     prototype = createTyre({
+      radius: R,
+      width: W,
       treadSegments: 10,
       compound: config.compound,
-      materials: options.materials?.tyre ? { rubber: options.materials.tyre } : undefined,
+      tread: 'slick',
+      materials: {
+        rubber: tyreMaterial,
+        tread: tyreMaterial,
+        rim: tyreMaterial,
+        metal: tyreMaterial,
+        cover: tyreMaterial,
+        accent: tyreMaterial,
+        band: tyreMaterial,
+      },
     })
     prototype.root.updateMatrixWorld(true)
     materialSlots.tyre = prototype.materials.rubber
@@ -137,15 +149,15 @@ export function createModel(options: F1TyreBarrierOptions = {}): F1TyreBarrierIn
         hardware.push(tubeSection(0.016, wallH + 0.08, [x, wallH / 2, z], [0, 1, 0], 8))
       }
     }
-    for (let r = 0; r < rows; r++) {
+    for (let r = 0; r < rows; r += 2) {
       const y = W / 2 + r * PITCH_Y
-      const band = bevelBox(wallW * 0.9, 0.04, 0.032, 0.006)
+      const band = bevelBox(wallW * 0.94, 0.105, 0.018, 0.006)
       band.translate(0, y, frontZ)
       hardware.push(band)
     }
     const merged = mergeParts(hardware, 'straps')
     generated.push(merged)
-    const strapMesh = new Mesh(merged, kit.steel)
+    const strapMesh = new Mesh(merged, kit.fabric)
     strapMesh.name = 'straps'
     strapMesh.castShadow = true
     tyres.add(strapMesh)

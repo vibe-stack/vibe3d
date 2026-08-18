@@ -1,7 +1,7 @@
-// f1-gun-rack — a tubular A-frame rack holding idle `f1-tyre-gun` instances, sockets down. Depends
+// f1-gun-rack — a low tubular cradle holding idle `f1-tyre-gun` instances horizontally. Depends
 // on `f1-tyre-gun` for the individual guns, matching the kit's registry-dependency pattern for
 // props composed from other props. One shared gun material set is owned here so recolouring the rack
-// recolours every hanging gun.
+// recolours every staged gun.
 
 import {
   BufferGeometry,
@@ -51,8 +51,9 @@ export interface F1GunRackInstance {
 
 const defaults: F1GunRackConfig = { count: 3, accentColor: TOKEN.ORANGE_500 }
 
-const W = 1.4
-const H = 1.05
+const W = 1.0
+const H = 0.42
+const DEPTH = 0.72
 
 export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
   const config: F1GunRackConfig = {
@@ -110,16 +111,24 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
   const buildFrame = (): void => {
     releaseFrame()
     const parts: BufferGeometry[] = []
+    const halfW = W / 2
+    const halfD = DEPTH / 2
     for (const sx of [-1, 1] as const) {
-      parts.push(taperedTube([
-        new Vector3(sx * (W / 2 + 0.18), 0.02, 0.16),
-        new Vector3(sx * (W / 2), H, 0),
-        new Vector3(sx * (W / 2 + 0.18), 0.02, -0.16),
-      ], 0.035, 8))
-      parts.push(groundPad([0.12, 0.10], [sx * (W / 2 + 0.18), 0, 0.16], 0.024))
-      parts.push(groundPad([0.12, 0.10], [sx * (W / 2 + 0.18), 0, -0.16], 0.024))
+      for (const sz of [-1, 1] as const) {
+        parts.push(groundPad([0.11, 0.11], [sx * halfW, 0, sz * halfD], 0.022))
+        parts.push(taperedTube([
+          new Vector3(sx * halfW, 0.02, sz * halfD),
+          new Vector3(sx * halfW, H, sz * halfD),
+        ], 0.026, 8))
+      }
     }
-    parts.push(tubeSection(0.035, W, [0, H, 0], AXIS_X, 10))
+    for (const z of [-halfD, halfD]) {
+      parts.push(tubeSection(0.026, W, [0, H, z], AXIS_X, 10))
+      parts.push(tubeSection(0.022, W, [0, 0.13, z], AXIS_X, 10))
+    }
+    for (const x of [-halfW, halfW]) {
+      parts.push(tubeSection(0.026, DEPTH, [x, H, 0], [0, 0, 1], 10))
+    }
     emit('frame', mergeParts(parts, 'frame'), frameGroup, 'frame')
   }
 
@@ -133,9 +142,9 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
     const { count } = config
     for (let i = 0; i < count; i++) {
       const gun = createGun({ materials: gunMaterials })
-      const x = count <= 1 ? 0 : (i / (count - 1) - 0.5) * (W * 0.7)
-      gun.root.position.set(x, H - 0.12, 0)
-      gun.root.rotation.z = -Math.PI / 2
+      const z = count <= 1 ? 0 : (i / (count - 1) - 0.5) * (DEPTH * 0.62)
+      gun.root.position.set(0, H + 0.15, z)
+      gun.root.rotation.y = i % 2 === 0 ? 0 : 0.035
       gun.root.scale.setScalar(0.9)
       gunsGroup.add(gun.root)
       guns.push(gun)
@@ -175,5 +184,5 @@ export function createModel(options: F1GunRackOptions = {}): F1GunRackInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.6, 0], distance: 2.89 })
+  return createF1Preview(createModel(), { aspect, target: [0, 0.32, 0], distance: 2.85, yaw: -0.58, pitch: 0.36 })
 }

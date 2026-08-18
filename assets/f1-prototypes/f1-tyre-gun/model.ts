@@ -170,23 +170,29 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   const build = (): void => {
     releaseGenerated()
 
-    // --- Motor barrel: the volume behind the grip that makes this read as a machine -----------------
+    // --- Motor clamshell: compact Paoli-style mass with a broad carbon cover and cast rear case -------
+    const shell = bevelBox(0.22, 0.12, 0.11, 0.018)
+    shell.translate(-0.02, 0, 0)
     const gunmetalParts: BufferGeometry[] = [
-      tubeSection(0.055, 0.20, [-0.020, 0, 0], AXIS_X, 20),   // motor housing
-      tubeSection(0.045, 0.10, [-0.170, 0, 0], AXIS_X, 20),   // exhaust / regulator tail, behind the grip
-      axial(0.052, 0.048, 0.018, -0.229),  // end plate
-      axial(0.050, 0.055, 0.030, 0.093),   // shoulder into the nose
+      shell,
+      tubeSection(0.058, 0.065, [-0.162, 0, 0], AXIS_X, 20),
+      axial(0.064, 0.058, 0.022, -0.205),
+      axial(0.052, 0.058, 0.028, 0.105),
     ]
-    // Regulator dial on the tail, and a hanging lug on the crown.
-    const dial = tubeSection(0.024, 0.016, [-0.238, 0, 0], AXIS_X, 14)
-    gunmetalParts.push(dial)
-    const lug = bevelBox(0.040, 0.028, 0.014, 0.003)
-    lug.translate(-0.10, 0.062, 0)
+    // Regulator dial on the tail, hanging lug, and three raised cooling ribs break the shell.
+    gunmetalParts.push(tubeSection(0.026, 0.018, [-0.224, 0, 0], AXIS_X, 14))
+    const lug = bevelBox(0.04, 0.028, 0.014, 0.003)
+    lug.translate(-0.095, 0.068, 0)
     gunmetalParts.push(lug)
+    for (let i = 0; i < 3; i++) {
+      const rib = bevelBox(0.012, 0.022, 0.086, 0.003)
+      rib.translate(-0.135 + i * 0.026, 0.057, 0)
+      gunmetalParts.push(rib)
+    }
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
     // --- Nose: bearing housing, static, ahead of the barrel -----------------------------------------
-    const steelParts: BufferGeometry[] = [tubeSection(0.045, 0.050, [0.118, 0, 0], AXIS_X, 20)]
+    const steelParts: BufferGeometry[] = [tubeSection(0.048, 0.046, [0.132, 0, 0], AXIS_X, 20)]
     emit('steel', mergeParts(steelParts, 'nose'), body, 'nose')
 
     // --- Grip and trigger ----------------------------------------------------------------------------
@@ -235,10 +241,10 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     const spinnerParts: BufferGeometry[] = [
       // The anvil runs back into the bearing housing rather than butting against its face — meeting it
       // flush leaves a hairline coplanar seam that z-fights and reads as two unrelated parts.
-      tubeSection(0.022, 0.070, [0.152, 0, 0], AXIS_X, 16),
-      hexSocket(0.130, 0.086, 0.120),                  // socket, authored at the origin
+      tubeSection(0.021, 0.062, [0.166, 0, 0], AXIS_X, 16),
+      hexSocket(0.086, 0.054, 0.066),                  // socket, authored at the origin
     ]
-    spinnerParts[1]!.translate(0.248, 0, 0)
+    spinnerParts[1]!.translate(0.212, 0, 0)
     emit('steel', mergeParts(spinnerParts, 'socket'), spinner, 'socket')
   }
   build()

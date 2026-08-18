@@ -52,9 +52,9 @@ export interface F1PitJackInstance {
 
 const defaults: F1PitJackConfig = { lift: 0 }
 
-const JACK_PAD_X = 0.46
-const JACK_PAD_Y = 0.1
-const JACK_MAX_ANGLE = 0.42
+const JACK_PAD_X = 0.57
+const JACK_PAD_Y = 0.05
+const JACK_MAX_ANGLE = 0.29
 const JACK_LIFT_METERS = JACK_PAD_X * Math.sin(JACK_MAX_ANGLE) + JACK_PAD_Y * (Math.cos(JACK_MAX_ANGLE) - 1)
 
 export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
@@ -77,8 +77,8 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
   root.add(base, lever)
   lever.add(handle)
 
-  const pivotX = 0.0
-  const pivotY = 0.09
+  const pivotX = -0.2
+  const pivotY = 0.075
   lever.position.set(pivotX, pivotY, 0)
 
   const generated: BufferGeometry[] = []
@@ -108,19 +108,24 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
     releaseGenerated()
 
     const metalBase: BufferGeometry[] = []
-    const plate = bevelBox(0.55, 0.04, 0.3, 0.006)
-    plate.translate(0.1, 0.02, 0)
-    metalBase.push(plate)
     for (const sz of [1, -1] as const) {
-      const side = bevelBox(0.16, 0.11, 0.02, 0.004)
-      side.translate(pivotX, pivotY - 0.01, sz * 0.07)
+      const rail = bevelBox(0.79, 0.04, 0.045, 0.006)
+      rail.translate(0.145, 0.035, sz * 0.13)
+      metalBase.push(rail)
+      const side = bevelBox(0.15, 0.11, 0.024, 0.004)
+      side.translate(pivotX, pivotY - 0.005, sz * 0.07)
       metalBase.push(side)
     }
+    const rearTie = bevelBox(0.08, 0.04, 0.305, 0.006)
+    rearTie.translate(-0.22, 0.035, 0)
+    metalBase.push(rearTie)
     emit('metal', mergeParts(metalBase, 'base'), base, 'base')
 
     const rubberBase: BufferGeometry[] = [
-      castor([-0.12, 0, 0.13], 0.05, 0.4),
-      castor([-0.12, 0, -0.13], 0.05, -0.4),
+      castor([-0.18, 0, 0.16], 0.0355, 0.25),
+      castor([-0.18, 0, -0.16], 0.0355, -0.25),
+      castor([0.48, 0, 0.16], 0.0355, 0.12),
+      castor([0.48, 0, -0.16], 0.0355, -0.12),
     ]
     emit('rubber', mergeParts(rubberBase, 'casters'), base, 'casters')
 
@@ -128,23 +133,23 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
 
     emit('metal', ovalTube([
       new Vector3(0.0, 0.0, 0),
-      new Vector3(0.18, 0.02, 0),
-      new Vector3(0.34, 0.06, 0),
+      new Vector3(0.2, 0.005, 0),
+      new Vector3(0.4, 0.018, 0),
       new Vector3(JACK_PAD_X, JACK_PAD_Y, 0),
-    ], 0.045, 0.05, 12), lever, 'arm')
+    ], 0.034, 0.042, 12), lever, 'arm')
 
-    const crossbar = bevelBox(0.07, 0.03, 0.24, 0.004)
+    const crossbar = bevelBox(0.09, 0.03, 0.25, 0.004)
     crossbar.translate(JACK_PAD_X, JACK_PAD_Y, 0)
     emit('darkMetal', crossbar, lever, 'crossbar')
 
-    const padTop = bevelBox(0.06, 0.018, 0.22, 0.003)
+    const padTop = bevelBox(0.2, 0.018, 0.23, 0.006)
     padTop.translate(JACK_PAD_X, JACK_PAD_Y + 0.016, 0)
     emit('rubber', padTop, lever, 'pad')
 
-    handle.rotation.z = 0.9
-    const HL = 0.9
+    handle.rotation.z = 0.18
+    const HL = 1.08
     emit('metal', tubeSection(0.018, HL, [0, HL / 2, 0], [0, 1, 0], 12), handle, 'shaft')
-    emit('accent', tubeSection(0.026, 0.3, [0, HL - 0.15, 0], [0, 1, 0], 12), handle, 'grip')
+    emit('accent', tubeSection(0.026, 0.18, [0, HL - 0.09, 0], [0, 1, 0], 12), handle, 'grip')
   }
   rebuild()
 
@@ -178,7 +183,7 @@ export function createModel(options: F1PitJackOptions = {}): F1PitJackInstance {
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel()
-  const preview = createF1Preview(model, { aspect, target: [0.15, 0.1, 0], distance: 2.49 })
+  const preview = createF1Preview(model, { aspect, target: [0.12, 0.48, 0], distance: 2.85, yaw: -0.52, pitch: 0.2 })
   let lifted = false
   return {
     ...preview,

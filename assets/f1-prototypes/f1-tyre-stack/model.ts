@@ -147,7 +147,7 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
   }
   const materialSlots: Record<Slot, Material> = {
     blanket: options.materials?.blanket ?? kit.fabric,
-    strap: options.materials?.strap ?? kit.graphite,
+    strap: options.materials?.strap ?? kit.orange,
     cable: options.materials?.cable ?? kit.ink,
   }
 
@@ -214,7 +214,7 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
       instanced.receiveShadow = true
       for (let i = 0; i < count; i++) {
         pose.makeRotationX(Math.PI / 2)
-        pose.setPosition(0, R + i * TH, 0)
+        pose.setPosition(0, TYRE_HALF + 0.01 + i * TH, 0)
         composed.copy(pose).multiply(mesh.matrixWorld)
         instanced.setMatrixAt(i, composed)
       }
@@ -222,14 +222,11 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
       tyresGroup.add(instanced)
     })
 
-    // The blanket covers every course except the bottom one, so the tyres it wraps still read as tyres.
-    // The wrap starts at the seam above the exposed bottom tyre and ends past the top tyre's outer face,
-    // so each scallop spans exactly one course. Forgetting the tyre's half-width here is what made the
-    // blanket cover two courses instead of three and threw the bulges out of register with the tyres.
-    const covered = count - 1
-    if (covered < 1) return
-    const yBase = R + TH * 0.5
-    const yTop = R + (count - 1) * TH + TYRE_HALF + 0.02
+    // F1 heating blankets enclose every mounted tyre in the stack. Keep one scallop registered to each
+    // course and close over both end faces; exposed rubber belongs only on an unplugged tyre set.
+    const covered = count
+    const yBase = 0.01
+    const yTop = yBase + count * TH
     const height = yTop - yBase
 
     // --- Blanket: a scalloped revolve that bulges over each course and pinches at the seams -----------
@@ -303,19 +300,18 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
     ))
     emit('blanket', mergeParts(blanketParts, 'blanket'), blanketGroup, 'sleeve')
 
-    // --- Straps: a band at each course seam, each with one buckle at an unequal azimuth --------------
+    // --- Straps: one identifying belt per warmer, each with a buckle at an unequal azimuth -----------
     const strapParts: BufferGeometry[] = []
     const buckleAt = [25, 155, 290]
-    for (let c = 1; c < covered; c++) {
-      const y = yBase + (height * c) / covered
-      // Cinched over the bulge, not sunk in the valley: a strap tucked below the widest point is hidden
-      // by the course above it and reads as a painted ring rather than a band round the outside.
-      // Flat webbing sitting in the cinched waist, standing ~0.016 m proud of the fabric it compresses.
-      strapParts.push(wrapStrap(rPinch - 0.004, [0, y, 0], 0.060, 0.020, 40))
+    for (let c = 0; c < covered; c++) {
+      const y = yBase + (height * (c + 0.5)) / covered
+      // Flat identifying webbing follows the blanket's fullest circumference and stands clear enough to
+      // retain its own highlight rather than disappearing into the quilted shell.
+      strapParts.push(wrapStrap(rBulge + 0.006, [0, y, 0], 0.060, 0.020, 40))
 
       const buckle = bevelBox(0.060, 0.050, 0.022, 0.004)
       buckle.rotateY(Math.PI / 2) // face the buckle outward before the azimuth places it
-      strapParts.push(atAzimuth(buckle, rPinch + 0.024, y, buckleAt[(c - 1) % buckleAt.length]!))
+      strapParts.push(atAzimuth(buckle, rBulge + 0.034, y, buckleAt[c % buckleAt.length]!))
     }
     if (strapParts.length > 0) emit('strap', mergeParts(strapParts, 'straps'), blanketGroup, 'straps')
 
@@ -375,5 +371,5 @@ export function createModel(options: F1TyreStackOptions = {}): F1TyreStackInstan
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.6, 0], distance: 3.08 })
+  return createF1Preview(createModel(), { aspect, target: [0, 0.7, 0], distance: 3.55 })
 }

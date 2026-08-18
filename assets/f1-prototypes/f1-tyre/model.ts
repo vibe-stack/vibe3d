@@ -532,14 +532,13 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const model = createModel()
-  model.root.rotateX(Math.PI / 2)
-  model.root.position.y = 0.165
+  const model = createModel({ compound: 'medium', tread: 'slick' })
+  model.root.position.y = 0.36
   return createF1Preview(model, {
     aspect,
-    target: [0, 0.16, 0],
-    distance: 1.5,
-    pitch: 0.42,
-    yaw: -0.55,
+    target: [0, 0.36, 0],
+    distance: 1.42,
+    pitch: 0.08,
+    yaw: -0.12,
   })
 }
