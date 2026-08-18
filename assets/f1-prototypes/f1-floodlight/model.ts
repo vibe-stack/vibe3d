@@ -236,10 +236,11 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel({ height: 8 })
   return createF1Preview(model, {
     aspect,
-    target: [0, 7.45, 0.55],
-    distance: 4.6,
-    fov: 30,
-    pitch: 0.22,
+    target: [0, 7.5, 0.35],
+    distance: 4.8,
+    fov: 28,
+    yaw: -1.05,
+    pitch: 0.08,
     ground: true,
     bloom: true,
   })
