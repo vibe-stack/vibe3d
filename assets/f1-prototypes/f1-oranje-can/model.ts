@@ -119,8 +119,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     color: 0xffffff,
     vertexColors: true,
     transparent: true,
-    opacity: 0.18,
-    alphaTest: 0.025,
+    opacity: 0.15,
     depthWrite: false,
     toneMapped: true,
     blending: NormalBlending,
@@ -134,10 +133,32 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
   }
   if (options.materials?.body === undefined) {
     const bodyMat = materialSlots.body as MeshStandardMaterial
-    bodyMat.color.set(TOKEN.ORANGE_500)
-    bodyMat.roughness = 0.92
+    bodyMat.color.set(0x151a22)
+    bodyMat.roughness = 0.78
     bodyMat.metalness = 0
   }
+
+  const bodyOverride = options.materials?.body
+  const hardwareOverride = options.materials?.hardware
+  const makeDetailMaterial = (name: string, color: number, roughness: number, metalness = 0): Material => {
+    if (bodyOverride) return bodyOverride
+    return own(new MeshStandardMaterial({ name, color, roughness, metalness }))
+  }
+  const orangeBandMat = makeDetailMaterial('f1-kit / oranje identity band', TOKEN.ORANGE_500, 0.88)
+  const labelBlueMat = makeDetailMaterial('f1-kit / wire-pull blue label', 0x2454b8, 0.72)
+  const labelWhiteMat = makeDetailMaterial('f1-kit / wire-pull white label', 0xf1f2ea, 0.76)
+  const redCapMat = hardwareOverride ?? own(new MeshStandardMaterial({
+    name: 'f1-kit / wire-pull red cap',
+    color: 0xc52a24,
+    roughness: 0.68,
+    metalness: 0,
+  }))
+  const silverHardwareMat = hardwareOverride ?? own(new MeshStandardMaterial({
+    name: 'f1-kit / wire-pull silver hardware',
+    color: 0xc8cdd2,
+    roughness: 0.34,
+    metalness: 0.82,
+  }))
 
   const root = new Group()
   root.name = 'f1-oranje-can'
@@ -200,21 +221,21 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       const age = ageN * life
       const riseTau = 1.6
       const riseFrac = 1 - Math.exp(-age / riseTau)
-      const rise = 0.68 * Math.pow(riseFrac, 2.4)
+      const rise = 0.54 * Math.pow(riseFrac, 2.25)
       const driftT = Math.max(0, age - 0.18)
-      const drift = 0.16 * Math.min(driftT, 2.8)
+      const drift = 0.12 * Math.min(driftT, 2.8)
       const wanderVar = 0.45 + frac(g * PHI4)
-      const wander = (0.01 + 0.12 * riseFrac) * wanderVar
+      const wander = (0.004 + 0.085 * riseFrac * riseFrac) * wanderVar
       const wPhase = frac(g * PHI5) * Math.PI * 2
       const angle = frac(i * PHI4) * Math.PI * 2
-      const spread = frac(i * PHI7) * (0.006 + 0.05 * riseFrac)
+      const spread = frac(i * PHI7) * (0.002 + 0.038 * riseFrac * riseFrac)
       const x = Math.cos(angle) * spread + wind[0] * drift + Math.cos(wPhase + age * 0.7) * wander
       const y = MOUTH_Y + rise
       const z = Math.sin(angle) * spread + wind[1] * drift + Math.sin(wPhase + age * 0.7) * wander
-      const t = Math.pow(ageN, 1.2)
-      const stretch = 0.65 + 0.7 * frac(g * PHI4)
-      const width = (0.04 + 0.21 * t) * stretch
-      const height = (0.06 + 0.17 * t) / Math.max(0.55, stretch)
+      const t = Math.pow(riseFrac, 1.35)
+      const stretch = 0.78 + 0.44 * frac(g * PHI4)
+      const width = (0.018 + 0.17 * t) * stretch
+      const height = (0.035 + 0.14 * t) / Math.max(0.68, stretch)
       const fadeIn = clamp01(ageN / 0.02)
       const fadeOut = 0.65 + 0.35 * clamp01((1 - ageN) / 0.32)
       const alpha = fadeIn * fadeOut
@@ -226,7 +247,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       dummy.position.set(x, y - height * scale * 0.42, z)
       dummy.scale.set(width * scale, height * scale, 1)
       dummy.lookAt(cameraPos)
-      dummy.rotateZ(frac(g * PHI7) * Math.PI * 2)
+      dummy.rotateZ((frac(g * PHI7) - 0.5) * 0.7)
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
       tint.copy(SMOKE_BASE).lerp(SMOKE_TOP, Math.pow(riseFrac, 3.4))
@@ -256,25 +277,67 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       { yBot: 0, yTop: BODY_H, scaleW: 1, segments: 24 },
     ), body, 'cylinder')
 
+    const orangeBand = revolve(
+      [[0, BODY_R * 1.035], [1, BODY_R * 1.035]],
+      { yBot: 0.012, yTop: 0.043, scaleW: 1, segments: 24 },
+    )
+    emit('body', orangeBand, body, 'oranje-identity-band', orangeBandMat)
+
+    const labelAngle = -0.55
+    const labelPanel = (width: number, height: number, y: number, lift: number): BufferGeometry => {
+      const geometry = new PlaneGeometry(width, height)
+      geometry.rotateY(labelAngle)
+      geometry.translate(
+        Math.sin(labelAngle) * (BODY_R + lift),
+        y,
+        Math.cos(labelAngle) * (BODY_R + lift),
+      )
+      return geometry
+    }
+    emit('body', labelPanel(0.022, 0.068, 0.084, 0.0009), body, 'blue-label-field', labelBlueMat)
+    for (const [index, y] of [0.062, 0.072, 0.083, 0.094, 0.105].entries()) {
+      const width = index % 2 === 0 ? 0.014 : 0.01
+      emit('body', labelPanel(width, 0.0024, y, 0.00125), body, `white-label-mark-${index}`, labelWhiteMat)
+    }
+
     const base = bevelDisc(BODY_R * 0.92, 0.004, 0.0007, 18)
     base.rotateX(Math.PI / 2)
     base.translate(0, 0.0015, 0)
     emit('body', base, body, 'base')
 
+    const capCollar = revolve(
+      [[0, BODY_R * 1.025], [1, BODY_R * 1.025]],
+      { yBot: BODY_H - 0.012, yTop: BODY_H + 0.001, scaleW: 1, segments: 24 },
+    )
+    emit('hardware', capCollar, body, 'red-cap-collar', redCapMat)
+
     const lid = bevelDisc(BODY_R * 0.96, 0.005, 0.0008, 18)
     lid.translate(0, BODY_H + 0.002, 0)
-    emit('hardware', lid, body, 'lid')
+    emit('hardware', lid, body, 'red-cap', redCapMat)
     const mouth = bevelRing(0.003, 0.007, 0.006, 0.0006, 12)
     mouth.translate(0, MOUTH_Y, 0)
-    emit('hardware', mouth, body, 'mouth')
+    emit('hardware', mouth, body, 'mouth', silverHardwareMat)
 
+    const ringAngle = -0.55
+    const ringNormal: readonly [number, number, number] = [Math.sin(ringAngle), 0, Math.cos(ringAngle)]
+    const ringTangent: readonly [number, number, number] = [Math.cos(ringAngle), 0, -Math.sin(ringAngle)]
     const hardware: BufferGeometry[] = []
-    hardware.push(tubeSection(0.0012, 0.022, [0.009, BODY_H + 0.012, 0], [0, 1, 0], 8))
-    const ring = bevelRing(0.01, 0.013, 0.0018, 0.0004, 18)
-    ring.rotateZ(Math.PI / 2)
-    ring.translate(0.027, BODY_H + 0.024, 0)
+    hardware.push(tubeSection(
+      0.0013,
+      0.018,
+      [ringNormal[0] * 0.018, BODY_H + 0.008, ringNormal[2] * 0.018],
+      ringNormal,
+      8,
+    ))
+    const ring = bevelRing(0.0115, 0.015, 0.0018, 0.00045, 20)
+    ring.rotateY(ringAngle)
+    ring.translate(
+      ringNormal[0] * (BODY_R + 0.003) - ringTangent[0] * 0.018,
+      BODY_H - 0.004,
+      ringNormal[2] * (BODY_R + 0.003) - ringTangent[2] * 0.018,
+    )
     hardware.push(ring)
-    emit('hardware', mergeParts(hardware, 'wire-pull'), body, 'wire-pull')
+    emit('hardware', mergeParts(hardware, 'wire-pull'), body, 'wire-pull', silverHardwareMat)
 
     const cardGeo = new PlaneGeometry(1, 1)
     plumeMesh = new InstancedMesh(cardGeo, materialSlots.smoke, PLUME_N)
@@ -325,9 +388,9 @@ export function createPreview({ aspect, time }: { aspect: number; time?: number 
   const model = createModel({ lit: true })
   const preview = createF1Preview(model, {
     aspect,
-    target: [0.03, 0.5, 0.04],
-    distance: 1.7,
-    fov: 34,
+    target: [0.015, 0.37, 0.03],
+    distance: 1.35,
+    fov: 32,
     yaw: -0.55,
     pitch: 0.18,
     ground: false,
