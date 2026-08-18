@@ -223,17 +223,19 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
           ))
         }
 
-        // Eight explicit nodes make the corner load path legible: square rings, verticals, one diagonal.
+        // The outer perimeter supplies two cage edges; only the two inward links are added here.
+        // Crossed diagonals transfer that outer corner node into the inset roof without doubled rails.
         for (const y of [lowerY, upperY]) {
-          for (let edge = 0; edge < footprint.length; edge++) {
-            const a = footprint[edge]!
-            const b = footprint[(edge + 1) % footprint.length]!
-            roofParts.push(member(
-              new Vector3(a.x, y, a.z),
-              new Vector3(b.x, y, b.z),
-              CHORD,
-            ))
-          }
+          roofParts.push(member(
+            new Vector3(xInner, y, zOuter),
+            new Vector3(xInner, y, zInner),
+            CHORD,
+          ))
+          roofParts.push(member(
+            new Vector3(xInner, y, zInner),
+            new Vector3(xOuter, y, zInner),
+            CHORD,
+          ))
         }
         for (const point of footprint) {
           roofParts.push(member(
@@ -246,6 +248,12 @@ export function createModel(options: F1PitGantryOptions = {}): F1PitGantryInstan
         roofParts.push(member(
           new Vector3(xOuter, lowerY, zOuter),
           new Vector3(xInner, upperY, zInner),
+          LACE,
+          6,
+        ))
+        roofParts.push(member(
+          new Vector3(xInner, lowerY, zInner),
+          new Vector3(xOuter, upperY, zOuter),
           LACE,
           6,
         ))
