@@ -55,7 +55,7 @@ own materials into `createModel()`.
 
 ## What's next
 
-Preview sheets on vibe-stack/vibe3d#7 are SHA-pinned to `e219a3734e4e484e85b91ccc14015db4c98c71be` (`docs/assets/f1-kit-previews/`).
+Preview sheets on vibe-stack/vibe3d#7 are SHA-pinned to `0e4b56f32f10fafe5dc2558f5852585e7d893505` (`docs/assets/f1-kit-previews/f1-kit.png`).
 
 The assembled car itself — chassis, wings, halo, cockpit, and a paintable
 livery system — is a separate, later addition to this kit, once every
