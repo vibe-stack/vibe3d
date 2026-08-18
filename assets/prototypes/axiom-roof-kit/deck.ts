@@ -58,7 +58,7 @@ export function deck(parent: Group, m: KitMaterials, width: number, depth: numbe
 export function curb(parent: Group, m: KitMaterials, width: number, depth: number, height = 0.28, centre: Vec3 = [0, 0, 0]): void {
   const [cx, , cz] = centre
   block(parent, m.graphite, [width, height, depth], [cx, height * 0.5, cz])
-  block(parent, m.deck, [width + 0.06, 0.05, depth + 0.06], [cx, height + 0.02, cz])
+  block(parent, m.shell, [width + 0.06, 0.05, depth + 0.06], [cx, height + 0.02, cz])
   // Membrane turn-up: the reason the curb exists, drawn as the thing it is.
   block(parent, m.ink, [width + 0.09, 0.09, depth + 0.09], [cx, 0.045, cz])
 }
@@ -70,7 +70,7 @@ export function curb(parent: Group, m: KitMaterials, width: number, depth: numbe
 export function outlet(parent: Group, m: KitMaterials, centre: Vec3): void {
   const [cx, , cz] = centre
   block(parent, m.ink, [0.42, 0.09, 0.42], [cx, -0.04, cz])
-  block(parent, m.steel, [0.3, 0.03, 0.3], [cx, -0.005, cz])
+  block(parent, m.porcelain, [0.3, 0.03, 0.3], [cx, -0.005, cz])
   for (let index = 0; index < 4; index += 1) {
     block(parent, m.ink, [0.26, 0.02, 0.028], [cx, 0.006, cz - 0.09 + index * 0.06])
   }
@@ -89,7 +89,14 @@ export function parapet(
   const t = 0.18
   const run = (size: Vec3, position: Vec3): void => {
     block(parent, m.graphite, size, [position[0], height * 0.5, position[2]])
-    block(parent, m.deck, [size[0] + 0.1, 0.09, size[2] + 0.1], [position[0], height + 0.045, position[2]])
+    // Coping in the light tier, not another shade of the wall under it.
+    //
+    // The whole roof group was built from graphite, ink, steel and deck — 97
+    // uses against 5 from the light tier — so ten models came out as one flat
+    // value and the batch read as grey slabs. A coping is capping metal and is
+    // genuinely lighter than the upstand; making it so gives every parapet in
+    // the group a horizontal highlight to read against the sky.
+    block(parent, m.porcelain, [size[0] + 0.1, 0.09, size[2] + 0.1], [position[0], height + 0.045, position[2]])
     block(parent, m.ink, [size[0] + 0.04, 0.1, size[2] + 0.04], [position[0], 0.05, position[2]])
   }
   if (sides.includes('front')) run([width, height, t], [0, 0, depth / 2 - t / 2])

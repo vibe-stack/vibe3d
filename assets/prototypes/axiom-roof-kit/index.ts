@@ -82,12 +82,17 @@ export interface RoofBuild {
 
 const PROFILES = (m: KitMaterials): Map<MeshPhysicalMaterial, WearProfile> => new Map([
   // A roof is the one surface nobody maintains for looks, so its grime tier runs
-  // above the rest of the kit's while its rub stays low — nothing rubs a roof.
-  [m.shell, { rub: 0.008, grime: 0.05, scratch: 0 }],
-  [m.porcelain, { rub: 0.006, grime: 0.04, scratch: 0 }],
-  [m.graphite, { rub: 0.012, grime: 0.06, scratch: 0.002 }],
-  [m.deck, { rub: 0.014, grime: 0.09, scratch: 0.004 }],
-  [m.ink, { rub: 0.01, grime: 0.11, scratch: 0.004 }],
+  // above the rest of the kit's. Rub was set almost to zero on the theory that
+  // nothing rubs a roof — true of a membrane, false of every edge a boot, a
+  // ladder or a service trolley crosses, and suppressing it left the whole
+  // group with no edge definition at all. Rub now lands on the parts that are
+  // actually walked on and stepped over.
+  [m.shell, { rub: 0.05, grime: 0.05, scratch: 0.01 }],
+  [m.porcelain, { rub: 0.06, grime: 0.045, scratch: 0.012 }],
+  [m.graphite, { rub: 0.045, grime: 0.06, scratch: 0.02 }],
+  [m.deck, { rub: 0.03, grime: 0.09, scratch: 0.012 }],
+  [m.ink, { rub: 0.02, grime: 0.11, scratch: 0.008 }],
+  [m.steel, { rub: 0.11, grime: 0.05, scratch: 0.06 }],
 ])
 
 export function createRoofModel(spec: RoofBuild): RoofModel {
