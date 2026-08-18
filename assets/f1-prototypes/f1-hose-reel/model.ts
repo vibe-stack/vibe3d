@@ -17,8 +17,10 @@ import {
   Group,
   MathUtils,
   Mesh,
+  MeshStandardMaterial,
   Path,
   Shape,
+  TorusGeometry,
   TubeGeometry,
   Vector3,
   type Material,
@@ -65,16 +67,16 @@ export interface F1HoseReelInstance {
 // 8 wraps across the 0.300 m drum gives a 0.0375 m pitch against a 0.042 m hose OD, so adjacent turns
 // overlap slightly and nest. Anything looser leaves air between wraps and the coil reads as corrugated
 // ducting rather than wound hose.
-const defaults: F1HoseReelConfig = { wraps: 8, layers: 4 }
+const defaults: F1HoseReelConfig = { wraps: 6, layers: 2 }
 
 // --- Drum geometry, world units ---------------------------------------------------------------------
 const AXLE_Y = 0.34        // axle height — low, so the drum's lowest point clears the floor by ~0.06 m
-const HALF_SPAN = 0.150    // half the usable drum width, so the coil is 0.300 m wide
-const R_BARREL = 0.115     // drum barrel radius
-const HOSE_R = 0.021       // 42 mm OD air hose
-const LAYER_PITCH = 0.042  // radial step between wound layers
-const R_FLANGE = 0.300     // flange radius — just proud of the outermost wrap, so it retains the coil
-const X_FLANGE = 0.165     // flange offset from the drum centre along the axle
+const HALF_SPAN = 0.115    // narrow hose pack leaves the glossy drum shoulders visible
+const R_BARREL = 0.145     // drum barrel radius
+const HOSE_R = 0.018       // 36 mm OD rubber hose
+const LAYER_PITCH = 0.036  // radial step between wound layers
+const R_FLANGE = 0.255     // restrained pressed flanges, not oversized moulded discs
+const X_FLANGE = 0.180     // flange offset from the drum centre along the axle
 
 // ---------------------------------------------------------------------------------------------------
 // Local geometry helpers, deliberately private to this file rather than shared through f1-kit-core:
@@ -105,14 +107,15 @@ function ringPlate(rIn: number, rOut: number, depth: number, bevel: number): Buf
 /** A shallow rolled plate flange, matching the pressed-steel Coxreels drum construction. */
 function flangePlate(): BufferGeometry {
   const parts: BufferGeometry[] = [
-    ringPlate(0.095, R_FLANGE, 0.016, 0.005),
-    ringPlate(0.048, 0.108, 0.022, 0.004),
+    ringPlate(0.062, R_FLANGE - 0.008, 0.010, 0.003),
+    ringPlate(0.045, 0.092, 0.016, 0.003),
+    new TorusGeometry(R_FLANGE - 0.008, 0.008, 5, 48),
   ]
-  // Four shallow radial swages keep the broad plate from reading as an unstructured flat disc.
-  for (let i = 0; i < 4; i++) {
-    const rib = bevelBox(0.150, 0.018, 0.010, 0.003)
-    rib.translate(0.175, 0, 0.010)
-    rib.rotateZ(i * Math.PI / 2 + Math.PI / 4)
+  // Six low pressed swages catch a highlight without turning the dish into a starburst.
+  for (let i = 0; i < 6; i++) {
+    const rib = bevelBox(0.112, 0.012, 0.007, 0.002)
+    rib.translate(0.150, 0, 0.007)
+    rib.rotateZ(i * Math.PI / 3)
     parts.push(rib)
   }
   const geo = mergeParts(parts, 'flange')
@@ -153,12 +156,20 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  kit.cobalt.roughness = 0.20
+  kit.cobalt.metalness = 0.62
   const materialSlots: Record<Slot, Material> = {
-    accent: options.materials?.accent ?? kit.amber,
-    stand: options.materials?.stand ?? kit.graphite,
-    hose: options.materials?.hose ?? kit.ink,
+    accent: options.materials?.accent ?? kit.cobalt,
+    stand: options.materials?.stand ?? kit.cobalt,
+    hose: options.materials?.hose ?? kit.tread,
     metal: options.materials?.metal ?? kit.steel,
   }
+  const brass = new MeshStandardMaterial({
+    name: 'f1-kit / hose-reel brass',
+    color: 0xc89b3c,
+    roughness: 0.24,
+    metalness: 0.88,
+  })
 
   // Runtime anchors: created once, never replaced, so consumer attachments survive a rebuild (rules 10, 14).
   const root = new Group()
@@ -210,55 +221,51 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     coil.translate(0, AXLE_Y, 0)
     const hoseParts: BufferGeometry[] = [coil]
 
-    // Lead hose: leaves the outermost wrap at the front quarter, through the guide nip, then down to the
-    // floor. Routed off the top centreline so it never fouls the carry bow.
-    hoseParts.push(taperedTube([
-      new Vector3(0.00, AXLE_Y + rOuter * 0.80, 0.15),
-      new Vector3(0.02, AXLE_Y + rOuter * 0.86, 0.205),
-      new Vector3(0.07, AXLE_Y * 1.40, 0.30),
-      new Vector3(0.16, AXLE_Y * 0.74, 0.42),
-      new Vector3(0.28, 0.10, 0.50),
-      new Vector3(0.44, 0.028, 0.54),
-    ], HOSE_R * 0.92, 10))
+    // The reference is neatly wound: omit a dangling lead so the barrel shoulders and frame remain legible.
     emit('hose', mergeParts(hoseParts, 'hose'), hoseGroup, 'hose')
 
     // --- Drum barrel, hubs, crank and stand ---------------------------------------------------------
     const standParts: BufferGeometry[] = []
     const metalParts: BufferGeometry[] = []
 
-    standParts.push(tubeSection(R_BARREL, HALF_SPAN * 2 + 0.02, [0, AXLE_Y, 0], AXIS_X, 26))
+    standParts.push(tubeSection(R_BARREL, X_FLANGE * 2 - 0.014, [0, AXLE_Y, 0], AXIS_X, 32))
 
     for (const sx of [-1, 1] as const) {
-      // Hub boss standing proud of the flange, so the axle line reads from the side.
-      standParts.push(tubeSection(0.055, 0.030, [sx * (X_FLANGE + 0.015), AXLE_Y, 0], AXIS_X, 20))
-
-      // Four hex fasteners on the outboard face of each hub.
+      standParts.push(tubeSection(0.052, 0.026, [sx * (X_FLANGE + 0.013), AXLE_Y, 0], AXIS_X, 20))
+      const hubPlate = bevelBox(0.012, 0.112, 0.112, 0.008)
+      hubPlate.translate(sx * (X_FLANGE + 0.025), AXLE_Y, 0)
+      metalParts.push(hubPlate)
       for (let i = 0; i < 4; i++) {
         const a = (i / 4) * Math.PI * 2 + Math.PI / 4
         metalParts.push(bolt(
-          [sx * (X_FLANGE + 0.022), AXLE_Y + Math.sin(a) * 0.075, Math.cos(a) * 0.075],
-          0.012, 0.016, AXIS_X,
+          [sx * (X_FLANGE + 0.034), AXLE_Y + Math.sin(a) * 0.041, Math.cos(a) * 0.041],
+          0.009, 0.010, AXIS_X,
         ))
       }
     }
 
-    // --- Crank handle: the silhouette cue that says "reel" ------------------------------------------
-    // A proper offset Z-crank mounted outboard of the frame upright, on the axle running through its
-    // bearing: 0.130 m of throw, with the grip standing clear of the flange so it breaks the drum
-    // silhouette and reads as something a hand can actually turn.
-    const crankX = 0.310
-    const throwY = 0.130
-    const arm = bevelBox(throwY + 0.030, 0.032, 0.017, 0.004)
-    arm.rotateY(Math.PI / 2) // lay the arm's length into the flange plane
-    arm.rotateX(Math.PI / 2)
+    // Long right-hand crank: bright arm and journals, with a separate black rotating grip.
+    const crankX = 0.305
+    const throwY = 0.145
+    const arm = bevelBox(0.018, throwY + 0.025, 0.030, 0.005)
     arm.translate(crankX, AXLE_Y + throwY / 2, 0)
     metalParts.push(arm)
+    metalParts.push(tubeSection(0.018, 0.100, [crankX - 0.050, AXLE_Y, 0], AXIS_X, 14))
+    emit('hose', tubeSection(0.024, 0.205, [crankX + 0.115, AXLE_Y + throwY, 0], AXIS_X, 16), standGroup, 'crank-grip')
 
-    standParts.push(tubeSection(0.018, 0.095, [crankX + 0.062, AXLE_Y + throwY, 0], AXIS_X, 12))
-
-    for (const dx of [0.008, 0.116]) {
-      metalParts.push(tubeSection(0.022, 0.008, [crankX + dx, AXLE_Y + throwY, 0], AXIS_X, 14))
-    }
+    // Prominent left brass swivel with a rotary gland, block body, and raised outlet.
+    const brassParts: BufferGeometry[] = []
+    brassParts.push(tubeSection(0.035, 0.085, [-0.280, AXLE_Y, 0], AXIS_X, 18))
+    const swivelBody = bevelBox(0.075, 0.085, 0.072, 0.010)
+    swivelBody.translate(-0.336, AXLE_Y, 0)
+    brassParts.push(swivelBody)
+    brassParts.push(tubeSection(0.027, 0.080, [-0.374, AXLE_Y + 0.065, 0], AXIS_X, 14))
+    const brassGeometry = mergeParts(brassParts, 'brass-swivel')
+    generated.push(brassGeometry)
+    const brassMesh = new Mesh(brassGeometry, brass)
+    brassMesh.name = 'brass-swivel'
+    brassMesh.castShadow = true
+    standGroup.add(brassMesh)
 
     // Guide roller pair forming the nip the lead hose passes through, at the drum's front quarter.
     // Axes run parallel to the drum axle, as a real hose guide's do.
@@ -270,49 +277,35 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
       ))
     }
 
-    // --- Stand: one bent tube, the way a real reel frame is made ------------------------------------
-    // Up from the floor on the left, over the drum as a carry bow, and back down on the right. Each
-    // upright lands on its own front-to-back floor tube. This keeps every tube clear of the flange
-    // faces, so nothing crosses the flange the crank turns on.
-    // The uprights sit well outboard of the flanges so the frame straddles the drum rather than crossing
-    // its face — a tube running down the front of the flange makes the drum read as threaded onto a
-    // handle instead of journalled in a frame.
-    const upright = 0.262
-    standParts.push(taperedTube([
-      new Vector3(-upright, 0.045, 0),
-      new Vector3(-upright + 0.010, AXLE_Y * 0.55, 0),
-      new Vector3(-upright + 0.016, AXLE_Y, 0),
-      // The bow has to clear the flange's top edge (AXLE_Y + R_FLANGE) or it hides inside the drum.
-      new Vector3(-upright + 0.024, AXLE_Y + R_FLANGE + 0.035, 0),
-      new Vector3(0, AXLE_Y + R_FLANGE + 0.07, 0),
-      new Vector3(upright - 0.024, AXLE_Y + R_FLANGE + 0.035, 0),
-      new Vector3(upright - 0.016, AXLE_Y, 0),
-      new Vector3(upright - 0.010, AXLE_Y * 0.55, 0),
-      new Vector3(upright, 0.045, 0),
-    ], 0.017, 12))
-
+    // Each side is one continuous bent sled from front foot, around the drum, to rear foot.
+    const upright = 0.278
     for (const sx of [-1, 1] as const) {
-      // Front-to-back floor tube, with the upright's foot landing on its centre.
       standParts.push(taperedTube([
-        new Vector3(sx * upright, 0.024, -0.27),
-        new Vector3(sx * upright, 0.030, 0),
-        new Vector3(sx * upright, 0.024, 0.27),
+        new Vector3(sx * upright, 0.025, 0.31),
+        new Vector3(sx * upright, 0.035, 0.18),
+        new Vector3(sx * upright, AXLE_Y, 0.12),
+        new Vector3(sx * upright, AXLE_Y + R_FLANGE + 0.055, 0.04),
+        new Vector3(sx * upright, AXLE_Y + R_FLANGE + 0.065, -0.13),
+        new Vector3(sx * upright, AXLE_Y, -0.18),
+        new Vector3(sx * upright, 0.075, -0.26),
+        new Vector3(sx * upright, 0.025, -0.32),
       ], 0.017, 12))
 
-      // Bearing boss where the axle passes through the upright — the axle story the frame needs.
-      standParts.push(tubeSection(0.032, 0.034, [sx * (upright - 0.016), AXLE_Y, 0], AXIS_X, 18))
-
-      // Axle stub spanning from the hub out to its bearing.
+      standParts.push(tubeSection(0.032, 0.034, [sx * upright, AXLE_Y, 0], AXIS_X, 18))
       standParts.push(tubeSection(
         0.019, upright - X_FLANGE,
         [sx * (X_FLANGE + (upright - X_FLANGE) / 2), AXLE_Y, 0],
         AXIS_X, 14,
       ))
-
       for (const sz of [-1, 1] as const) {
-        standParts.push(groundPad([0.070, 0.060], [sx * upright, 0.002, sz * 0.255], 0.018))
+        standParts.push(groundPad([0.058, 0.050], [sx * upright, 0.002, sz * 0.30], 0.016))
       }
     }
+    standParts.push(taperedTube([
+      new Vector3(-upright, AXLE_Y + R_FLANGE + 0.062, -0.13),
+      new Vector3(0, AXLE_Y + R_FLANGE + 0.075, -0.13),
+      new Vector3(upright, AXLE_Y + R_FLANGE + 0.062, -0.13),
+    ], 0.017, 12))
 
     emit('stand', mergeParts(standParts, 'stand'), standGroup, 'frame')
     emit('metal', mergeParts(metalParts, 'metal'), standGroup, 'fittings')
@@ -337,6 +330,7 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     update: () => {},
     dispose() {
       releaseGenerated()
+      brass.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -344,5 +338,7 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0.1, 0.35, 0], distance: 1.84 })
+  return createF1Preview(createModel(), {
+    aspect, target: [0, 0.34, 0], distance: 1.72, yaw: -0.58, pitch: 0.27,
+  })
 }
