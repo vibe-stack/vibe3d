@@ -49,7 +49,7 @@ const defaults: F1ToolCabinetConfig = { width: 0.9 }
 const H = 0.78
 const D = 0.52
 const ROWS = 6
-const CASTOR_R = 0.074
+const CASTOR_R = 0.085
 const PLINTH_H = 0.05
 const PLINTH_Y = CASTOR_R * 2.9
 const BODY_Y = PLINTH_Y + PLINTH_H
@@ -113,42 +113,36 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
     emit('body', mergeParts(bodyParts, 'carcass'), bodyGroup, 'carcass')
 
     const topY = BODY_Y + H
-    const workSurface = bevelBox(W - 0.055, 0.018, D - 0.035, 0.004)
-    workSurface.translate(0, topY + 0.018, 0)
-    emit('top', workSurface, bodyGroup, 'recessed-mesh-work-surface')
+    const workSurface = bevelBox(W - 0.090, 0.014, D - 0.090, 0.004)
+    workSurface.translate(0, topY + 0.014, 0)
+    emit('top', workSurface, bodyGroup, 'deep-recessed-work-surface')
 
     const blackParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
-      const rail = bevelBox(0.034, 0.038, D + 0.055, 0.009)
-      rail.translate(sx * (W / 2 + 0.006), topY + 0.029, 0)
+      const rail = bevelBox(0.056, 0.064, D + 0.080, 0.016)
+      rail.translate(sx * (W / 2 + 0.010), topY + 0.041, 0)
       blackParts.push(rail)
     }
     for (const sz of [-1, 1] as const) {
-      const rail = bevelBox(W + 0.045, 0.038, 0.032, 0.008)
-      rail.translate(0, topY + 0.029, sz * (D / 2 + 0.006))
+      const rail = bevelBox(W + 0.075, 0.064, 0.054, 0.016)
+      rail.translate(0, topY + 0.041, sz * (D / 2 + 0.010))
       blackParts.push(rail)
     }
-    // Recessed dark perforations leave the silver anti-slip panel as the dominant top value.
-    for (let ix = -6; ix <= 6; ix++) {
-      for (let iz = -3; iz <= 3; iz++) {
-        const hole = bevelBox(0.007, 0.004, 0.007, 0.0015)
-        hole.translate(ix * (W - 0.11) / 13, topY + 0.029, iz * (D - 0.10) / 7)
+    for (let ix = -7; ix <= 7; ix++) {
+      for (let iz = -4; iz <= 4; iz++) {
+        const hole = bevelBox(0.006, 0.003, 0.006, 0.001)
+        hole.translate(ix * (W - 0.14) / 15, topY + 0.0225, iz * (D - 0.14) / 9)
         blackParts.push(hole)
       }
     }
 
-    const fascia = bevelBox(W - 0.075, 0.078, 0.026, 0.008)
-    fascia.translate(0, topY - 0.030, D / 2 + 0.020)
-    emit('top', fascia, bodyGroup, 'front-fascia')
-    for (let i = -2; i <= 2; i++) {
-      const mark = bevelBox(i === 0 ? 0.058 : 0.038, 0.010, 0.010, 0.002)
-      mark.translate(i * 0.052, topY - 0.030, D / 2 + 0.038)
-      blackParts.push(mark)
-    }
+    const fascia = bevelBox(W - 0.030, 0.088, 0.032, 0.010)
+    fascia.translate(0, topY - 0.034, D / 2 + 0.023)
+    emit('top', fascia, bodyGroup, 'full-width-silver-fascia')
 
     const fieldH = H - 0.125
     const rowGap = 0.012
-    const rowWeights = [1, 1, 1, 1, 1.85, 1.85] as const
+    const rowWeights = [1, 1, 1, 1, 2.25, 2.25] as const
     const weightTotal = rowWeights.reduce((sum, weight) => sum + weight, 0)
     const faceT = 0.020
     const faceZ = D / 2 - 0.008 + faceT / 2
@@ -158,13 +152,16 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
     for (let i = 0; i < ROWS; i++) {
       const faceH = (fieldH - rowGap * (ROWS - 1)) * rowWeights[i]! / weightTotal
       const y = cursorY - faceH / 2
-      const face = bevelBox(W - 0.105, faceH, faceT, 0.006)
+      const face = bevelBox(W - 0.105, faceH, faceT, 0.005)
       face.translate(0, y, faceZ)
       drawerParts.push(face)
 
-      const pull = new CylinderGeometry(0.018, 0.018, W - 0.165, 16)
-      pull.rotateZ(Math.PI / 2)
-      pull.translate(0, y + faceH / 2 - 0.026, faceZ + faceT / 2 + 0.020)
+      const pullY = y + faceH / 2 - Math.min(0.030, faceH * 0.30)
+      const channel = bevelBox(W - 0.135, 0.050, 0.014, 0.006)
+      channel.translate(0, pullY, D / 2 + 0.014)
+      blackParts.push(channel)
+      const pull = bevelBox(W - 0.170, 0.034, 0.008, 0.007)
+      pull.translate(0, pullY, D / 2 + 0.023)
       handleParts.push(pull)
       cursorY -= faceH + rowGap
     }
@@ -180,36 +177,47 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
     ], false, 'centripetal')
     emit('handle', new TubeGeometry(pushPath, 32, 0.016, 12, false), bodyGroup, 'tubular-push-handle')
 
-    // Slim segmented guards protect the uprights without hiding the enamel carcass.
+    // Each guard wraps around the front corner instead of reading as an applied row of blocks.
     for (const sx of [-1, 1] as const) {
       for (let i = 0; i < 8; i++) {
-        const guard = bevelBox(0.037, H / 8 - 0.010, 0.028, 0.006)
-        guard.translate(sx * (W / 2 + 0.008), BODY_Y + H * (i + 0.5) / 8, D / 2 + 0.017)
-        blackParts.push(guard)
+        const segmentH = H / 8 - 0.009
+        const front = bevelBox(0.055, segmentH, 0.038, 0.009)
+        front.translate(sx * (W / 2 + 0.009), BODY_Y + H * (i + 0.5) / 8, D / 2 + 0.018)
+        blackParts.push(front)
+        const sideReturn = bevelBox(0.036, segmentH, 0.078, 0.009)
+        sideReturn.translate(sx * (W / 2 + 0.019), BODY_Y + H * (i + 0.5) / 8, D / 2 - 0.020)
+        blackParts.push(sideReturn)
       }
     }
 
     const forkParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
       for (const sz of [-1, 1] as const) {
-        const x = sx * (W / 2 - 0.095)
-        const z = sz * (D / 2 - 0.080)
-        const wheel = new CylinderGeometry(CASTOR_R, CASTOR_R, CASTOR_R * 0.48, 20)
+        const x = sx * (W / 2 - 0.100)
+        const z = sz * (D / 2 - 0.085)
+        const wheel = new CylinderGeometry(CASTOR_R, CASTOR_R, CASTOR_R * 0.52, 24)
         wheel.rotateZ(Math.PI / 2)
         wheel.translate(x, CASTOR_R, z)
         blackParts.push(wheel)
 
+        const hub = new CylinderGeometry(CASTOR_R * 0.25, CASTOR_R * 0.25, CASTOR_R * 0.78, 16)
+        hub.rotateZ(Math.PI / 2)
+        hub.translate(x, CASTOR_R, z)
+        forkParts.push(hub)
         for (const side of [-1, 1] as const) {
-          const cheek = bevelBox(CASTOR_R * 0.18, CASTOR_R * 1.55, CASTOR_R * 0.22, 0.004)
-          cheek.translate(x + side * CASTOR_R * 0.36, CASTOR_R * 1.48, z)
+          const cheek = bevelBox(CASTOR_R * 0.17, CASTOR_R * 1.42, CASTOR_R * 0.27, 0.005)
+          cheek.translate(x + side * CASTOR_R * 0.43, CASTOR_R * 1.55, z)
           forkParts.push(cheek)
         }
-        const crown = bevelBox(CASTOR_R * 1.08, CASTOR_R * 0.18, CASTOR_R * 0.90, 0.005)
-        crown.translate(x, CASTOR_R * 2.18, z)
+        const crown = bevelBox(CASTOR_R * 1.12, CASTOR_R * 0.20, CASTOR_R * 0.94, 0.006)
+        crown.translate(x, CASTOR_R * 2.25, z)
         forkParts.push(crown)
-        const stem = new CylinderGeometry(CASTOR_R * 0.18, CASTOR_R * 0.18, CASTOR_R * 0.55, 12)
-        stem.translate(x, CASTOR_R * 2.54, z)
+        const stem = new CylinderGeometry(CASTOR_R * 0.19, CASTOR_R * 0.19, CASTOR_R * 0.42, 14)
+        stem.translate(x, CASTOR_R * 2.55, z)
         forkParts.push(stem)
+        const mount = bevelBox(CASTOR_R * 1.30, 0.018, CASTOR_R * 1.12, 0.005)
+        mount.translate(x, PLINTH_Y - 0.012, z)
+        forkParts.push(mount)
       }
     }
     emit('caster', mergeParts(blackParts, 'rubber-guards-and-top-rails'), casters, 'rubber-and-guards')
@@ -240,5 +248,5 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), { aspect, target: [0, 0.54, 0], distance: 2.55 })
+  return createF1Preview(createModel(), { aspect, target: [0, 0.57, 0], distance: 2.62, pitch: 0.47 })
 }
