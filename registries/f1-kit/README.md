@@ -40,7 +40,7 @@ bunx vibe3d add @f1-kit/f1-tool-cabinet
 Thirteen more props for the circuit itself: catch fence, Armco, a tyre barrier
 instanced from `f1-tyre`, a TecPro stack, FIA start lights, a kerb run, a
 floodlight, a timing pylon, a brake marker, a jumbotron, a marshal post, a
-start/finish gantry, one grandstand bay, and an oranje support can (smoke clouds + spark jets).
+start/finish gantry, one grandstand bay, and an oranje support can (wire-pull tube + wispy smoke plume).
 
 ```sh
 bunx vibe3d add @f1-kit/f1-catch-fence

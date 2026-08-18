@@ -40,6 +40,7 @@ export {
   roofSheetTexture,
   marshalPlateTexture,
   stampLedModuleGrid,
+  oranjeSmokeTexture,
 } from './textures.ts'
 export type { LampLensTextureOptions } from './textures.ts'
 export {

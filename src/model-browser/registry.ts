@@ -1908,7 +1908,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     id: 'f1-oranje-can',
     label: 'F1 Oranje Support Can',
     category: 'Vehicles / Motorsport',
-    description: 'Handheld Dutch-GP orange smoke flare: lathed can, striker, closed-form smoke clouds and spark jets imported from Zandvoort OranjeSmoke / OranjeSparkFountains.',
+    description: 'Handheld Dutch-GP orange smoke flare: 4" × 1" wire-pull tube with overlapping wispy smoke cards (product-shot plume).',
     tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
     exportName: 'f1-oranje-can.glb',
     async create(aspect) {

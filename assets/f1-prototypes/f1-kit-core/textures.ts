@@ -217,3 +217,106 @@ export function lampLensTexture(options: LampLensTextureOptions): DataTexture {
   tex.needsUpdate = true
   return tex
 }
+
+function smokeSmoothstep(edge0: number, edge1: number, value: number): number {
+  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)))
+  return t * t * (3 - 2 * t)
+}
+
+function smokeEllipse(
+  px: number,
+  py: number,
+  centreX: number,
+  centreY: number,
+  radiusX: number,
+  radiusY: number,
+): number {
+  const distance = Math.hypot((px - centreX) / radiusX, (py - centreY) / radiusY)
+  return 1 - smokeSmoothstep(0.52, 1.05, distance)
+}
+
+function smokeWisp(px: number, py: number, phase: number, amplitude: number, width: number): number {
+  const lift = (py + 1) * 0.5
+  const centreX = Math.sin((py + phase) * 5.2) * amplitude + Math.sin((py + phase) * 10.7) * 0.045
+  const taper = width * (0.72 + lift * 0.55)
+  const lateral = 1 - smokeSmoothstep(0.38, 1.0, Math.abs(px - centreX) / taper)
+  const ends = 1 - smokeSmoothstep(0.84, 1.03, Math.abs(py))
+  return lateral * ends
+}
+
+function smokeValueNoise(u: number, v: number, frequency: number): number {
+  const x = u * frequency
+  const y = v * frequency
+  const x0 = Math.floor(x)
+  const y0 = Math.floor(y)
+  const x1 = (x0 + 1) % frequency
+  const y1 = (y0 + 1) % frequency
+  const tx = x - x0
+  const ty = y - y0
+  const sx = tx * tx * (3 - 2 * tx)
+  const sy = ty * ty * (3 - 2 * ty)
+  const low = hash(x0, y0) * (1 - sx) + hash(x1, y0) * sx
+  const high = hash(x0, y1) * (1 - sx) + hash(x1, y1) * sx
+  return low * (1 - sy) + high * sy
+}
+
+function tileableFbm(u: number, v: number): number {
+  let total = 0
+  let amplitude = 0.5
+  let weight = 0
+  for (const frequency of [3, 6, 12, 24]) {
+    total += smokeValueNoise(u, v, frequency) * amplitude
+    weight += amplitude
+    amplitude *= 0.5
+  }
+  return total / weight
+}
+
+/**
+ * Wispy orange smoke card for the oranje can. RGB is the flare palette; alpha is the broken
+ * vapor silhouette. DataTexture so Dawn captures it without a canvas.
+ */
+export function oranjeSmokeTexture(size = 128): DataTexture {
+  const n = Math.max(16, size)
+  const data = new Uint8Array(n * n * 4)
+  const centre = (n - 1) * 0.5
+  const base: readonly [number, number, number] = [255, 108, 18]
+  const top: readonly [number, number, number] = [255, 176, 88]
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const u = x / n
+      const v = y / n
+      const px = (x - centre) / centre
+      const py = (y - centre) / centre
+      const noise = tileableFbm(u, v)
+      const fine = tileableFbm((u + 0.37) % 1, (v + 0.19) % 1)
+      const envelope = Math.max(
+        smokeEllipse(px, py, -0.22, -0.16, 0.68, 0.5),
+        smokeEllipse(px, py, 0.26, 0.02, 0.48, 0.66) * 0.9,
+        smokeEllipse(px, py, -0.02, 0.3, 0.42, 0.4) * 0.72,
+        smokeWisp(px, py, 0.09, 0.28, 0.42) * 0.7,
+        smokeWisp(px, py, 0.53, -0.24, 0.34) * 0.62,
+        smokeWisp(px, py, 0.81, 0.12, 0.26) * 0.5,
+      )
+      const holes = 0.35 + noise * 0.8 - fine * 0.28
+      const density = Math.min(1, Math.max(0, envelope * holes - 0.08))
+      const alpha = Math.floor(255 * density ** 0.7)
+      const lift = Math.min(1, Math.max(0, 0.4 + py * 0.4 + noise * 0.15))
+      const t = lift * (1 - density * 0.2)
+      put(
+        data, n, x, y,
+        Math.round(base[0] + (top[0] - base[0]) * t),
+        Math.round(base[1] + (top[1] - base[1]) * t),
+        Math.round(base[2] + (top[2] - base[2]) * t),
+        alpha,
+      )
+    }
+  }
+  const tex = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType)
+  tex.colorSpace = SRGBColorSpace
+  tex.magFilter = LinearFilter
+  tex.minFilter = LinearMipmapLinearFilter
+  tex.generateMipmaps = true
+  tex.needsUpdate = true
+  return tex
+}

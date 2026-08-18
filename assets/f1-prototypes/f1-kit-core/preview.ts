@@ -44,6 +44,7 @@ export interface F1PreviewOptions {
 
 export interface F1PreviewModel {
   readonly root: Group
+  lookAt?(camera: PerspectiveCamera): void
   update?(deltaSeconds: number): void
   dispose(): void
 }
@@ -123,7 +124,10 @@ export function createF1Preview(model: F1PreviewModel, options: F1PreviewOptions
     root: model.root,
     camera,
     bloom: options.bloom,
-    update: (deltaSeconds: number) => model.update?.(deltaSeconds),
+    update: (deltaSeconds: number) => {
+      model.lookAt?.(camera)
+      model.update?.(deltaSeconds)
+    },
     dispose: () => {
       for (const extra of extras) extra.dispose()
       scene.remove(model.root)
