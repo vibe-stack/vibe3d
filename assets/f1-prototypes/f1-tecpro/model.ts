@@ -122,15 +122,15 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
         }
         for (let band = 1; band < 3; band++) {
           const bandY = y + band * moduleH
-          for (const dx of [-0.20, 0.20] as const) {
-            const strap = bevelBox(0.20, 0.032, 0.026, 0.006)
-            strap.translate(x + dx, bandY, BD / 2 + 0.016)
+          const noseX = x - BW / 2 + BD / 2
+          for (const angle of [-0.55, 0, 0.55] as const) {
+            const strap = bevelBox(0.055, 0.028, 0.16, 0.006)
+            strap.translate(0, 0, BD / 2 + 0.012)
+            strap.rotateY(angle)
+            strap.translate(noseX, bandY, 0)
             strapParts.push(strap)
           }
         }
-        const buckle = bevelBox(0.035, 0.16, 0.03, 0.005)
-        buckle.translate(x - 0.20, y + BH / 2, BD / 2 + 0.02)
-        strapParts.push(buckle)
       }
     }
 
@@ -167,10 +167,10 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ columns: 1, rows: 1 }), {
     aspect,
-    target: [0, 0.62, 0.12],
-    distance: 4.8,
-    fov: 28,
-    yaw: -0.85,
-    pitch: 0.22,
+    target: [0, 0.62, 0],
+    distance: 4.1,
+    fov: 26,
+    yaw: -0.42,
+    pitch: 0.12,
   })
 }

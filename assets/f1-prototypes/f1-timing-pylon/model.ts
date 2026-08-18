@@ -50,9 +50,9 @@ export interface F1TimingPylonInstance {
 }
 
 const defaults: F1TimingPylonConfig = { height: 9, positions: [1, 2, 3] }
-const CAB_W = 1.02
-const CAB_D = 0.1
-const MAST_D = 0.22
+const CAB_W = 0.78
+const CAB_D = 0.08
+const MAST_D = 0.16
 const ROW_CODES = ['AX', 'BR', 'CY', 'DN', 'EV', 'FK'] as const
 
 function normalizePositions(positions: readonly number[]): number[] {
@@ -75,11 +75,10 @@ function cabinetTexture(digit: number, row: number): DataTexture {
   const paper: [number, number, number] = [242, 248, 252]
   const muted: [number, number, number] = [98, 112, 126]
   fillGlyphRect(data, w, 0, 0, w, h, ink)
-  fillGlyphRect(data, w, 0, h - 2, w, 2, muted)
-  fillGlyphRect(data, w, 6, 6, 48, h - 12, row === 0 ? cyan : muted)
-  writeGlyphWord(data, w, 14, 11, String(digit), paper, 8)
-  writeGlyphWord(data, w, 72, 10, ROW_CODES[row % ROW_CODES.length]!, paper, 7)
-  writeGlyphWord(data, w, 174, 15, `L${row + 1}`, cyan, 5)
+  fillGlyphRect(data, w, 4, 4, 70, h - 8, row === 0 ? cyan : [18, 22, 28])
+  writeGlyphWord(data, w, 18, 8, String(digit), paper, 10)
+  writeGlyphWord(data, w, 86, 12, ROW_CODES[row % ROW_CODES.length]!, paper, 9)
+  writeGlyphWord(data, w, 196, 18, String(row + 1).padStart(2, '0'), muted, 5)
   const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   tex.minFilter = NearestFilter
   tex.magFilter = NearestFilter
@@ -263,9 +262,9 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ positions: [1, 2, 3, 4, 5, 6] }), {
     aspect,
     target: [0, 4.6, 0.12],
-    distance: 18,
-    fov: 32,
-    pitch: 0.03,
-    yaw: -0.18,
+    distance: 16.5,
+    fov: 28,
+    pitch: 0.02,
+    yaw: -0.08,
   })
 }
