@@ -8,13 +8,16 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
+  SpotLight,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
 import {
   acquireF1Materials,
+  applyPolarCapUVs,
   bevelBox,
+  bevelRing,
   createF1Preview,
   disposeF1Materials,
   loftAlongX,
@@ -168,30 +171,41 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     }
     emit('beam', mergeParts(beamParts, 'beam'), beam, 'beam')
 
-    // Banner sits BEHIND the light cluster (lower Z), hung clear of the truss soffit.
     const bannerY = height - HOUSE_H / 2 - 0.55
-    // Placard well behind the cluster so housings read as separate volumes at 320 px.
     const placard = bevelBox(Math.min(span * 0.55, 6.2), 1.05, 0.08, 0.012)
     placard.translate(0, bannerY, -0.05)
     emit('banner', placard, banner, 'banner')
 
     const housings: BufferGeometry[] = []
     const lamps: BufferGeometry[] = []
+    const bezels: BufferGeometry[] = []
     const houseZ = HOUSE_D / 2 + 0.42
-    const lampZ = houseZ + HOUSE_D / 2 + LAYER_CLEARANCE + 0.02
+    const housingFaceZ = houseZ + HOUSE_D / 2
+    const lampZ = housingFaceZ + LAYER_CLEARANCE
     for (let c = 0; c < 5; c++) {
       const x = (c - 2) * LIGHT_PITCH
       const house = loftRoundedBox(HOUSE_W, HOUSE_H, HOUSE_D, 0.04)
       house.translate(x, bannerY, houseZ)
       housings.push(house)
       for (let r = 0; r < 4; r++) {
-        const lamp = new CylinderGeometry(0.065, 0.06, 0.035, 14)
+        const y = bannerY + (1.5 - r) * 0.18
+        const lamp = new CylinderGeometry(0.055, 0.05, 0.018, 14)
         lamp.rotateX(Math.PI / 2)
-        lamp.translate(x, bannerY + (1.5 - r) * 0.18, lampZ)
+        applyPolarCapUVs(lamp)
+        lamp.translate(x, y, lampZ)
         lamps.push(lamp)
+        const bezel = bevelRing(0.05, 0.072, 0.005, 0.001, 20)
+        bezel.translate(x, y, housingFaceZ)
+        bezels.push(bezel)
       }
+      const spot = new SpotLight(0xc41820, 0.9, 2.0, Math.PI / 7, 0.55, 2)
+      spot.name = `spot-${c}`
+      spot.position.set(x, bannerY, housingFaceZ)
+      spot.target.position.set(x, bannerY - 0.5, housingFaceZ + 4)
+      banner.add(spot, spot.target)
     }
     emit('banner', mergeParts(housings, 'housings'), banner, 'housings', kit.graphite)
+    emit('banner', mergeParts(bezels, 'bezels'), banner, 'bezels', kit.slate)
     emit('banner', mergeParts(lamps, 'lights'), banner, 'lights', lampOn)
   }
   rebuild()
@@ -228,5 +242,6 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     fov: 28,
     pitch: 0.1,
     ground: true,
+    bloom: true,
   })
 }

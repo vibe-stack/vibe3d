@@ -1,38 +1,53 @@
 /**
- * Unlit lamp lenses — same contract as timing digits and the brake beacon.
- *
- * MeshPhysicalMaterial picked up specular hot spots from the preview rig's directionals
- * (white pinprick in the center of every disc). MeshBasic + toneMapped:false gives a
- * uniform emissive read with no studio specular.
+ * Lamp lenses — radial DataTexture on MeshStandardMaterial (roughness 1, metalness 0) plus
+ * emissiveMap so Dawn's MRT bloom picks up lit discs without directional specular pinpricks.
  *
  * kit.red is painted equipment (extinguishers, Armco). Start/flood lamps that glow use
  * this helper, not the kit.red slot.
  */
 
-import { MeshBasicMaterial } from 'three/webgpu'
+import { MeshStandardMaterial } from 'three/webgpu'
+
+import { lampLensTexture } from './textures.ts'
 
 export interface F1LampMaterialOptions {
   readonly on: boolean
   /** Lit colour. Defaults to FIA start-light red. */
   readonly color?: number
   readonly name?: string
-  /** White flood lenses — kept for API compat; MeshBasic uses color directly. */
+  /** White flood lenses — scales the baked on-map. */
   readonly intensity?: number
 }
 
-export function createLampMaterial(options: F1LampMaterialOptions): MeshBasicMaterial {
-  const color = options.color ?? 0xc41820
+export function createLampLensMaterial(options: F1LampMaterialOptions): MeshStandardMaterial {
   const name = options.name ?? (options.on ? 'f1-kit / lamp on' : 'f1-kit / lamp off')
-  if (!options.on) {
-    return new MeshBasicMaterial({
-      name,
-      color: 0x140808,
-      toneMapped: false,
-    })
-  }
-  return new MeshBasicMaterial({
+  const tex = lampLensTexture({
+    variant: options.on ? 'on' : 'off',
+    color: options.color,
+    intensity: options.on ? options.intensity : undefined,
+  })
+  const material = new MeshStandardMaterial({
     name,
-    color,
+    map: tex,
+    color: 0xffffff,
+    emissive: options.on ? 0xffffff : 0x000000,
+    emissiveMap: options.on ? tex : null,
+    emissiveIntensity: options.on ? 1.35 : 0,
+    roughness: 1,
+    metalness: 0,
     toneMapped: false,
   })
+
+  const disposeMaterial = material.dispose.bind(material)
+  material.dispose = () => {
+    disposeMaterial()
+    tex.dispose()
+  }
+
+  return material
+}
+
+/** Alias kept for existing call sites. */
+export function createLampMaterial(options: F1LampMaterialOptions): MeshStandardMaterial {
+  return createLampLensMaterial(options)
 }

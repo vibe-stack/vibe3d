@@ -4,19 +4,23 @@
 //
 // Datums: five modules at 0.48 m pitch, each housing 0.28 × 1.05 × 0.22 m, lamps Ø 0.08 m.
 // Panel hangs clear of the overhead beam (soffit gap ≥ 0.12 m).
+// Housing is a solid loft — the lens sits in a bezel aperture proud of the face (no filled cavity).
 
 import {
   BufferGeometry,
   CylinderGeometry,
   Group,
   Mesh,
+  SpotLight,
   Vector3,
   type Material,
 } from 'three/webgpu'
 
 import {
   acquireF1Materials,
+  applyPolarCapUVs,
   bevelBox,
+  bevelRing,
   createF1Preview,
   createLampMaterial,
   disposeF1Materials,
@@ -26,7 +30,7 @@ import {
   LAYER_CLEARANCE,
 } from '../f1-kit-core/index.ts'
 
-type Slot = 'housing' | 'lamp' | 'post'
+type Slot = 'housing' | 'lamp' | 'post' | 'bezel'
 
 export interface F1StartLightsConfig {
   /** Lit columns, 0–5. */
@@ -58,6 +62,8 @@ const MODULE_W = 0.28
 const MODULE_H = 1.05
 const MODULE_D = 0.22
 const LAMP_R = 0.08
+const LENS_THICK = 0.02
+const BEZEL_DEPTH = 0.006
 const HEIGHT = 5.6
 /** Panel centre Y — hung so housing top clears the soffit by ≥ 0.12 m. */
 const PANEL_Y = HEIGHT - MODULE_H / 2 - 0.28
@@ -87,6 +93,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     housing: options.materials?.housing ?? kit.graphite,
     lamp: lampOn,
     post: options.materials?.post ?? kit.slate,
+    bezel: options.materials?.bezel ?? kit.slate,
   }
 
   const root = new Group()
@@ -96,7 +103,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
   root.add(gantry, panel)
 
   const generated: BufferGeometry[] = []
-  const meshesBySlot: Record<Slot, Mesh[]> = { housing: [], lamp: [], post: [] }
+  const meshesBySlot: Record<Slot, Mesh[]> = { housing: [], lamp: [], post: [], bezel: [] }
 
   const releaseGenerated = (): void => {
     for (const group of [gantry, panel]) group.clear()
@@ -142,7 +149,6 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     const beam = bevelBox(span + 0.5, 0.28, 0.36, 0.02)
     beam.translate(0, HEIGHT + 0.14, 0)
     postParts.push(beam)
-    // Drop hangers from the soffit to the panel top — no housing/beam intersection.
     for (const sx of [-1.2, 0, 1.2] as const) {
       postParts.push(member(
         new Vector3(sx, HEIGHT, 0),
@@ -154,14 +160,16 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     emit('post', mergeParts(postParts, 'posts'), gantry, 'posts')
 
     const panelW = (COLS - 1) * PITCH + MODULE_W + 0.2
-    // Backboard behind the modules with ≥15 mm air gap (rule 8).
     const back = bevelBox(panelW, MODULE_H + 0.18, 0.05, 0.01)
     back.translate(0, PANEL_Y, -0.08)
     emit('housing', back, panel, 'backboard')
 
     const housings: BufferGeometry[] = []
-    // loftRoundedBox is W×H×D in XYZ — no rotateY (that swapped width/depth and kissed the board).
+    const bezels: BufferGeometry[] = []
     const faceZ = MODULE_D / 2 + 0.02
+    const housingFaceZ = faceZ + MODULE_D / 2
+    const lensZ = housingFaceZ + LAYER_CLEARANCE + LENS_THICK / 2
+    const rowPitch = 0.2
     for (let c = 0; c < COLS; c++) {
       const x = (c - (COLS - 1) / 2) * PITCH
       const body = loftRoundedBox(MODULE_W, MODULE_H, MODULE_D, 0.045)
@@ -170,18 +178,30 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     }
     emit('housing', mergeParts(housings, 'housings'), panel, 'housings')
 
-    const lampZ = faceZ + MODULE_D / 2 + LAYER_CLEARANCE + 0.02
-    const rowPitch = 0.2
     for (let c = 0; c < COLS; c++) {
       const on = c < config.lit
       const x = (c - (COLS - 1) / 2) * PITCH
       for (let r = 0; r < ROWS; r++) {
-        const lamp = new CylinderGeometry(LAMP_R, LAMP_R * 0.92, 0.04, 18)
+        const y = PANEL_Y + (1.5 - r) * rowPitch
+        const lamp = new CylinderGeometry(LAMP_R * 0.92, LAMP_R * 0.88, LENS_THICK, 18)
         lamp.rotateX(Math.PI / 2)
-        lamp.translate(x, PANEL_Y + (1.5 - r) * rowPitch, lampZ)
+        applyPolarCapUVs(lamp)
+        lamp.translate(x, y, lensZ)
         emit('lamp', lamp, panel, `lamp-${c}-${r}`, on ? lampOn : lampOff)
+
+        const bezel = bevelRing(LAMP_R * 0.84, LAMP_R * 1.1, BEZEL_DEPTH, 0.001, 24)
+        bezel.translate(x, y, lensZ)
+        bezels.push(bezel)
+      }
+      if (on) {
+        const spot = new SpotLight(0xc41820, 1.0, 2.2, Math.PI / 7, 0.55, 2)
+        spot.name = `spot-${c}`
+        spot.position.set(x, PANEL_Y, lensZ)
+        spot.target.position.set(x, PANEL_Y - 0.5, lensZ + 4)
+        panel.add(spot, spot.target)
       }
     }
+    emit('bezel', mergeParts(bezels, 'bezels'), panel, 'bezels')
   }
   rebuild()
 
@@ -219,7 +239,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
 }
 
 function litFromEnv(): number | undefined {
-  const raw = process.env.F1_START_LIGHTS_LIT
+  const raw = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.F1_START_LIGHTS_LIT
   if (raw === undefined || raw === '') return undefined
   const n = Number(raw)
   if (!Number.isFinite(n)) return undefined
@@ -235,5 +255,6 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     fov: 28,
     pitch: 0.06,
     ground: true,
+    bloom: true,
   })
 }

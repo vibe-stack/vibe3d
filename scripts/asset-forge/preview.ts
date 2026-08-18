@@ -39,6 +39,7 @@ export interface FastPreviewOptions {
 interface PreviewController {
   readonly scene: import('three/webgpu').Scene
   readonly camera: import('three/webgpu').Camera
+  readonly bloom?: boolean
   readonly update?: (time: number) => void
   readonly dispose?: () => void
 }
@@ -403,7 +404,7 @@ export async function runFastPreview(
       backend: config.backend,
       adapter: config.adapter,
     })
-    const capture = await session.capture(preview.scene, preview.camera)
+    const capture = await session.capture(preview.scene, preview.camera, { bloom: preview.bloom === true })
     await session.settle()
     const adapter = {
       vendor: session.adapterInfo.vendor || 'unknown',

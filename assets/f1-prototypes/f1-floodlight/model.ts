@@ -26,6 +26,7 @@ import {
   member,
   mergeParts,
   AXIS_Y,
+  applyPolarCapUVs,
   createLampMaterial,
 } from '../f1-kit-core/index.ts'
 
@@ -161,7 +162,9 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
         for (const lx of [-0.14, 0.14] as const) {
           for (const ly of [-0.1, 0.1] as const) {
             const lens = new CylinderGeometry(0.08, 0.08, 0.03, 16)
-            lens.rotateX(Math.PI / 2 + tilt)
+            lens.rotateX(Math.PI / 2)
+            applyPolarCapUVs(lens)
+            lens.rotateX(tilt)
             lens.translate(sx + lx, cy + ly, 0.62)
             lenses.push(lens)
           }
@@ -174,7 +177,7 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     for (const sx of [-0.88, 0.88] as const) {
       for (const sy of [-0.28, 0.28] as const) {
         const cy = height - 0.22 + sy
-        const spot = new SpotLight(0xfff3e0, 18, 14, Math.PI / 4, 0.45, 1.8)
+        const spot = new SpotLight(0xfff3e0, 12, 14, Math.PI / 4, 0.45, 1.8)
         spot.name = `spot-${sx}-${sy}`
         spot.position.set(sx, cy, 0.72)
         spot.target.position.set(sx, cy - 4.5, 6)
@@ -217,5 +220,6 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     fov: 30,
     pitch: 0.15,
     ground: true,
+    bloom: true,
   })
 }

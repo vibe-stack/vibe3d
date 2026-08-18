@@ -124,3 +124,63 @@ export function marshalPlateTexture(text = '12'): DataTexture {
   tex.needsUpdate = true
   return tex
 }
+
+function unpackRgb(hex: number): readonly [number, number, number] {
+  return [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255]
+}
+
+export interface LampLensTextureOptions {
+  readonly variant: 'on' | 'off'
+  /** Lit colour. Defaults to FIA start-light red. */
+  readonly color?: number
+  readonly size?: number
+  /** Multiplier on the baked on-colour (flood lenses run hotter). */
+  readonly intensity?: number
+}
+
+/**
+ * Radial lens map for start/flood lamps. Polar UVs (`applyPolarCapUVs`) sample this as a disc.
+ * Baked ~18% hot so ACES Filmic in Dawn still reads near the authored FIA red.
+ */
+export function lampLensTexture(options: LampLensTextureOptions): DataTexture {
+  const n = Math.max(16, options.size ?? 64)
+  const data = new Uint8Array(n * n * 4)
+  const [br, bg, bb] = unpackRgb(options.color ?? 0xc41820)
+  const boost = 1.18 * (options.intensity ?? 1)
+  const on = options.variant === 'on'
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const u = (x + 0.5) / n - 0.5
+      const v = (y + 0.5) / n - 0.5
+      const d = Math.min(1, Math.hypot(u, v) * 2)
+      const grain = hash(x * 0.31, y * 0.29) * 0.04
+      if (on) {
+        const core = Math.max(0, 1 - d / 0.22)
+        const rim = Math.max(0, (d - 0.72) / 0.28)
+        const k = Math.max(0, 1 - rim) * (0.55 + 0.45 * (1 - d)) + core * 0.55
+        put(
+          data, n, x, y,
+          Math.min(255, Math.round((br * k + 210 * core) * boost * (1 - grain * 0.4))),
+          Math.min(255, Math.round((bg * k + 40 * core) * boost * (1 - grain * 0.4))),
+          Math.min(255, Math.round((bb * k + 32 * core) * boost * (1 - grain * 0.4))),
+        )
+      } else {
+        const ring = Math.exp(-((d - 0.4) * (d - 0.4)) / 0.012)
+        const k = 0.22 + ring * 0.35 + grain * 0.15
+        put(
+          data, n, x, y,
+          Math.round(20 * k),
+          Math.round(8 * k),
+          Math.round(8 * k),
+        )
+      }
+    }
+  }
+  const tex = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType)
+  tex.colorSpace = SRGBColorSpace
+  tex.magFilter = LinearFilter
+  tex.minFilter = LinearFilter
+  tex.flipY = false
+  tex.needsUpdate = true
+  return tex
+}

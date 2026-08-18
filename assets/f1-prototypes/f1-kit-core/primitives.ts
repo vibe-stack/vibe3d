@@ -97,6 +97,28 @@ export function uvAlongX(
 }
 
 /**
+ * Polar UVs on a disc cap that already faces +Z (`rotateX(π/2)` on a Y-up cylinder).
+ * Maps XY radius to 0–1 so `lampLensTexture` reads as a radial lens, not a smeared side unwrap.
+ */
+export function applyPolarCapUVs(geometry: THREE.BufferGeometry): THREE.BufferGeometry {
+  const pos = geometry.getAttribute('position')
+  if (!pos) return geometry
+  let maxR = 0
+  for (let i = 0; i < pos.count; i++) {
+    const r = Math.hypot(pos.getX(i), pos.getY(i))
+    if (r > maxR) maxR = r
+  }
+  const inv = maxR > 1e-8 ? 0.5 / maxR : 0
+  const uvs = new Float32Array(pos.count * 2)
+  for (let i = 0; i < pos.count; i++) {
+    uvs[i * 2] = pos.getX(i) * inv + 0.5
+    uvs[i * 2 + 1] = pos.getY(i) * inv + 0.5
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
+  return geometry
+}
+
+/**
  * Rounded-rect ring in XY at a given Z. Same construction as the racing-game start-light housing:
  * four quarter-circles, one shared point count per corner, lofted along Z for a module body.
  */

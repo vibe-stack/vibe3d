@@ -24,6 +24,7 @@ import type { Vec3 } from './parts.ts'
  * other way round. Only the framing arguments are meant to vary per prop — changing the lights is a
  * kit-wide decision, not a per-model fix for a model that is too dark.
  */
+
 export interface F1PreviewOptions {
   readonly aspect?: number
   /** Point the camera looks at, in model space. */
@@ -37,6 +38,8 @@ export interface F1PreviewOptions {
   readonly fov?: number
   /** Dark receive card for preview framing (optional emissive lamp read). */
   readonly ground?: boolean
+  /** Opt into Dawn MRT emissive bloom (start/flood lamps). */
+  readonly bloom?: boolean
 }
 
 export interface F1PreviewModel {
@@ -49,6 +52,7 @@ export interface F1Preview {
   readonly scene: Scene
   readonly root: Group
   readonly camera: PerspectiveCamera
+  readonly bloom?: boolean
   update(deltaSeconds: number): void
   dispose(): void
 }
@@ -118,6 +122,7 @@ export function createF1Preview(model: F1PreviewModel, options: F1PreviewOptions
     scene,
     root: model.root,
     camera,
+    bloom: options.bloom,
     update: (deltaSeconds: number) => model.update?.(deltaSeconds),
     dispose: () => {
       for (const extra of extras) extra.dispose()
