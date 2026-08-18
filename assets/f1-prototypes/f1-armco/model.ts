@@ -17,6 +17,7 @@ import {
   loftAlongX,
   mergeParts,
   AXIS_Y,
+  AXIS_Z,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'post' | 'rail' | 'stripe'
@@ -101,36 +102,61 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
     const length = bays * PITCH
     const half = length / 2
     const postParts: BufferGeometry[] = []
+    const accentParts: BufferGeometry[] = []
     const profile = wBeamProfile()
+    const levels = [0.12, 0.42, 0.72]
 
     for (let i = 0; i <= bays; i++) {
       const x = -half + i * PITCH
-      const web = bevelBox(0.012, 1.18, 0.08, 0.003)
-      web.translate(x, 0.61, -0.09)
+      const web = bevelBox(0.012, 1.24, 0.08, 0.003)
+      web.translate(x, 0.64, -0.11)
       postParts.push(web)
-      const flangeA = bevelBox(0.08, 1.18, 0.012, 0.003)
-      flangeA.translate(x, 0.61, -0.13)
+      const flangeA = bevelBox(0.08, 1.24, 0.012, 0.003)
+      flangeA.translate(x, 0.64, -0.15)
       postParts.push(flangeA)
-      const flangeB = bevelBox(0.08, 1.18, 0.012, 0.003)
-      flangeB.translate(x, 0.61, -0.05)
+      const flangeB = bevelBox(0.08, 1.24, 0.012, 0.003)
+      flangeB.translate(x, 0.64, -0.07)
       postParts.push(flangeB)
-      const plate = bevelBox(0.24, 0.05, 0.22, 0.006)
+      const plate = bevelBox(0.28, 0.05, 0.26, 0.006)
       plate.translate(x, 0.025, -0.04)
       postParts.push(plate)
-      postParts.push(bolt([x, 0.98, 0.04], 0.016, 0.022, AXIS_Y))
-      postParts.push(bolt([x, 0.68, 0.04], 0.016, 0.022, AXIS_Y))
-      postParts.push(bolt([x, 0.38, 0.04], 0.016, 0.022, AXIS_Y))
+      for (const ax of [-0.09, 0.09] as const) {
+        for (const az of [-0.08, 0.08] as const) {
+          postParts.push(bolt([x + ax, 0.075, -0.04 + az], 0.013, 0.017, AXIS_Y))
+        }
+      }
+      for (const y of levels) {
+        const bracket = bevelBox(0.16, 0.16, 0.22, 0.012)
+        bracket.translate(x, y + W_H / 2, -0.01)
+        postParts.push(bracket)
+      }
     }
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
 
-    for (let bay = 0; bay < bays; bay++) {
-      const x = -half + (bay + 0.5) * PITCH
-      for (let level = 0; level < 3; level++) {
-        const beam = loftAlongX(profile, PITCH + 0.08, { closed: true, stations: 4 })
-        beam.translate(x, 0.12 + level * 0.3, 0)
-        emit(bay % 2 === 0 ? 'stripe' : 'rail', beam, rail, `bay-${bay}-rail-${level}`)
+    for (let level = 0; level < levels.length; level++) {
+      const beam = loftAlongX(profile, length + 0.20, { closed: true, stations: 8 })
+      beam.translate(0, levels[level]!, 0)
+      emit('rail', beam, rail, `continuous-rail-${level}`)
+      for (let joint = 1; joint < bays; joint++) {
+        const x = -half + joint * PITCH
+        const y = levels[level]! + W_H / 2
+        const lap = loftAlongX(profile, 0.28, { closed: true, stations: 4 })
+        lap.translate(x, levels[level]!, 0.006)
+        emit('rail', lap, rail, `lap-${level}-${joint}`)
+        for (const dx of [-0.06, 0.06] as const) {
+          for (const dy of [-0.075, 0.075] as const) {
+            const fastener = bolt([x + dx, y + dy, W_D + 0.018], 0.013, 0.018, AXIS_Z)
+            emit('post', fastener, posts, `lap-bolt-${level}-${joint}-${dx}-${dy}`)
+          }
+        }
+        if ((joint + level) % 2 === 0) {
+          const marker = bevelBox(0.055, W_H * 0.62, 0.012, 0.004)
+          marker.translate(x, y, W_D + 0.012)
+          accentParts.push(marker)
+        }
       }
     }
+    if (accentParts.length) emit('stripe', mergeParts(accentParts, 'inspection-marks'), rail, 'inspection-marks')
   }
   rebuild()
 

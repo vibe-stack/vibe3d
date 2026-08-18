@@ -58,13 +58,13 @@ function chainLinkTexture(): DataTexture {
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
       const i = (y * n + x) * 4
-      const d1 = Math.abs(((x + y) % 10) - 5)
-      const d2 = Math.abs(((x - y + n * 4) % 10) - 5)
-      const on = d1 < 1.2 || d2 < 1.2
-      data[i] = on ? 170 : 0
-      data[i + 1] = on ? 178 : 0
-      data[i + 2] = on ? 186 : 0
-      data[i + 3] = on ? 230 : 0
+      const d1 = Math.abs(((x + y) % 16) - 8)
+      const d2 = Math.abs(((x - y + n * 4) % 16) - 8)
+      const on = d1 < 0.7 || d2 < 0.7
+      data[i] = on ? 205 : 0
+      data[i + 1] = on ? 210 : 0
+      data[i + 2] = on ? 214 : 0
+      data[i + 3] = on ? 150 : 0
     }
   }
   const tex = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType)
@@ -97,9 +97,11 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
     name: 'f1-kit / catch-fence mesh',
     map: tex,
     transparent: true,
-    alphaTest: 0.15,
-    roughness: 0.72,
-    metalness: 0.45,
+    opacity: 0.58,
+    alphaTest: 0.24,
+    depthWrite: false,
+    roughness: 0.68,
+    metalness: 0.62,
     side: DoubleSide,
   }))
 
@@ -146,21 +148,37 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
 
     const postParts: BufferGeometry[] = []
     const railParts: BufferGeometry[] = []
+    const railHeights = [verticalTop, verticalTop * 0.7, verticalTop * 0.4, 0.18]
     for (let i = 0; i < count; i++) {
       const x = -half + (i / (count - 1)) * length
-      postParts.push(tubeSection(0.05, verticalTop + 0.16, [x, (verticalTop + 0.16) / 2, 0], [0, 1, 0], 12))
+      postParts.push(tubeSection(0.075, verticalTop + 0.16, [x, (verticalTop + 0.16) / 2, 0], [0, 1, 0], 12))
       postParts.push(member(
         new Vector3(x, verticalTop, 0),
         new Vector3(x, height, extension),
-        0.05,
+        0.065,
         12,
       ))
       const base = bevelBox(0.32, 0.09, 0.32, 0.01)
       base.translate(x, 0.045, 0)
       postParts.push(base)
+      for (const ax of [-0.11, 0.11] as const) {
+        for (const az of [-0.1, 0.1] as const) {
+          const anchor = bevelBox(0.045, 0.035, 0.045, 0.007)
+          anchor.translate(x + ax, 0.105, az)
+          postParts.push(anchor)
+        }
+      }
       const gusset = bevelBox(0.06, 0.22, 0.16, 0.006)
       gusset.translate(x, 0.18, -0.08)
       postParts.push(gusset)
+      const tensionBar = bevelBox(0.028, verticalTop - 0.22, 0.035, 0.005)
+      tensionBar.translate(x + (i === count - 1 ? -0.11 : 0.11), verticalTop / 2 + 0.05, 0.055)
+      railParts.push(tensionBar)
+      for (const y of railHeights) {
+        const clamp = bevelBox(0.17, 0.055, 0.095, 0.008)
+        clamp.translate(x, y, 0.045)
+        railParts.push(clamp)
+      }
       const cap = bevelBox(0.14, 0.05, 0.14, 0.006)
       cap.translate(x, height + 0.02, extension)
       railParts.push(cap)
@@ -177,17 +195,17 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
         6,
       ))
     }
-    for (const y of [verticalTop, verticalTop * 0.7, verticalTop * 0.4, 0.18] as const) {
-      const rail = bevelBox(length + 0.1, y === verticalTop ? 0.055 : 0.04, 0.055, 0.005)
+    for (const y of railHeights) {
+      const rail = bevelBox(length + 0.1, y === verticalTop ? 0.045 : 0.032, 0.045, 0.005)
       rail.translate(0, y, 0)
       railParts.push(rail)
     }
-    railParts.push(tubeSection(0.01, length, [0, height, extension + 0.04], [1, 0, 0], 6))
+    railParts.push(tubeSection(0.008, length, [0, height, extension + 0.04], [1, 0, 0], 6))
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
     emit('rail', mergeParts(railParts, 'rails'), posts, 'rails')
 
-    const repeats = Math.max(1, length / 0.32)
-    tex.repeat.set(repeats, verticalTop / 0.32)
+    const repeats = Math.max(1, length / 0.58)
+    tex.repeat.set(repeats, verticalTop / 0.58)
     tex.needsUpdate = true
     const front = new PlaneGeometry(length, verticalTop - 0.12, 1, 1)
     front.translate(0, verticalTop / 2 + 0.06, 0.03)
@@ -196,9 +214,6 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
     overhang.rotateX(Math.PI / 4)
     overhang.translate(0, verticalTop + extension / 2, extension / 2)
     emit('mesh', overhang, meshGroup, 'trackward-overhang')
-    const debris = new PlaneGeometry(length, verticalTop * 0.55, 1, 1)
-    debris.translate(0, verticalTop * 0.62, -0.04)
-    emit('mesh', debris, meshGroup, 'debris-net')
   }
   rebuild()
 

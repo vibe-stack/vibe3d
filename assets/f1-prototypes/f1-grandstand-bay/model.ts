@@ -120,34 +120,84 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     fascia.translate(0, FASCIA * 0.45, halfD + 0.1)
     emit('structure', fascia, bowl, 'fascia')
 
-    const back = bevelBox(0.38, 0.42, 0.06, 0.008)
-    back.translate(0, 0.08, -0.13)
-    const pan = bevelBox(0.38, 0.05, 0.32, 0.006)
-    pan.translate(0, -0.15, 0.04)
+    const back = bevelBox(0.32, 0.36, 0.05, 0.008)
+    back.translate(0, 0.06, -0.11)
+    const pan = bevelBox(0.32, 0.045, 0.29, 0.006)
+    pan.translate(0, -0.14, 0.04)
     const seatGeo = mergeParts([back, pan], 'seat')
     generated.push(seatGeo)
 
-    const seatsAcross = Math.max(6, Math.floor(width / 0.48))
-    const count = seatsAcross * rows
-    const seats = new InstancedMesh(seatGeo, materialSlots.seat, count)
+    const seatsAcross = Math.max(8, Math.floor(width / 0.40))
+    const seatPositions: Vector3[] = []
+    for (let r = 0; r < rows; r++) {
+      const y = FASCIA + r * RISE + 0.25
+      const z = halfD - (r + 0.55) * TREAD
+      for (let s = 0; s < seatsAcross; s++) {
+        const x = -width / 2 + (s + 0.5) * (width / seatsAcross)
+        if (Math.abs(x) < 0.52) continue
+        seatPositions.push(new Vector3(x, y, z))
+      }
+    }
+    const seats = new InstancedMesh(seatGeo, materialSlots.seat, seatPositions.length)
     seats.name = 'seats'
     seats.castShadow = true
     seats.receiveShadow = true
     const m = new Matrix4()
-    let i = 0
-    for (let r = 0; r < rows; r++) {
-      const y = FASCIA + r * RISE + 0.28
-      const z = halfD - (r + 0.55) * TREAD
-      for (let s = 0; s < seatsAcross; s++) {
-        const x = -width / 2 + (s + 0.5) * (width / seatsAcross)
-        m.makeTranslation(x, y, z)
-        seats.setMatrixAt(i, m)
-        i++
-      }
+    for (let i = 0; i < seatPositions.length; i++) {
+      m.makeTranslation(seatPositions[i]!.x, seatPositions[i]!.y, seatPositions[i]!.z)
+      seats.setMatrixAt(i, m)
     }
     seats.instanceMatrix.needsUpdate = true
     meshesBySlot.seat.push(seats)
     bowl.add(seats)
+
+    const accessParts: BufferGeometry[] = []
+    for (let r = 0; r < rows; r++) {
+      const tread = bevelBox(1.0, 0.025, TREAD * 0.88, 0.006)
+      tread.translate(0, FASCIA + r * RISE + 0.015, halfD - (r + 0.5) * TREAD)
+      accessParts.push(tread)
+      if (r % 2 === 0) {
+        for (const sx of [-1, 1] as const) {
+          accessParts.push(member(
+            new Vector3(sx * 0.54, FASCIA + r * RISE + 0.02, halfD - (r + 0.5) * TREAD),
+            new Vector3(sx * 0.54, FASCIA + r * RISE + 0.78, halfD - (r + 0.5) * TREAD),
+            0.025,
+            8,
+          ))
+        }
+      }
+    }
+    for (const sx of [-1, 1] as const) {
+      accessParts.push(member(
+        new Vector3(sx * 0.54, FASCIA + 0.75, halfD - 0.4),
+        new Vector3(sx * 0.54, height + 0.65, -halfD + 0.4),
+        0.035,
+        8,
+      ))
+    }
+    emit('structure', mergeParts(accessParts, 'central-gangway'), bowl, 'central-gangway')
+
+    const safetyParts: BufferGeometry[] = []
+    const fenceZ = halfD + 0.18
+    for (const y of [0.72, 1.08] as const) {
+      safetyParts.push(member(new Vector3(-width / 2, y, fenceZ), new Vector3(-0.62, y, fenceZ), 0.026, 8))
+      safetyParts.push(member(new Vector3(0.62, y, fenceZ), new Vector3(width / 2, y, fenceZ), 0.026, 8))
+    }
+    const fencePosts = Math.max(4, Math.ceil(width / 1.6))
+    for (let p = 0; p <= fencePosts; p++) {
+      const x = -width / 2 + (p / fencePosts) * width
+      if (Math.abs(x) < 0.62) continue
+      safetyParts.push(member(new Vector3(x, 0.24, fenceZ), new Vector3(x, 1.12, fenceZ), 0.03, 8))
+    }
+    for (const sx of [-1, 1] as const) {
+      safetyParts.push(member(
+        new Vector3(sx * width / 2, 0.55, halfD),
+        new Vector3(sx * width / 2, height + 0.45, -halfD),
+        0.035,
+        8,
+      ))
+    }
+    emit('structure', mergeParts(safetyParts, 'safety-rails'), bowl, 'safety-rails')
 
     const roofY = height + 1.6
     const roofParts: BufferGeometry[] = []
@@ -157,22 +207,22 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     const zFront = zBack + reach
     const yBack = roofY
     const yFront = roofY - 0.7
-    const th = 0.1
-    const N = 8
+    const th = 0.035
+    const N = 12
     const top: Array<readonly [number, number]> = []
     for (let k = 0; k <= N; k++) {
       const u = k / N
       const z = zBack + (zFront - zBack) * u
-      const y = yBack + (yFront - yBack) * u - Math.sin(u * Math.PI) * 0.45
+      const y = yBack + (yFront - yBack) * u - Math.sin(u * Math.PI) * 0.22
       top.push([z, y])
     }
     const ring: Array<readonly [number, number]> = [...top]
     for (let k = N; k >= 0; k--) ring.push([top[k]![0], top[k]![1] - th])
     roofParts.push(loftAlongX(ring, width + 1.2, { closed: true }))
-    const lip = bevelBox(width + 1.2, 0.22, 0.28, 0.02)
-    lip.translate(0, yFront - 0.08, zFront)
+    const lip = bevelBox(width + 1.2, 0.08, 0.12, 0.015)
+    lip.translate(0, yFront - 0.05, zFront)
     roofParts.push(lip)
-    const frameCount = Math.max(3, Math.ceil(width / 3))
+    const frameCount = Math.max(4, Math.ceil(width / 2.4))
     for (let frame = 0; frame < frameCount; frame++) {
       const x = -width / 2 + (frame / (frameCount - 1)) * width
       frameParts.push(member(
@@ -190,6 +240,26 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
       frameParts.push(member(
         new Vector3(x, height * 0.7, zBack),
         new Vector3(x, yFront - 0.16, zFront),
+        0.04,
+        8,
+      ))
+    }
+    frameParts.push(member(
+      new Vector3(-width / 2, yFront - 0.11, zFront),
+      new Vector3(width / 2, yFront - 0.11, zFront),
+      0.045,
+      8,
+    ))
+    frameParts.push(member(
+      new Vector3(-width / 2, yBack - 0.11, zBack),
+      new Vector3(width / 2, yBack - 0.11, zBack),
+      0.045,
+      8,
+    ))
+    for (const sx of [-1, 1] as const) {
+      frameParts.push(member(
+        new Vector3(sx * width / 2, height * 0.35, zBack),
+        new Vector3(sx * width / 2, yFront - 0.16, zFront),
         0.04,
         8,
       ))

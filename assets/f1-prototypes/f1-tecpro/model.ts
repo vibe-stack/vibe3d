@@ -7,6 +7,7 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
+  MeshStandardMaterial,
   type Material,
 } from 'three/webgpu'
 
@@ -15,7 +16,6 @@ import {
   bevelBox,
   createF1Preview,
   disposeF1Materials,
-  loftAlongX,
   mergeParts,
 } from '../f1-kit-core/index.ts'
 
@@ -47,23 +47,6 @@ const BW = 1.50
 const BH = 1.20
 const BD = 0.58
 
-function blockProfile(): Array<readonly [number, number]> {
-  const h = BH - 0.04
-  const d = BD / 2
-  return [
-    [-d + 0.05, 0],
-    [-d - 0.02, 0.05],
-    [-d - 0.06, h * 0.35],
-    [-d - 0.02, h * 0.7],
-    [-d + 0.05, h],
-    [d - 0.05, h],
-    [d + 0.02, h * 0.7],
-    [d + 0.06, h * 0.35],
-    [d + 0.02, 0.05],
-    [d - 0.05, 0],
-  ]
-}
-
 export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
   const config: F1TecproConfig = {
     columns: Math.max(1, Math.round(options.columns ?? defaults.columns)),
@@ -72,9 +55,18 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  const extras: Material[] = []
+  const own = (material: Material): Material => {
+    extras.push(material)
+    return material
+  }
   const materialSlots: Record<Slot, Material> = {
-    block: options.materials?.block ?? kit.shell,
-    wrap: options.materials?.wrap ?? kit.amber,
+    block: options.materials?.block ?? own(new MeshStandardMaterial({
+      name: 'f1-kit / TecPro polymer shadow', color: 0xd2d4d1, roughness: 0.82, metalness: 0,
+    })),
+    wrap: options.materials?.wrap ?? own(new MeshStandardMaterial({
+      name: 'f1-kit / TecPro polymer', color: 0xe7e8e5, roughness: 0.78, metalness: 0,
+    })),
     strap: options.materials?.strap ?? kit.graphite,
   }
 
@@ -108,50 +100,43 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
     releaseGenerated()
     const { columns, rows } = config
     const wrap: BufferGeometry[] = []
-    const foam: BufferGeometry[] = []
-    const handles: BufferGeometry[] = []
+    const shadow: BufferGeometry[] = []
+    const strapParts: BufferGeometry[] = []
     const half = ((columns - 1) * BW) / 2
-    const profile = blockProfile()
-    const tooth: Array<readonly [number, number]> = profile.map(([z, y]) => [z * 0.55, y * 0.55 + 0.06] as const)
+    const moduleH = BH / 3
+    const seam = 0.018
 
     for (let c = 0; c < columns; c++) {
       for (let r = 0; r < rows; r++) {
         const x = -half + c * BW
         const y = 0.02 + r * BH
-        const bodyParts = c % 2 === 0 ? wrap : foam
-        const body = loftAlongX(profile, BW - BD / 2, { closed: true, stations: 4 })
-        body.translate(x + BD / 4, y, 0)
-        bodyParts.push(body)
-        const nose = new CylinderGeometry(BD / 2, BD / 2, BH - 0.04, 20)
-        nose.translate(x - BW / 2 + BD / 2, y + (BH - 0.04) / 2, 0)
-        bodyParts.push(nose)
-
-        const tab = loftAlongX(tooth, 0.12, { closed: true })
-        tab.translate(x + (BW - 0.08) / 2 + 0.05, y, 0)
-        wrap.push(tab)
-
-        const core = loftAlongX(
-          profile.map(([z, py]) => [z * 0.78, py * 0.78 + 0.05] as const),
-          BW - BD / 2 - 0.18,
-          { closed: true },
-        )
-        core.translate(x + BD / 4 + 0.05, y, 0)
-        foam.push(core)
-
-        for (const seamY of [0.30, 0.60, 0.90] as const) {
-          const seam = bevelBox(BW - 0.20, 0.018, 0.025, 0.006)
-          seam.translate(x - 0.03, y + seamY * BH, BD / 2 + 0.018)
-          handles.push(seam)
+        for (let module = 0; module < 3; module++) {
+          const centreY = y + module * moduleH + moduleH / 2
+          const bodyParts = module === 1 ? shadow : wrap
+          const body = bevelBox(BW - BD / 2, moduleH - seam, BD, 0.045)
+          body.translate(x + BD / 4, centreY, 0)
+          bodyParts.push(body)
+          const nose = new CylinderGeometry(BD / 2, BD / 2, moduleH - seam, 24, 1, false, Math.PI, Math.PI)
+          nose.translate(x - BW / 2 + BD / 2, centreY, 0)
+          bodyParts.push(nose)
         }
-        const couplingSlot = bevelBox(0.025, BH * 0.16, 0.035, 0.005)
-        couplingSlot.translate(x - BW * 0.38, y + BH * 0.5, BD / 2 + 0.02)
-        handles.push(couplingSlot)
+        for (let band = 1; band < 3; band++) {
+          const bandY = y + band * moduleH
+          for (const dx of [-0.20, 0.20] as const) {
+            const strap = bevelBox(0.20, 0.032, 0.026, 0.006)
+            strap.translate(x + dx, bandY, BD / 2 + 0.016)
+            strapParts.push(strap)
+          }
+        }
+        const buckle = bevelBox(0.035, 0.16, 0.03, 0.005)
+        buckle.translate(x - 0.20, y + BH / 2, BD / 2 + 0.02)
+        strapParts.push(buckle)
       }
     }
 
     if (wrap.length) emit('wrap', mergeParts(wrap, 'wrap'), blocks, 'wrap')
-    if (foam.length) emit('block', mergeParts(foam, 'foam'), blocks, 'foam')
-    emit('strap', mergeParts(handles, 'handles'), straps, 'handles')
+    if (shadow.length) emit('block', mergeParts(shadow, 'shadow'), blocks, 'shadow')
+    if (strapParts.length) emit('strap', mergeParts(strapParts, 'straps'), straps, 'straps')
   }
   rebuild()
 
@@ -172,6 +157,7 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
     update: () => {},
     dispose() {
       releaseGenerated()
+      for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },

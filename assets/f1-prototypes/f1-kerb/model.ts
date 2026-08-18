@@ -5,10 +5,15 @@
 
 import {
   BufferGeometry,
+  DataTexture,
   Float32BufferAttribute,
   Group,
+  LinearFilter,
   Mesh,
   MeshStandardMaterial,
+  RepeatWrapping,
+  RGBAFormat,
+  UnsignedByteType,
   type Material,
 } from 'three/webgpu'
 
@@ -48,11 +53,13 @@ const WIDTH = 0.80
 const RAMP_LEN = 0.40
 const RAMP_RISE = 0.050
 const LIP = 0.005
-const CAP_CROWN = 0.050
+const CAP_CROWN = 0.035
 const CAP_DUTY = 0.72
 const CAP_PER_BAND = 3
+const RIB_START = 0.06
+const RIB_END = 0.70
 const SKIRT = 0.04
-const ALONG = 24
+const ALONG = 36
 
 /** Spa fresh-paint red; Singapore kerb-white (neutral, not the Spa illuminant). */
 const KERB_RED = 0xde2f25
@@ -66,18 +73,30 @@ function kerbCap(xLocal: number): number {
   return 0.5 * (1 + Math.cos(Math.PI * u))
 }
 
+function ribEnvelope(d: number): number {
+  const u = (d - RIB_START) / (RIB_END - RIB_START)
+  if (u <= 0 || u >= 1) return 0
+  const wave = Math.sin(Math.PI * u)
+  return wave * wave
+}
+
+function ribEnvelopeGradient(d: number): number {
+  const span = RIB_END - RIB_START
+  const u = (d - RIB_START) / span
+  if (u <= 0 || u >= 1) return 0
+  return (Math.PI * Math.sin(2 * Math.PI * u)) / span
+}
+
 function kerbHeight(d: number, xLocal: number): number {
   const t = Math.max(0, Math.min(1, d / RAMP_LEN))
   const s = t * t * (3 - 2 * t)
-  return LIP + (RAMP_RISE - LIP + CAP_CROWN * kerbCap(xLocal)) * s
+  return LIP + (RAMP_RISE - LIP) * s + CAP_CROWN * kerbCap(xLocal) * ribEnvelope(d)
 }
 
-/** `out = (∂h/∂d, ∂h/∂x)`. Analytic so the blister silhouette and the shading share one field. */
+/** `out = (∂h/∂d, ∂h/∂x)`. Analytic so the rib silhouette and shading share one field. */
 function kerbGradient(d: number, xLocal: number, out: [number, number]): void {
-  const rl = RAMP_LEN
-  const t = Math.max(0, Math.min(1, d / rl))
-  const s = t * t * (3 - 2 * t)
-  const ds = (6 * t * (1 - t)) / rl
+  const t = Math.max(0, Math.min(1, d / RAMP_LEN))
+  const ds = (6 * t * (1 - t)) / RAMP_LEN
   const pitch = BAND / CAP_PER_BAND
   const v = xLocal / pitch + 0.5
   const q = v - Math.floor(v) - 0.5
@@ -85,8 +104,9 @@ function kerbGradient(d: number, xLocal: number, out: [number, number]): void {
   const u = Math.max(-1, Math.min(1, uRaw))
   const cap = 0.5 * (1 + Math.cos(Math.PI * u))
   const dcap = Math.abs(uRaw) >= 1 ? 0 : (-Math.PI * Math.sin(Math.PI * u)) / (CAP_DUTY * pitch)
-  out[0] = (RAMP_RISE - LIP + CAP_CROWN * cap) * ds
-  out[1] = CAP_CROWN * dcap * s
+  const envelope = ribEnvelope(d)
+  out[0] = (RAMP_RISE - LIP) * ds + CAP_CROWN * cap * ribEnvelopeGradient(d)
+  out[1] = CAP_CROWN * dcap * envelope
 }
 
 /**
@@ -102,7 +122,7 @@ function buildKerbModule(): BufferGeometry {
   const halfL = BAND * 0.5
   const yBot = -SKIRT
   const g: [number, number] = [0, 0]
-  const dKnots = [0, RAMP_LEN * 0.25, RAMP_LEN * 0.5, RAMP_LEN * 0.75, RAMP_LEN, WIDTH]
+  const dKnots = Array.from({ length: 17 }, (_, i) => (i / 16) * WIDTH)
   const zs = dKnots.map((d) => halfW - d)
   const nZ = zs.length - 1
 
@@ -183,27 +203,56 @@ function buildKerbModule(): BufferGeometry {
   return geo
 }
 
+function kerbWearTexture(): DataTexture {
+  const size = 64
+  const data = new Uint8Array(size * size * 4)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4
+      const edgeWear = x < 3 || x > size - 4 || y < 4
+      const tyreBand = y > 17 && y < 43 && ((x + y * 2) % 23) < 6
+      const value = edgeWear ? 244 : tyreBand ? 166 : 216
+      data[i] = value
+      data[i + 1] = value
+      data[i + 2] = value
+      data[i + 3] = 255
+    }
+  }
+  const texture = new DataTexture(data, size, size, RGBAFormat, UnsignedByteType)
+  texture.wrapS = RepeatWrapping
+  texture.wrapT = RepeatWrapping
+  texture.minFilter = LinearFilter
+  texture.magFilter = LinearFilter
+  texture.needsUpdate = true
+  return texture
+}
+
 export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
   const config: F1KerbConfig = { modules: Math.max(2, Math.round(options.modules ?? defaults.modules)) }
 
   const bundle = acquireF1Materials()
   const extras: Material[] = []
+  const textures: DataTexture[] = []
   const own = (material: Material): Material => {
     extras.push(material)
     return material
   }
+  const wear = kerbWearTexture()
+  textures.push(wear)
 
   const paintMat = options.materials?.paint ?? own(new MeshStandardMaterial({
     name: 'f1-kit / kerb red',
     color: KERB_RED,
-    roughness: 0.74,
-    metalness: 0.02,
+    roughness: 0.92,
+    roughnessMap: wear,
+    metalness: 0.01,
   }))
   const whiteMat = options.materials?.shell ?? own(new MeshStandardMaterial({
     name: 'f1-kit / kerb white',
     color: KERB_WHITE,
-    roughness: 0.78,
-    metalness: 0.02,
+    roughness: 0.94,
+    roughnessMap: wear,
+    metalness: 0.01,
   }))
 
   const materialSlots: Record<Slot, Material> = {
@@ -267,6 +316,7 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
     update: () => {},
     dispose() {
       releaseGenerated()
+      for (const texture of textures) texture.dispose()
       for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
@@ -278,9 +328,9 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ modules: 6 }), {
     aspect,
     target: [0, 0.04, 0.08],
-    distance: 3.4,
+    distance: 3.8,
     fov: 28,
     yaw: -1.12,
-    pitch: 0.38,
+    pitch: 0.22,
   })
 }

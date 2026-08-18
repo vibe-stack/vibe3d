@@ -7,12 +7,14 @@
 
 import {
   BufferGeometry,
+  CylinderGeometry,
   Float32BufferAttribute,
   Group,
   Mesh,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
+  Vector3,
   type Material,
 } from 'three/webgpu'
 
@@ -29,8 +31,8 @@ import {
   loftAlongX,
   marshalPlateTexture,
   paintedShellTexture,
+  member,
   mergeParts,
-  revolve,
   roofSheetTexture,
   tubeSection,
   uvAlongX,
@@ -200,11 +202,21 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     const rear = bevelBox(HUT_W, HUT_H, wallT, 0.01)
     rear.translate(0, midY, -HUT_D / 2 + wallT / 2)
     paintParts.push(rear)
-    for (const sx of [-1, 1] as const) {
-      const side = bevelBox(wallT, HUT_H, HUT_D, 0.01)
-      side.translate(sx * (HUT_W / 2 - wallT / 2), midY, 0)
-      paintParts.push(side)
-    }
+    const leftSide = bevelBox(wallT, HUT_H, HUT_D, 0.01)
+    leftSide.translate(-(HUT_W / 2 - wallT / 2), midY, 0)
+    paintParts.push(leftSide)
+    const doorCentreZ = -0.15
+    const doorW = 0.72
+    const doorH = 1.84
+    const rearSide = bevelBox(wallT, HUT_H, 0.39, 0.01)
+    rearSide.translate(HUT_W / 2 - wallT / 2, midY, -0.705)
+    paintParts.push(rearSide)
+    const frontSide = bevelBox(wallT, HUT_H, 0.69, 0.01)
+    frontSide.translate(HUT_W / 2 - wallT / 2, midY, 0.555)
+    paintParts.push(frontSide)
+    const doorLintel = bevelBox(wallT, HUT_H - doorH, doorW, 0.008)
+    doorLintel.translate(HUT_W / 2 - wallT / 2, y0 + doorH + (HUT_H - doorH) / 2, doorCentreZ)
+    paintParts.push(doorLintel)
     const winW = 1.15
     const jambW = (HUT_W - winW) / 2
     for (const sx of [-1, 1] as const) {
@@ -219,23 +231,22 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     lintel.translate(0, y0 + HUT_H - 0.39, HUT_D / 2 - wallT / 2)
     paintParts.push(lintel)
 
-    const door = bevelBox(0.62, 1.55, 0.04, 0.006)
-    door.translate(HUT_W / 2 + 0.01, y0 + 0.78, -0.15)
+    const doorX = HUT_W / 2 + 0.025
+    const door = bevelBox(0.045, doorH - 0.04, doorW - 0.04, 0.008)
+    door.translate(doorX, y0 + doorH / 2, doorCentreZ)
     emit('hut', uvPlanar(door), hut, 'door', paint)
-    const stile = bevelBox(0.04, 1.4, 0.015, 0.003)
-    stile.translate(HUT_W / 2 + 0.03, y0 + 0.82, -0.12)
-    emit('hut', stile, hut, 'door-stile', kit.graphite)
-    const kick = bevelBox(0.58, 0.22, 0.02, 0.004)
-    kick.translate(HUT_W / 2 + 0.03, y0 + 0.22, -0.15)
-    emit('hut', kick, hut, 'kick', kit.graphite)
+    const kick = bevelBox(0.026, 0.24, doorW - 0.10, 0.004)
+    kick.translate(doorX + 0.026, y0 + 0.22, doorCentreZ)
+    emit('hut', kick, hut, 'door-kick', kit.graphite)
     const knob = bevelDisc(0.03, 0.03, 0.004, 10)
     knob.rotateY(Math.PI / 2)
-    knob.translate(HUT_W / 2 + 0.04, y0 + 0.85, -0.02)
-    emit('hut', knob, hut, 'knob', kit.steel)
-    const doorX = HUT_W / 2 + 0.045
-    emit('hut', bolt([doorX, y0 + 1.38, -0.12], 0.01, 0.014, AXIS_X), hut, 'door-bolt-t', kit.steel)
-    emit('hut', bolt([doorX, y0 + 1.08, -0.12], 0.01, 0.014, AXIS_X), hut, 'door-bolt-m', kit.steel)
-    emit('hut', bolt([doorX, y0 + 0.38, -0.12], 0.01, 0.014, AXIS_X), hut, 'door-bolt-b', kit.steel)
+    knob.translate(doorX + 0.045, y0 + 0.96, doorCentreZ + doorW * 0.30)
+    emit('hut', knob, hut, 'door-knob', kit.steel)
+    for (const hingeY of [y0 + 0.36, y0 + 1.46] as const) {
+      const hinge = tubeSection(0.018, 0.18, [doorX + 0.045, hingeY, doorCentreZ - doorW / 2], [0, 1, 0], 8)
+      emit('hut', hinge, hut, `door-hinge-${hingeY}`, kit.steel)
+      emit('hut', bolt([doorX + 0.05, hingeY, doorCentreZ - doorW / 2 + 0.05], 0.01, 0.014, AXIS_X), hut, `door-bolt-${hingeY}`, kit.steel)
+    }
 
     for (const part of paintParts) uvPlanar(part)
     emit('hut', mergeParts(paintParts, 'cabin'), hut, 'cabin', paint)
@@ -268,21 +279,28 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     gutter.translate(0, y0 + HUT_H + 0.02, HUT_D / 2 + roofOver)
     emit('hut', gutter, hut, 'gutter', kit.graphite)
 
-    const plate = bevelBox(0.52, 0.38, 0.04, 0.006)
-    plate.translate(-0.72, 1.62, HUT_D / 2 + 0.04)
+    const plate = bevelBox(0.70, 0.50, 0.04, 0.006)
+    plate.translate(-0.70, 1.62, HUT_D / 2 + 0.04)
     emit('hut', plate, hut, 'plate-back', kit.graphite)
-    const face = new PlaneGeometry(0.46, 0.32)
-    face.translate(-0.72, 1.62, HUT_D / 2 + 0.04 + LAYER_CLEARANCE + 0.02)
+    const face = new PlaneGeometry(0.62, 0.42)
+    face.translate(-0.70, 1.62, HUT_D / 2 + 0.04 + LAYER_CLEARANCE + 0.02)
     emit('hut', face, hut, 'plate', plateMat)
 
     const zFace = HUT_D / 2 + 0.02
     const winY = y0 + 0.55 + 0.34
-    const glass = bevelBox(winW - 0.16, 0.58, 0.018, 0.003)
-    glass.translate(0, winY, HUT_D / 2 - wallT - LAYER_CLEARANCE)
-    emit('hut', glass, hut, 'window', glassMat)
+    const lowerGlass = bevelBox(winW - 0.16, 0.25, 0.018, 0.003)
+    lowerGlass.translate(0, winY - 0.16, HUT_D / 2 - wallT - LAYER_CLEARANCE)
+    emit('hut', lowerGlass, hut, 'window-lower', glassMat)
+    const upperGlass = bevelBox(winW - 0.16, 0.27, 0.018, 0.003)
+    upperGlass.rotateX(-0.22)
+    upperGlass.translate(0, winY + 0.17, zFace + 0.12)
+    emit('hut', upperGlass, hut, 'window-hinged', glassMat)
     const cavity = bevelBox(winW - 0.2, 0.54, 0.08, 0.004)
     cavity.translate(0, winY, HUT_D / 2 - wallT - 0.08)
     emit('hut', cavity, hut, 'cavity', kit.ink)
+    const workShelf = bevelBox(winW - 0.20, 0.045, 0.34, 0.008)
+    workShelf.translate(0, winY - 0.34, HUT_D / 2 - 0.24)
+    emit('hut', workShelf, hut, 'observer-work-shelf', kit.slate)
 
     const frameParts: BufferGeometry[] = []
     frameParts.push(bevelBox(winW - 0.04, 0.045, 0.035, 0.004).translate(0, winY + 0.33, zFace))
@@ -310,16 +328,46 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     flagParts.push(cloth)
     emit('flag', mergeParts(flagParts, 'flag'), crew, 'flag')
 
-    const rack = bevelBox(0.08, 0.42, 1.12, 0.008)
-    rack.translate(-HUT_W / 2 - 0.18, 0.28, 0.42)
-    emit('hut', rack, hut, 'extinguisher-rack', kit.graphite)
+    const rackBack = bevelBox(0.08, 0.62, 1.20, 0.008)
+    rackBack.translate(-HUT_W / 2 - 0.18, 0.37, 0.42)
+    emit('hut', rackBack, hut, 'extinguisher-rack', kit.graphite)
+    const rackCanopy = bevelBox(0.46, 0.055, 1.28, 0.012)
+    rackCanopy.translate(-HUT_W / 2 - 0.28, 0.73, 0.42)
+    emit('hut', rackCanopy, hut, 'extinguisher-weather-cover', kit.slate)
     for (let i = 0; i < 3; i++) {
-      const bottle = revolve(
-        [[0, 0.04], [0.12, 0.14], [0.55, 0.14], [0.78, 0.1], [0.92, 0.06], [1, 0.02]],
-        { yBot: 0.08, yTop: 0.55, scaleW: 0.55, segments: 16 },
-      )
-      bottle.translate(-HUT_W / 2 - 0.28, 0, 0.05 + i * 0.38)
+      const z = 0.04 + i * 0.38
+      const bottle = new CylinderGeometry(0.105, 0.105, 0.48, 16)
+      bottle.translate(-HUT_W / 2 - 0.29, 0.32, z)
       emit('flag', bottle, hut, `extinguisher-${i + 1}`, kit.red)
+      const shoulder = new CylinderGeometry(0.055, 0.095, 0.10, 12)
+      shoulder.translate(-HUT_W / 2 - 0.29, 0.61, z)
+      emit('flag', shoulder, hut, `extinguisher-shoulder-${i + 1}`, kit.red)
+      const valve = tubeSection(0.025, 0.10, [-HUT_W / 2 - 0.29, 0.71, z], [0, 1, 0], 8)
+      emit('hut', valve, hut, `extinguisher-valve-${i + 1}`, kit.steel)
+      const handle = bevelBox(0.04, 0.10, 0.15, 0.008)
+      handle.translate(-HUT_W / 2 - 0.29, 0.72, z)
+      emit('hut', handle, hut, `extinguisher-handle-${i + 1}`, kit.graphite)
+      const hose = member(
+        new Vector3(-HUT_W / 2 - 0.34, 0.66, z + 0.07),
+        new Vector3(-HUT_W / 2 - 0.36, 0.39, z + 0.13),
+        0.012,
+        8,
+      )
+      emit('hut', hose, hut, `extinguisher-hose-${i + 1}`, kit.graphite)
+      const label = bevelBox(0.015, 0.18, 0.11, 0.004)
+      label.translate(-HUT_W / 2 - 0.40, 0.34, z)
+      emit('hut', label, hut, `extinguisher-label-${i + 1}`, kit.shell)
+      const restraint = bevelBox(0.025, 0.055, 0.28, 0.006)
+      restraint.translate(-HUT_W / 2 - 0.41, 0.42, z)
+      emit('hut', restraint, hut, `extinguisher-restraint-${i + 1}`, kit.graphite)
+    }
+
+    const flagStore = bevelBox(0.52, 0.34, 0.28, 0.012)
+    flagStore.translate(0.82, 0.25, HUT_D / 2 + 0.32)
+    emit('hut', flagStore, hut, 'flag-storage-bin', kit.graphite)
+    for (let i = 0; i < 3; i++) {
+      const storedPole = tubeSection(0.012, 0.82, [0.67 + i * 0.15, 0.73, HUT_D / 2 + 0.32], [0, 1, 0], 6)
+      emit('flag', storedPole, crew, `stored-flag-${i + 1}`)
     }
   }
   rebuild()
@@ -363,8 +411,9 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
     target: [0.1, 1.25, 0.15],
-    distance: 6.2,
+    distance: 6.8,
     fov: 30,
+    yaw: 0.52,
     pitch: 0.16,
     ground: true,
   })
