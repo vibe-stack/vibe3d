@@ -21,8 +21,8 @@ import {
   createF1Preview,
   disposeF1Materials,
   fillGlyphRect,
+  GLYPH_3X5,
   mergeParts,
-  writeGlyphWord,
   LAYER_CLEARANCE,
 } from '../f1-kit-core/index.ts'
 
@@ -78,18 +78,42 @@ function stampTexture(w: number, h: number, paint: (data: Uint8Array) => void): 
   return tex
 }
 
+/** Solid 3×5 blocks — the shared writer leaves 1 px gutters that read as dash grids at tower scale. */
+function writeSolidWord(
+  data: Uint8Array,
+  w: number,
+  ox: number,
+  oy: number,
+  word: string,
+  rgb: readonly [number, number, number],
+  cell: number,
+): void {
+  let i = 0
+  for (const ch of word) {
+    const cells = GLYPH_3X5[ch] ?? GLYPH_3X5[ch.toUpperCase()]
+    if (!cells) continue
+    for (let gy = 0; gy < 5; gy++) {
+      for (let gx = 0; gx < 3; gx++) {
+        if (!cells[gy * 3 + gx]) continue
+        fillGlyphRect(data, w, ox + i * (cell * 4) + gx * cell, oy + gy * cell, cell, cell, rgb)
+      }
+    }
+    i++
+  }
+}
+
 function headerTexture(): DataTexture {
   return stampTexture(160, 48, (data) => {
-    writeGlyphWord(data, 160, 8, 10, 'LAP', YELLOW, 5)
-    writeGlyphWord(data, 160, 86, 4, '16', GREEN, 8)
+    writeSolidWord(data, 160, 8, 10, 'LAP', YELLOW, 5)
+    writeSolidWord(data, 160, 86, 4, '16', GREEN, 8)
   })
 }
 
 function cabinetTexture(digit: number, row: number): DataTexture {
   return stampTexture(160, 40, (data) => {
     const rank = String(row + 1)
-    writeGlyphWord(data, 160, 8, 4, rank, row < 9 ? YELLOW : PAPER, 6)
-    writeGlyphWord(data, 160, 96, 4, String(digit), PAPER, 6)
+    writeSolidWord(data, 160, 8, 4, rank, row < 9 ? YELLOW : PAPER, 6)
+    writeSolidWord(data, 160, 96, 4, String(digit), PAPER, 6)
   })
 }
 
@@ -284,8 +308,8 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   }), {
     aspect,
     target: [0, 4.7, 0.12],
-    distance: 15.4,
-    fov: 26,
+    distance: 21.5,
+    fov: 32,
     pitch: 0.04,
     yaw: -0.10,
   })
