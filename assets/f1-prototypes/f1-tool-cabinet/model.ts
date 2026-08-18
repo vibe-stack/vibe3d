@@ -67,7 +67,7 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
   const materialSlots: Record<Slot, Material> = {
     body: options.materials?.body ?? kit.red,
     top: options.materials?.top ?? kit.steel,
-    handle: options.materials?.handle ?? kit.steel,
+    handle: options.materials?.handle ?? kit.ink,
     caster: options.materials?.caster ?? kit.ink,
   }
 
@@ -147,7 +147,7 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
     const faceT = 0.020
     const faceZ = D / 2 - 0.008 + faceT / 2
     const drawerParts: BufferGeometry[] = []
-    const handleParts: BufferGeometry[] = []
+    const pullParts: BufferGeometry[] = []
     let cursorY = BODY_Y + H - 0.095
     for (let i = 0; i < ROWS; i++) {
       const faceH = (fieldH - rowGap * (ROWS - 1)) * rowWeights[i]! / weightTotal
@@ -156,38 +156,43 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
       face.translate(0, y, faceZ)
       drawerParts.push(face)
 
-      const pullY = y + faceH / 2 - Math.min(0.030, faceH * 0.30)
-      const channel = bevelBox(W - 0.135, 0.060, 0.028, 0.012)
-      channel.translate(0, pullY, D / 2 + 0.016)
-      blackParts.push(channel)
-      const pull = new CylinderGeometry(0.018, 0.018, W - 0.180, 18)
-      pull.rotateZ(Math.PI / 2)
-      pull.translate(0, pullY, D / 2 + 0.011)
-      handleParts.push(pull)
+      const pull = bevelBox(W - 0.145, 0.013, 0.018, 0.003)
+      pull.translate(0, y + faceH / 2 - 0.009, faceZ - 0.006)
+      pullParts.push(pull)
       cursorY -= faceH + rowGap
     }
     emit('body', mergeParts(drawerParts, 'drawers'), drawers, 'faces')
-    emit('handle', mergeParts(handleParts, 'handles'), drawers, 'pulls')
+    emit('top', mergeParts(pullParts, 'recessed-pulls'), drawers, 'pulls')
 
+    const handleY = topY - 0.16
     const pushPath = new CatmullRomCurve3([
-      new Vector3(-W / 2 + 0.010, topY - 0.075, D * 0.31),
-      new Vector3(-W / 2 - 0.070, topY - 0.075, D * 0.31),
-      new Vector3(-W / 2 - 0.085, topY - 0.075, 0),
-      new Vector3(-W / 2 - 0.070, topY - 0.075, -D * 0.31),
-      new Vector3(-W / 2 + 0.010, topY - 0.075, -D * 0.31),
+      new Vector3(-W / 2 + 0.012, handleY, D * 0.18),
+      new Vector3(-W / 2 - 0.048, handleY, D * 0.16),
+      new Vector3(-W / 2 - 0.058, handleY, 0),
+      new Vector3(-W / 2 - 0.048, handleY, -D * 0.16),
+      new Vector3(-W / 2 + 0.012, handleY, -D * 0.18),
     ], false, 'centripetal')
-    emit('handle', new TubeGeometry(pushPath, 32, 0.016, 12, false), bodyGroup, 'tubular-push-handle')
+    emit('handle', new TubeGeometry(pushPath, 28, 0.015, 12, false), bodyGroup, 'tubular-push-handle')
+    const ribs: BufferGeometry[] = []
+    for (const z of [-0.10, -0.05, 0, 0.05, 0.10] as const) {
+      const rib = new CylinderGeometry(0.018, 0.018, 0.008, 12)
+      rib.rotateX(Math.PI / 2)
+      rib.translate(-W / 2 - 0.058, handleY, z)
+      ribs.push(rib)
+    }
+    emit('handle', mergeParts(ribs, 'handle-ribs'), bodyGroup, 'handle-ribs')
 
-    // Each guard wraps around the front corner instead of reading as an applied row of blocks.
     for (const sx of [-1, 1] as const) {
-      for (let i = 0; i < 8; i++) {
-        const segmentH = H / 8 - 0.011
-        const front = bevelBox(0.046, segmentH, 0.034, 0.011)
-        front.translate(sx * (W / 2 + 0.007), BODY_Y + H * (i + 0.5) / 8, D / 2 + 0.016)
-        blackParts.push(front)
-        const sideReturn = bevelBox(0.030, segmentH, 0.064, 0.011)
-        sideReturn.translate(sx * (W / 2 + 0.015), BODY_Y + H * (i + 0.5) / 8, D / 2 - 0.015)
-        blackParts.push(sideReturn)
+      const front = bevelBox(0.052, H - 0.04, 0.040, 0.016)
+      front.translate(sx * (W / 2 + 0.008), BODY_Y + H / 2, D / 2 + 0.018)
+      blackParts.push(front)
+      const sideReturn = bevelBox(0.038, H - 0.04, 0.090, 0.016)
+      sideReturn.translate(sx * (W / 2 + 0.018), BODY_Y + H / 2, D / 2 - 0.022)
+      blackParts.push(sideReturn)
+      for (const t of [0.18, 0.5, 0.82] as const) {
+        const band = bevelBox(0.070, 0.028, 0.110, 0.010)
+        band.translate(sx * (W / 2 + 0.012), BODY_Y + H * t, D / 2 - 0.004)
+        blackParts.push(band)
       }
     }
 

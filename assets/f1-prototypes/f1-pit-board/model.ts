@@ -56,10 +56,10 @@ const defaults: F1PitBoardConfig = {
   rowCount: 4,
   cardsPerRow: 3,
   labels: [
-    ['1', '0.0', '12'],
-    ['2', '0.3', '14'],
-    ['3', '1.2', '14'],
-    ['4', '2.1', '13'],
+    ['PIT'],
+    ['L', 'P'],
+    ['1.12'],
+    ['12.3'],
   ],
 }
 
@@ -194,48 +194,70 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
       railParts.push(rail)
     }
 
-    const fieldTop = BOARD_Y + BOARD_H / 2 - FRAME_W - 0.012
-    const fieldBottom = BOARD_Y - BOARD_H / 2 + FRAME_W + 0.012
+    const fieldTop = BOARD_Y + BOARD_H / 2 - FRAME_W - 0.010
+    const fieldBottom = BOARD_Y - BOARD_H / 2 + FRAME_W + 0.010
     const fieldH = fieldTop - fieldBottom
-    const fieldW = BOARD_W - FRAME_W * 2 - 0.024
-    const rowPitch = fieldH / nRows
-    const cardH = rowPitch - 0.024
-    const cardGap = 0.016
-    const cardW = (fieldW - cardGap * (nCols - 1)) / nCols
+    const fieldW = BOARD_W - FRAME_W * 2 - 0.016
+    const hierarchy = nRows >= 4 && nCols >= 2
+    const headerH = hierarchy ? fieldH * 0.16 : 0
+    const splitH = hierarchy ? fieldH * 0.28 : 0
+    const remain = nRows - (hierarchy ? 2 : 0)
+    const timeH = remain > 0 ? (fieldH - headerH - splitH) / remain : fieldH / Math.max(1, nRows)
+    const plateZ = BOARD_T / 2 + 0.010
+    const glyphZ = plateZ + 0.006 + LAYER_CLEARANCE
+
+    const addPlate = (x: number, y: number, w: number, h: number, label: string, key: string) => {
+      const plate = bevelBox(w, h, 0.010, 0.002)
+      plate.translate(x, y, plateZ)
+      cardParts.push(plate)
+      if (!ownsCard) return
+      const tex = fluorescentLabelTexture(label || '0')
+      textures.push(tex)
+      const glyphMat = new MeshBasicMaterial({
+        name: `f1-kit / pit-board ${key}`,
+        map: tex,
+        toneMapped: false,
+      })
+      extras.push(glyphMat)
+      const face = new PlaneGeometry(w * 0.92, h * 0.78)
+      face.translate(x, y, glyphZ)
+      generated.push(face)
+      const mesh = new Mesh(face, glyphMat)
+      mesh.name = `glyph-${key}`
+      mesh.castShadow = false
+      rows.add(mesh)
+    }
 
     const cardParts: BufferGeometry[] = []
-    for (let row = 0; row < nRows; row++) {
-      const y = fieldTop - rowPitch * (row + 0.5)
-      for (let card = 0; card < nCols; card++) {
-        const x = -fieldW / 2 + cardW / 2 + card * (cardW + cardGap)
-        const plate = bevelBox(cardW, cardH, 0.008, 0.002)
-        plate.translate(x, y, BOARD_T / 2 + 0.004)
-        cardParts.push(plate)
-
-        if (ownsCard) {
-          const label = labels[row]?.[card] ?? ''
-          const tex = fluorescentLabelTexture(label || '0')
-          textures.push(tex)
-          const glyphMat = new MeshBasicMaterial({
-            name: `f1-kit / pit-board card ${row}-${card}`,
-            map: tex,
-            toneMapped: false,
-          })
-          extras.push(glyphMat)
-          const face = new PlaneGeometry(cardW * 0.96, cardH * 0.86)
-          face.translate(x, y, BOARD_T / 2 + 0.008 + LAYER_CLEARANCE)
-          generated.push(face)
-          const mesh = new Mesh(face, glyphMat)
-          mesh.name = `glyph-${row}-${card}`
-          mesh.castShadow = false
-          mesh.receiveShadow = false
-          rows.add(mesh)
+    let cursor = fieldTop
+    if (hierarchy) {
+      const h = headerH - 0.012
+      addPlate(0, cursor - h / 2, fieldW - 0.012, h, labels[0]?.[0] ?? 'PIT', 'header')
+      cursor -= headerH
+      const split = splitH - 0.014
+      const half = (fieldW - 0.024) / 2
+      addPlate(-half / 2 - 0.006, cursor - split / 2, half, split, labels[1]?.[0] ?? 'L', 'lap')
+      addPlate(half / 2 + 0.006, cursor - split / 2, half, split, labels[1]?.[1] ?? 'P', 'pos')
+      cursor -= splitH
+      for (let row = 2; row < nRows; row++) {
+        const h = timeH - 0.012
+        addPlate(0, cursor - h / 2, fieldW - 0.012, h, labels[row]?.[0] ?? String(row), `time-${row}`)
+        const slat = bevelBox(fieldW + 0.008, 0.012, 0.014, 0.002)
+        slat.translate(0, cursor - timeH + 0.004, BOARD_T / 2 + 0.006)
+        railParts.push(slat)
+        cursor -= timeH
+      }
+    } else {
+      const rowPitch = fieldH / nRows
+      for (let row = 0; row < nRows; row++) {
+        const y = fieldTop - rowPitch * (row + 0.5)
+        const cardH = rowPitch - 0.020
+        const cardW = (fieldW - 0.012 * (nCols - 1)) / nCols
+        for (let card = 0; card < nCols; card++) {
+          const x = -fieldW / 2 + cardW / 2 + card * (cardW + 0.012)
+          addPlate(x, y, cardW, cardH, labels[row]?.[card] ?? '', `${row}-${card}`)
         }
       }
-
-      const channel = bevelBox(fieldW + 0.012, 0.010, 0.016, 0.002)
-      channel.translate(0, y - cardH / 2 - 0.005, BOARD_T / 2 + 0.008)
-      railParts.push(channel)
     }
     emit('card', mergeParts(cardParts, 'cards'), rows, 'cards')
     emit('rail', mergeParts(railParts, 'rails'), board, 'frame')
@@ -253,23 +275,16 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
     }
     emit('board', mergeParts(wearParts, 'edge-wear'), board, 'edge-wear')
 
-    // Short hanging handle above the board; the long ground-reaching pole is intentionally absent.
     const poleParts: BufferGeometry[] = []
-    const handleZ = -BOARD_T / 2 - 0.030
     const boardTop = BOARD_Y + BOARD_H / 2
-    for (const sx of [-1, 1] as const) {
-      const arm = new CylinderGeometry(0.017, 0.017, 0.20, 12)
-      arm.translate(sx * 0.14, boardTop + 0.09, handleZ)
-      poleParts.push(arm)
-      const mount = bevelBox(0.058, 0.070, 0.032, 0.005)
-      mount.translate(sx * 0.14, boardTop - 0.012, handleZ)
-      poleParts.push(mount)
-    }
-    const grip = new CylinderGeometry(0.020, 0.020, 0.28, 12)
+    const grip = new CylinderGeometry(0.016, 0.016, 0.16, 12)
     grip.rotateZ(Math.PI / 2)
-    grip.translate(0, boardTop + 0.19, handleZ)
+    grip.translate(BOARD_W / 2 - 0.10, boardTop + 0.028, 0)
     poleParts.push(grip)
-    emit('pole', mergeParts(poleParts, 'pole'), pole, 'top-handle')
+    const horn = bevelBox(0.055, 0.034, BOARD_T + 0.016, 0.006)
+    horn.translate(BOARD_W / 2 - 0.028, boardTop + 0.006, 0)
+    poleParts.push(horn)
+    emit('pole', mergeParts(poleParts, 'pole'), pole, 'corner-grip')
   }
   rebuild()
 
