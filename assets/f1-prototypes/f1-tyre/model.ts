@@ -1,12 +1,12 @@
 // f1-tyre — a loose F1 tyre: an 18-inch rim barrel inside a lathe-revolved carcass whose
 // crown carries four continuous circumferential grooves and a directional V pattern of bevelled tread
-// blocks, five paired Y spoke arms sunk into a dished barrel, a recessed hub socket with a centre lock
-// nut, and the compound grading arcs on the sidewall. Dressed on BOTH faces (axle along local Z) —
+// blocks, ten ordered forged spokes over a visible brake assembly, a slim hub and clean centre lock,
+// plus procedural PIRELLI / P ZERO sidewall type. Dressed on BOTH faces (axle along local Z) —
 // a carried tyre is seen from both sides, unlike a fitted car tyre.
 //
 // Proportions are measured off a face-on reference of a current-spec 18" tyre: the rim seat sits at 0.635
-// of the tyre's outer radius (a 457 mm rim inside a 720 mm tyre), the spoke arms span 0.21..0.61 of it,
-// the hub socket 0..0.23, and the sidewall grading band 0.77..0.81.
+// of the tyre's outer radius (a 457 mm rim inside a 720 mm tyre), the spokes span 0.158..0.586 of it,
+// the hub socket 0..0.159, and the sidewall wordmarks sit at 0.805.
 //
 // Every applied feature occupies its own radial band with a real world-unit axial step to its neighbour, or
 // interpenetrates its host outright — never a coplanar decal floating a fraction of a millimetre off the
@@ -14,6 +14,7 @@
 // no `document` and would silently render the fallback material instead.
 
 import {
+  BoxGeometry,
   BufferGeometry,
   CylinderGeometry,
   Float32BufferAttribute,
@@ -134,6 +135,60 @@ function latheZ(profile: ReadonlyArray<readonly [number, number]>, segments: num
   const geo = new LatheGeometry(points, segments)
   geo.rotateX(Math.PI / 2) // lathe axis Y -> Z, so the tyre rolls about local Z
   return geo
+}
+
+type GlyphStroke = readonly [number, number, number, number]
+
+const SIDEWALL_GLYPHS: Readonly<Record<string, readonly GlyphStroke[]>> = {
+  ' ': [],
+  E: [[0, 1, 0, 0], [0, 1, 0.68, 1], [0, 0.5, 0.56, 0.5], [0, 0, 0.68, 0]],
+  I: [[0.34, 1, 0.34, 0], [0.04, 1, 0.64, 1], [0.04, 0, 0.64, 0]],
+  L: [[0, 1, 0, 0], [0, 0, 0.68, 0]],
+  O: [[0, 0.12, 0, 0.88], [0.68, 0.12, 0.68, 0.88], [0.1, 1, 0.58, 1], [0.1, 0, 0.58, 0]],
+  P: [[0, 0, 0, 1], [0, 1, 0.53, 1], [0.6, 0.92, 0.6, 0.58], [0.53, 0.5, 0, 0.5]],
+  R: [[0, 0, 0, 1], [0, 1, 0.53, 1], [0.6, 0.92, 0.6, 0.58], [0.53, 0.5, 0, 0.5], [0.31, 0.5, 0.68, 0]],
+  Z: [[0, 1, 0.68, 1], [0.68, 1, 0, 0], [0, 0, 0.68, 0]],
+}
+
+/** Raised procedural lettering: deterministic, exportable, and independent of fonts or textures. */
+function sidewallWord(
+  text: string,
+  radius: number,
+  z: number,
+  centreAngle: number,
+  height: number,
+  face: 1 | -1,
+): BufferGeometry {
+  const cell = height * 0.82
+  const advance = cell * 1.16
+  const total = advance * (text.length - 1)
+  const strokeWidth = height * 0.13
+  const depth = 0.003
+  const parts: BufferGeometry[] = []
+
+  const orientation = Math.sin(centreAngle) >= 0 ? -1 : 1
+  for (let letterIndex = 0; letterIndex < text.length; letterIndex++) {
+    const glyph = SIDEWALL_GLYPHS[text[letterIndex]] ?? []
+    const offset = letterIndex * advance - total / 2
+    const angle = centreAngle + orientation * offset / radius
+    for (const [x0, y0, x1, y1] of glyph) {
+      const ax = (x0 - 0.34) * cell
+      const ay = (y0 - 0.5) * height
+      const bx = (x1 - 0.34) * cell
+      const by = (y1 - 0.5) * height
+      const dx = bx - ax
+      const dy = by - ay
+      const stroke = new BoxGeometry(Math.hypot(dx, dy) + strokeWidth * 0.35, strokeWidth, depth)
+      stroke.rotateZ(Math.atan2(dy, dx))
+      stroke.translate((ax + bx) / 2, (ay + by) / 2, z)
+      stroke.rotateZ(angle + orientation * Math.PI / 2)
+      stroke.translate(Math.cos(angle) * radius, Math.sin(angle) * radius, 0)
+      if (face < 0) stroke.rotateY(Math.PI)
+      parts.push(stroke)
+    }
+  }
+
+  return mergeParts(parts, `sidewall-${text.toLowerCase().replace(' ', '-')}-${face}`)
 }
 
 /**
@@ -267,8 +322,8 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
   }
 
   const materialSlots: Record<Slot, Material> = {
-    rubber: options.materials?.rubber ?? kit.ink,
-    tread: options.materials?.tread ?? kit.tread,
+    rubber: options.materials?.rubber ?? own(Object.assign(kit.ink.clone(), { roughness: 0.88 })),
+    tread: options.materials?.tread ?? own(Object.assign(kit.tread.clone(), { roughness: 0.94 })),
     // Forged F1 rims are anodised satin black, not chrome — the bright metal on the rim is confined
     // to the machined centre nut, which is what gives the hub its single hard highlight.
     rim: options.materials?.rim ?? kit.graphite,
@@ -318,16 +373,15 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
     const hw = W / 2
     // `treadSegments` is the single LOD knob: every revolve on the tyre follows it, so a consumer that
     // buries this tyre in a stack pays a fraction of the hero cost from one option.
-    const seg = Math.max(24, treadSegments * 2)
+    const seg = Math.max(64, treadSegments * 3)
 
     // --- Radial bands, world units at the default 0.33 m radius --------------------------------------
     const rBead = R * 0.635         // 0.2096 — rim seat, 18-inch rim in a 720 mm tyre
-    const shoulder = 0.035          // tight shoulder fillet — a hard edge in the silhouette
-    const zCrown = hw - shoulder    // 0.130  — half-width of the crowned tread band
+    const shoulder = 0.041          // current tyres have a compact but visibly round shoulder
+    const zCrown = hw - shoulder    // 0.124  — half-width of the crowned tread band
     const zBead = hw * 0.727        // 0.120  — the tyre necks in axially at the bead
-    // Crown sagitta over the whole 0.26 m band. Nearly flat: a racing tyre's tread is a band with a
-    // corner at each end, not a dome, and the shoulder radius below does all the turning.
-    const crownDrop = 0.008
+    // Crown sagitta over the whole band. Nearly flat: the shoulder radius does most of the turning.
+    const crownDrop = 0.006
     const grooveDepth = 0.011       // circumferential groove depth, cut into the land
     const channelDepth = 0.007      // lateral V-channel depth, cut into the land
 
@@ -346,8 +400,8 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
     const carcass: Array<readonly [number, number]> = [[rBead, -zBead], [rBead + 0.012, -hw * 0.879]]
     carcass.push([R * 0.697, -hw * 0.958], [R * 0.758, -hw * 0.982], [R * 0.858, -hw])
     carcass.push([ribTop(-1) - shoulder, -hw * 0.988])
-    for (let i = 0; i <= 5; i++) {                                        // lower shoulder fillet
-      const a = -Math.PI / 2 + (Math.PI / 2) * (i / 5)
+    for (let i = 0; i <= 8; i++) {                                        // lower shoulder fillet
+      const a = -Math.PI / 2 + (Math.PI / 2) * (i / 8)
       carcass.push([ribTop(-1) - shoulder + Math.cos(a) * shoulder, -zCrown + Math.sin(a) * shoulder])
     }
     // Under the crown the carcass runs as a plain core, set below the deepest groove so the swept tread
@@ -358,14 +412,34 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
     } else {
       carcass.push([core, -zCrown], [core, zCrown])
     }
-    for (let i = 0; i <= 5; i++) {                                        // upper shoulder fillet
-      const a = (Math.PI / 2) * (i / 5)
+    for (let i = 0; i <= 8; i++) {                                        // upper shoulder fillet
+      const a = (Math.PI / 2) * (i / 8)
       carcass.push([ribTop(1) - shoulder + Math.cos(a) * shoulder, zCrown + Math.sin(a) * shoulder])
     }
     carcass.push([ribTop(1) - shoulder, hw * 0.988])
     carcass.push([R * 0.858, hw], [R * 0.758, hw * 0.982], [R * 0.697, hw * 0.958])
     carcass.push([rBead + 0.012, hw * 0.879], [rBead, zBead], [rBead, -zBead])
     emit('rubber', creased(latheZ(carcass, seg)), tire, 'carcass')
+
+    // Fine mould witness rings and index-cycled scrub traces interrupt the otherwise perfect sidewall.
+    const mouldParts: BufferGeometry[] = []
+    for (const face of [1, -1] as const) {
+      for (const [ringRadius, lift] of [[0.731, 0.0010], [0.913, 0.0007]] as const) {
+        const seam = arcBand(R * (ringRadius - 0.003), R * (ringRadius + 0.003), 0, Math.PI * 2, 0.006, lift)
+        seam.translate(0, 0, 0.500 * W)
+        if (face < 0) seam.rotateY(Math.PI)
+        mouldParts.push(seam)
+      }
+      for (let i = 0; i < 5; i++) {
+        const angle = 0.37 + i * 1.19
+        const traceRadius = 0.835 + (i % 2) * 0.012
+        const trace = arcBand(R * traceRadius, R * (traceRadius + 0.004), angle, angle + 0.16 + i * 0.012, 0.005, 0.0005)
+        trace.translate(0, 0, 0.501 * W)
+        if (face < 0) trace.rotateY(Math.PI)
+        mouldParts.push(trace)
+      }
+    }
+    emit('rubber', mergeParts(mouldParts, 'mould-seams'), trim, 'mould-seams')
 
     // --- Tread: the pattern swept as grooves cut into an unbroken land surface -----------------------
     // Four continuous circumferential grooves divide the band into five ribs; the four flanking ribs are
@@ -414,45 +488,51 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
         return g
       }
 
-      // Five paired Y-arms, not a fan of thin fins: a thick stem off the hub that forks into two blades
-      // reaching the barrel. Five arms means the windows between them — not the spokes — are the
-      // dominant read, which is what separates a forged race rim from a turbine impeller.
-      // Phased half a pitch apart between the two faces (rule 3).
-      const web = 0.022
+      // Ten evenly indexed forged spokes leave orderly negative space and carry a slight directional rake.
+      const web = 0.016
       rimParts.push(mirror(ringOfMerged(
-        5,
-        0, // each arm is authored at its own radius; the ring only rotates it into place
+        10,
+        0,
         `spokes-${face}`,
         () => {
-          // The pair's two blades sit only 7 degrees apart, so near the hub they overlap into a single
-          // thick root and splay apart toward the barrel — the Y read, without a fork joint to misalign.
-          const arm: BufferGeometry[] = []
-          for (const side of [-1, 1] as const) {
-            const blade = bevelBlade(0.206 * R, 0.612 * R, 0.030, 0.026, web, 0.004)
-            blade.rotateZ(side * MathUtils.degToRad(7))
-            arm.push(blade)
-          }
-          const merged = mergeParts(arm, 'spoke-arm')
-          merged.translate(0, 0, zSpoke - web / 2)
-          return merged
+          const spoke = bevelBlade(0.158 * R, 0.586 * R, 0.020, 0.012, web, 0.003)
+          spoke.rotateZ(MathUtils.degToRad(5.5))
+          spoke.translate(0, 0, zSpoke - web / 2)
+          return spoke
         },
-        face > 0 ? 0 : 0.5,
+        face > 0 ? 0 : 0.25,
       )))
 
-      // Hub: a bowl recessed below the spoke plane, so the centre reads as a machined socket.
+      // Carbon brake rotor and caliper sit behind the spokes and remain visible through their windows.
       coverParts.push(mirror(latheZ([
-        [0.000, 0.176 * W], [0.167 * R, 0.176 * W], [0.188 * R, 0.194 * W],
-        [0.212 * R, 0.242 * W], [0.227 * R, zSpoke], [0.227 * R, 0.255 * W],
-        [0.206 * R, 0.230 * W], [0.176 * R, 0.158 * W], [0.000, 0.158 * W],
+        [0.232 * R, 0.182 * W], [0.500 * R, 0.182 * W], [0.520 * R, 0.194 * W],
+        [0.520 * R, 0.214 * W], [0.232 * R, 0.214 * W], [0.232 * R, 0.182 * W],
+      ], seg)))
+      const caliper = bevelBlade(0.255 * R, 0.475 * R, 0.054, 0.045, 0.026, 0.006)
+      caliper.rotateZ(Math.PI)
+      caliper.translate(0, 0, 0.222 * W)
+      accentParts.push(mirror(caliper))
+
+      const boltRing = ringOfMerged(10, 0.276 * R, `rotor-bolts-${face}`, () => {
+        const bolt = new CylinderGeometry(0.008 * R, 0.008 * R, 0.006, 8)
+        bolt.rotateX(Math.PI / 2)
+        bolt.translate(0, 0, 0.225 * W)
+        return bolt
+      }, face > 0 ? 0 : 0.5)
+      metalParts.push(mirror(boltRing))
+
+      // Slim recessed hub lets the spokes terminate cleanly around a compact machined drive bowl.
+      coverParts.push(mirror(latheZ([
+        [0.000, 0.180 * W], [0.112 * R, 0.180 * W], [0.141 * R, 0.205 * W],
+        [0.159 * R, zSpoke], [0.159 * R, 0.248 * W], [0.139 * R, 0.218 * W],
+        [0.106 * R, 0.166 * W], [0.000, 0.166 * W],
       ], Math.max(20, seg / 2))))
 
-      // Stepped drive ring inside the bowl, in the same dark machined finish as the hub. It used to
-      // carry the livery colour, but a bright ring around the nut reads as a halo and pulls the eye to
-      // the smallest, least-resolved part of the model — the hub belongs in shadow.
+      // Stepped drive ring inside the bowl.
       coverParts.push(mirror(latheZ([
-        [0.121 * R, 0.152 * W], [0.121 * R, 0.182 * W], [0.139 * R, 0.192 * W],
-        [0.164 * R, 0.192 * W], [0.176 * R, 0.182 * W], [0.176 * R, 0.152 * W],
-        [0.121 * R, 0.152 * W],
+        [0.073 * R, 0.158 * W], [0.073 * R, 0.190 * W], [0.091 * R, 0.202 * W],
+        [0.112 * R, 0.202 * W], [0.126 * R, 0.188 * W], [0.126 * R, 0.158 * W],
+        [0.073 * R, 0.158 * W],
       ], Math.max(20, seg / 2))))
 
       // The livery accent instead lives where a real team stripe does: a pinstripe edging the rim lip.
@@ -463,24 +543,17 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
         [0.598 * R, 0.352 * W], [0.598 * R, 0.318 * W],
       ], seg)))
 
-      // Centre lock nut, recessed ~0.017 m behind the spoke plane so the centre reads as a dark machined
-      // socket, not a protruding boss. Bright machined metal — the only chrome on the rim.
-      const nut = new CylinderGeometry(0.114 * R, 0.114 * R, 0.028, 6)
+      // Compact ten-sided centre lock supplies one clean machined highlight inside the dark drive bowl.
+      const nut = new CylinderGeometry(0.073 * R, 0.073 * R, 0.022, 10)
       nut.rotateX(Math.PI / 2)
-      nut.translate(0, 0, 0.180 * W * face)
+      nut.translate(0, 0, 0.204 * W * face)
       metalParts.push(nut)
 
-      // Sidewall grading: two bold arc segments in the compound colour, the way the sport actually marks
-      // a tyre — not a full ring and not a ring of dashes, which read as loose debris at this scale.
-      // The segments abut, so each arc merges into one continuous raised band.
-      const zSkin = 0.478 * W
-      // Two arcs, deliberately unequal and offset per face so the two sides never mirror (rule 3).
-      const spin = face > 0 ? 0 : 2.3
-      for (const [from, to] of [[0.18, 1.95], [3.52, 5.10]] as const) {
-        const band = arcBand(R * 0.771, R * 0.813, from + spin, to + spin, 0.012, 0.0025)
-        band.translate(0, 0, zSkin)
-        bandParts.push(mirror(band))
-      }
+      // Current tyre hierarchy: PIRELLI above the hub and P ZERO below, in the compound colour.
+      const zSkin = 0.503 * W
+      const spin = face > 0 ? 0 : 0.09
+      bandParts.push(sidewallWord('PIRELLI', R * 0.805, zSkin, Math.PI / 2 + spin, 0.031, face))
+      bandParts.push(sidewallWord('P ZERO', R * 0.805, zSkin, -Math.PI / 2 + spin, 0.034, face))
     }
 
     emit('rim', mergeParts(rimParts, 'rim'), rim, 'barrel')
