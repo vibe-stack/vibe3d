@@ -26,6 +26,7 @@ import {
   fillGlyphRect,
   member,
   mergeParts,
+  stampLedModuleGrid,
   writeGlyphWord,
 } from '../f1-kit-core/index.ts'
 
@@ -100,7 +101,7 @@ function timingSheet(entries: readonly F1JumbotronEntry[]): DataTexture {
     (TOKEN.CYAN_400 >> 8) & 0xff,
     TOKEN.CYAN_400 & 0xff,
   ]
-  fillGlyphRect(data, w, 0, 0, w, h, ink)
+  stampLedModuleGrid(data, w, h, ink, 4)
   fillGlyphRect(data, w, 0, 0, w, 72, accent)
   fillGlyphRect(data, w, 0, h - 28, w, 28, accent)
   writeGlyphWord(data, w, 16, 8, 'P', paper, 14)
@@ -111,7 +112,6 @@ function timingSheet(entries: readonly F1JumbotronEntry[]): DataTexture {
   for (let row = 0; row < n; row++) {
     const entry = entries[row]!
     const y = 84 + row * rowH
-    if (row % 2 === 1) fillGlyphRect(data, w, 0, y, w, rowH, [12, 16, 22])
     writeGlyphWord(data, w, 18, y + 6, String(entry.p), paper, 6)
     if (entry.code) {
       writeGlyphWord(data, w, 70, y + 6, entry.code, cyan, 6)

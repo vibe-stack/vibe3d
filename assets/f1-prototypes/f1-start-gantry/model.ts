@@ -8,6 +8,7 @@ import {
   CylinderGeometry,
   Group,
   Mesh,
+  MeshStandardMaterial,
   SpotLight,
   Vector3,
   type Material,
@@ -17,6 +18,7 @@ import {
   acquireF1Materials,
   applyPolarCapUVs,
   bevelBox,
+  bevelDisc,
   bevelRing,
   createF1Preview,
   disposeF1Materials,
@@ -55,6 +57,10 @@ const LIGHT_PITCH = 0.5
 const HOUSE_W = 0.26
 const HOUSE_H = 0.9
 const HOUSE_D = 0.18
+const LAMP_R = 0.055
+const LENS_THICK = 0.01
+const WELL_DEPTH = 0.012
+const DOME_THICK = 0.003
 
 export function createModel(options: F1StartGantryOptions = {}): F1StartGantryInstance {
   const config: F1StartGantryConfig = {
@@ -67,6 +73,17 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
   const extras: Material[] = []
   const lampOn = createLampMaterial({ on: true, name: 'f1-kit / gantry-lamp' })
   extras.push(lampOn)
+  const glassMat = new MeshStandardMaterial({
+    name: 'f1-kit / gantry-lamp dome',
+    color: 0x8aa0b0,
+    roughness: 0.15,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.22,
+    toneMapped: false,
+    depthWrite: false,
+  })
+  extras.push(glassMat)
 
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ?? kit.graphite,
@@ -179,9 +196,12 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     const housings: BufferGeometry[] = []
     const lamps: BufferGeometry[] = []
     const bezels: BufferGeometry[] = []
+    const domes: BufferGeometry[] = []
     const houseZ = HOUSE_D / 2 + 0.42
     const housingFaceZ = houseZ + HOUSE_D / 2
-    const lampZ = housingFaceZ + LAYER_CLEARANCE
+    const lensZ = housingFaceZ + LAYER_CLEARANCE + LENS_THICK / 2
+    const lipZ = housingFaceZ + WELL_DEPTH / 2
+    const domeZ = housingFaceZ + WELL_DEPTH + LAYER_CLEARANCE + DOME_THICK / 2
     for (let c = 0; c < 5; c++) {
       const x = (c - 2) * LIGHT_PITCH
       const house = loftRoundedBox(HOUSE_W, HOUSE_H, HOUSE_D, 0.04)
@@ -189,24 +209,37 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
       housings.push(house)
       for (let r = 0; r < 4; r++) {
         const y = bannerY + (1.5 - r) * 0.18
-        const lamp = new CylinderGeometry(0.055, 0.05, 0.018, 14)
+        const lamp = new CylinderGeometry(LAMP_R * 0.78, LAMP_R * 0.74, LENS_THICK, 14)
         lamp.rotateX(Math.PI / 2)
         applyPolarCapUVs(lamp)
-        lamp.translate(x, y, lampZ)
+        lamp.translate(x, y, lensZ)
         lamps.push(lamp)
-        const bezel = bevelRing(0.05, 0.072, 0.005, 0.001, 20)
-        bezel.translate(x, y, housingFaceZ)
-        bezels.push(bezel)
+        const step = bevelRing(LAMP_R * 0.72, LAMP_R * 0.92, 0.004, 0.001, 20)
+        step.translate(x, y, housingFaceZ + 0.002)
+        bezels.push(step)
+        const lip = bevelRing(LAMP_R * 0.92, LAMP_R * 1.18, WELL_DEPTH, 0.001, 20)
+        lip.translate(x, y, lipZ)
+        bezels.push(lip)
+        const dome = bevelDisc(LAMP_R * 0.88, DOME_THICK, 0.001, 16)
+        dome.translate(x, y, domeZ)
+        domes.push(dome)
       }
       const spot = new SpotLight(0xc41820, 0.9, 2.0, Math.PI / 7, 0.55, 2)
       spot.name = `spot-${c}`
-      spot.position.set(x, bannerY, housingFaceZ)
-      spot.target.position.set(x, bannerY - 0.5, housingFaceZ + 4)
+      spot.position.set(x, bannerY, domeZ)
+      spot.target.position.set(x, bannerY - 0.5, domeZ + 4)
       banner.add(spot, spot.target)
     }
     emit('banner', mergeParts(housings, 'housings'), banner, 'housings', kit.graphite)
     emit('banner', mergeParts(bezels, 'bezels'), banner, 'bezels', kit.slate)
     emit('banner', mergeParts(lamps, 'lights'), banner, 'lights', lampOn)
+    const domeGeo = mergeParts(domes, 'domes')
+    generated.push(domeGeo)
+    const domeMesh = new Mesh(domeGeo, glassMat)
+    domeMesh.name = 'domes'
+    domeMesh.castShadow = false
+    domeMesh.receiveShadow = false
+    banner.add(domeMesh)
   }
   rebuild()
 

@@ -14,6 +14,7 @@ import {
 
 import {
   AXIS_X,
+  TOKEN,
   acquireF1Materials,
   createF1Preview,
   disposeF1Materials,
@@ -48,7 +49,7 @@ export interface F1GunRackInstance {
   dispose(): void
 }
 
-const defaults: F1GunRackConfig = { count: 3, accentColor: 0xff5a1f }
+const defaults: F1GunRackConfig = { count: 3, accentColor: TOKEN.ORANGE_500 }
 
 const W = 1.4
 const H = 1.05

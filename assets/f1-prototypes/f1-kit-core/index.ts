@@ -34,7 +34,13 @@ export { finishModel, meshesOf } from './finish.ts'
 export type { FinishOptions, FinishedModel } from './finish.ts'
 export { createLampLensMaterial, createLampMaterial } from './lamps.ts'
 export type { F1LampMaterialOptions } from './lamps.ts'
-export { lampLensTexture, paintedShellTexture, roofSheetTexture, marshalPlateTexture } from './textures.ts'
+export {
+  lampLensTexture,
+  paintedShellTexture,
+  roofSheetTexture,
+  marshalPlateTexture,
+  stampLedModuleGrid,
+} from './textures.ts'
 export type { LampLensTextureOptions } from './textures.ts'
 export {
   GLYPH_3X5,

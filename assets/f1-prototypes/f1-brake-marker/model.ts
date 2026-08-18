@@ -11,6 +11,7 @@ import {
 } from 'three/webgpu'
 
 import {
+  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -109,7 +110,7 @@ export function createModel(options: F1BrakeMarkerOptions = {}): F1BrakeMarkerIn
   const faceMat = options.materials?.face ?? kit.shell
   const beaconMat = own(new MeshBasicMaterial({
     name: 'f1-kit / brake-marker beacon',
-    color: 0xff2424,
+    color: TOKEN.RED_500,
     toneMapped: false,
   }))
 

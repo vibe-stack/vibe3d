@@ -24,12 +24,14 @@ import {
 } from 'three/webgpu'
 
 import {
+  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
   creased,
   disposeF1Materials,
   mergeParts,
+  shade,
   taperedTube,
   wrapStrap,
 } from '../f1-kit-core/index.ts'
@@ -70,8 +72,8 @@ export interface F1TyreStackInstance {
 const defaults: F1TyreStackConfig = {
   count: 4,
   compound: 'medium',
-  coverColor: 0x121216,
-  accentColor: 0xc6ff2a,
+  coverColor: shade(TOKEN.INK_950, 0.04),
+  accentColor: TOKEN.LIME_400,
 }
 
 const TH = 0.345      // stacked pitch — a default tyre is 0.33 m wide, so courses very nearly touch

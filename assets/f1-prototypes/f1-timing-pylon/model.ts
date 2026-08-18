@@ -24,6 +24,7 @@ import {
   fillGlyphRect,
   glyphCells,
   mergeParts,
+  stampLedModuleGrid,
   tubeSection,
   writeGlyph3x5,
   LAYER_CLEARANCE,
@@ -76,8 +77,11 @@ function cabinetTexture(digit: number): DataTexture {
     TOKEN.CYAN_400 & 0xff,
   ]
   const paper: [number, number, number] = [242, 248, 252]
-  fillGlyphRect(data, w, 0, 0, w, h, ink)
-  fillGlyphRect(data, w, 8, 8, w - 16, h - 16, [10, 14, 20])
+  stampLedModuleGrid(data, w, h, [10, 14, 20], 4)
+  fillGlyphRect(data, w, 0, 0, w, 8, ink)
+  fillGlyphRect(data, w, 0, h - 8, w, 8, ink)
+  fillGlyphRect(data, w, 0, 0, 8, h, ink)
+  fillGlyphRect(data, w, w - 8, 0, 8, h, ink)
   const cells = glyphCells(String(digit)) ?? glyphCells('0')!
   writeGlyph3x5(data, w, 22, 28, cells, paper, 12)
   fillGlyphRect(data, w, 78, 40, 34, 48, cyan)

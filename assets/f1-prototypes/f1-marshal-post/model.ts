@@ -18,9 +18,12 @@ import {
 
 import {
   TOKEN,
+  AXIS_X,
+  AXIS_Z,
   acquireF1Materials,
   bevelBox,
   bevelDisc,
+  bolt,
   createF1Preview,
   disposeF1Materials,
   loftAlongX,
@@ -229,6 +232,10 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     knob.rotateY(Math.PI / 2)
     knob.translate(HUT_W / 2 + 0.04, y0 + 0.85, -0.02)
     emit('hut', knob, hut, 'knob', kit.steel)
+    const doorX = HUT_W / 2 + 0.045
+    emit('hut', bolt([doorX, y0 + 1.38, -0.12], 0.01, 0.014, AXIS_X), hut, 'door-bolt-t', kit.steel)
+    emit('hut', bolt([doorX, y0 + 1.08, -0.12], 0.01, 0.014, AXIS_X), hut, 'door-bolt-m', kit.steel)
+    emit('hut', bolt([doorX, y0 + 0.38, -0.12], 0.01, 0.014, AXIS_X), hut, 'door-bolt-b', kit.steel)
 
     for (const part of paintParts) uvPlanar(part)
     emit('hut', mergeParts(paintParts, 'cabin'), hut, 'cabin', paint)
@@ -284,6 +291,11 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     frameParts.push(bevelBox(0.045, 0.66, 0.035, 0.004).translate(winW / 2 - 0.1, winY, zFace))
     frameParts.push(bevelBox(0.035, 0.66, 0.035, 0.004).translate(0, winY, zFace))
     emit('hut', mergeParts(frameParts, 'frame'), hut, 'window-frame', kit.graphite)
+    const bz = zFace + 0.02
+    emit('hut', bolt([-(winW / 2 - 0.1), winY + 0.28, bz], 0.009, 0.012, AXIS_Z), hut, 'win-bolt-tl', kit.steel)
+    emit('hut', bolt([winW / 2 - 0.1, winY + 0.28, bz], 0.009, 0.012, AXIS_Z), hut, 'win-bolt-tr', kit.steel)
+    emit('hut', bolt([-(winW / 2 - 0.1), winY - 0.28, bz], 0.009, 0.012, AXIS_Z), hut, 'win-bolt-bl', kit.steel)
+    emit('hut', bolt([winW / 2 - 0.1, winY - 0.28, bz], 0.009, 0.012, AXIS_Z), hut, 'win-bolt-br', kit.steel)
 
     const flagParts: BufferGeometry[] = []
     const poleX = 1.15

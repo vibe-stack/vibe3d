@@ -25,9 +25,11 @@ import {
   loftRoundedBox,
   member,
   mergeParts,
+  AXIS_X,
   AXIS_Y,
   applyPolarCapUVs,
   createLampMaterial,
+  tubeSection,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'mast' | 'can' | 'lens'
@@ -158,6 +160,27 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
         right.rotateX(tilt)
         right.translate(sx + 0.32, cy, 0.54)
         doors.push(right)
+
+        for (const hx of [-0.2, 0, 0.2] as const) {
+          const topKn = tubeSection(0.008, 0.032, [0, 0, 0], AXIS_X, 8)
+          topKn.rotateX(tilt)
+          topKn.translate(sx + hx, cy + 0.19, 0.50)
+          doors.push(topKn)
+          const botKn = tubeSection(0.008, 0.032, [0, 0, 0], AXIS_X, 8)
+          botKn.rotateX(tilt)
+          botKn.translate(sx + hx, cy - 0.19, 0.50)
+          doors.push(botKn)
+        }
+        for (const hy of [-0.1, 0.1] as const) {
+          const leftKn = tubeSection(0.008, 0.028, [0, 0, 0], AXIS_Y, 8)
+          leftKn.rotateX(tilt)
+          leftKn.translate(sx - 0.31, cy + hy, 0.50)
+          doors.push(leftKn)
+          const rightKn = tubeSection(0.008, 0.028, [0, 0, 0], AXIS_Y, 8)
+          rightKn.rotateX(tilt)
+          rightKn.translate(sx + 0.31, cy + hy, 0.50)
+          doors.push(rightKn)
+        }
 
         for (const lx of [-0.14, 0.14] as const) {
           for (const ly of [-0.1, 0.1] as const) {

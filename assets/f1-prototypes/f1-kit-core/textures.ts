@@ -112,6 +112,38 @@ function unpackRgb(hex: number): readonly [number, number, number] {
   return [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255]
 }
 
+/**
+ * Rectangular LED-cabinet pitch: bright cells with dark gutters. Mutates `data` in place.
+ * Used by jumbotron / pylon faces so they read as modules, not printed paper.
+ */
+export function stampLedModuleGrid(
+  data: Uint8Array,
+  w: number,
+  h: number,
+  ink: readonly [number, number, number],
+  pitch = 4,
+): void {
+  const gutter: [number, number, number] = [
+    Math.max(0, ink[0] - 6),
+    Math.max(0, ink[1] - 6),
+    Math.max(0, ink[2] - 4),
+  ]
+  const cell: [number, number, number] = [
+    Math.min(255, ink[0] + 18),
+    Math.min(255, ink[1] + 16),
+    Math.min(255, ink[2] + 14),
+  ]
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const gx = x % pitch
+      const gy = y % pitch
+      const led = gx > 0 && gy > 0
+      const rgb = led ? cell : gutter
+      put(data, w, x, y, rgb[0], rgb[1], rgb[2])
+    }
+  }
+}
+
 export interface LampLensTextureOptions {
   readonly variant: 'on' | 'off'
   /** Lit colour. Defaults to FIA start-light red. */
@@ -163,14 +195,16 @@ export function lampLensTexture(options: LampLensTextureOptions): DataTexture {
           Math.min(255, Math.round((bb * k + 32 * core) * boost * cellBoost * (1 - grain * 0.4))),
         )
       } else {
-        const ring = Math.exp(-((d - 0.4) * (d - 0.4)) / 0.012)
-        const k = 0.22 + ring * 0.35 + grain * 0.15
-        const cellK = led ? 1.15 : gap ? 0.45 : 1
+        // Dark glass: rim catch + LED cells, no hot core.
+        const rim = Math.max(0, (d - 0.76) / 0.24)
+        const glass = 0.16 + grain * 0.1
+        const k = glass + rim * 0.55
+        const cellK = led ? 1.55 : gap ? 0.32 : 1
         put(
           data, n, x, y,
-          Math.round(br * 0.09 * k * cellK),
-          Math.round(bg * 0.09 * k * cellK),
-          Math.round(bb * 0.09 * k * cellK),
+          Math.min(255, Math.round(br * 0.16 * k * cellK + 22 * rim)),
+          Math.min(255, Math.round(bg * 0.16 * k * cellK + 18 * rim)),
+          Math.min(255, Math.round(bb * 0.16 * k * cellK + 16 * rim)),
         )
       }
     }

@@ -322,6 +322,22 @@ describe('procedural knobs', () => {
     model.dispose()
   })
 
+  test('pit-board labels round-trip through configure', () => {
+    const model = createPitBoard({ rowCount: 2, cardsPerRow: 3, labels: [['9', '1.1', '7']] })
+    expect(model.getConfig().labels[0]).toEqual(['9', '1.1', '7'])
+    model.configure({ labels: [['3', '0.4', '11']] })
+    expect(model.getConfig().labels[0]).toEqual(['3', '0.4', '11'])
+    model.dispose()
+  })
+
+  test('lollipop legend round-trips and sanitizes', () => {
+    const model = createLollipop({ legend: 'BRAKES' })
+    expect(model.getConfig().legend).toBe('BRAKES')
+    model.configure({ legend: 'gear!!' })
+    expect(model.getConfig().legend).toBe('GEAR')
+    model.dispose()
+  })
+
   test('a dry-compound tyre defaults to slick and skips the grooved tread mesh', () => {
     const slick = createTyre({ compound: 'soft' })
     expect(slick.getConfig().tread).toBe('slick')

@@ -4,13 +4,15 @@
 //
 // Datums: five modules at 0.48 m pitch, each housing 0.28 × 1.05 × 0.22 m, lamps Ø 0.08 m.
 // Panel hangs clear of the overhead beam (soffit gap ≥ 0.12 m).
-// Housing is a solid loft — the lens sits in a bezel aperture proud of the face (no filled cavity).
+// Housing is a solid loft. The well is a collar standing ON the face (no boolean hole, no filled
+// cavity in front of the disc). The lens sits inside that collar, behind the lip.
 
 import {
   BufferGeometry,
   CylinderGeometry,
   Group,
   Mesh,
+  MeshStandardMaterial,
   SpotLight,
   Vector3,
   type Material,
@@ -21,6 +23,7 @@ import {
   acquireF1Materials,
   applyPolarCapUVs,
   bevelBox,
+  bevelDisc,
   bevelRing,
   createF1Preview,
   createLampMaterial,
@@ -31,7 +34,7 @@ import {
   LAYER_CLEARANCE,
 } from '../f1-kit-core/index.ts'
 
-type Slot = 'housing' | 'lamp' | 'post' | 'bezel'
+type Slot = 'housing' | 'lamp' | 'post' | 'bezel' | 'glass'
 
 export type F1StartLightMode = 'start' | 'formation' | 'go'
 
@@ -71,8 +74,9 @@ const MODULE_W = 0.28
 const MODULE_H = 1.05
 const MODULE_D = 0.22
 const LAMP_R = 0.08
-const LENS_THICK = 0.02
-const BEZEL_DEPTH = 0.006
+const LENS_THICK = 0.012
+const WELL_DEPTH = 0.016
+const DOME_THICK = 0.004
 const HEIGHT = 5.6
 /** Panel centre Y — hung so housing top clears the soffit by ≥ 0.12 m. */
 const PANEL_Y = HEIGHT - MODULE_H / 2 - 0.28
@@ -113,6 +117,16 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     color: lampHex(config.mode, config.color),
     name: 'f1-kit / start-lamp off',
   }))
+  const glassMat = options.materials?.glass ?? own(new MeshStandardMaterial({
+    name: 'f1-kit / lamp dome',
+    color: 0x8aa0b0,
+    roughness: 0.15,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.22,
+    toneMapped: false,
+    depthWrite: false,
+  }))
 
   const relamp = (): void => {
     const hex = lampHex(config.mode, config.color)
@@ -136,6 +150,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     lamp: lampOn,
     post: options.materials?.post ?? kit.slate,
     bezel: options.materials?.bezel ?? kit.slate,
+    glass: glassMat,
   }
 
   const root = new Group()
@@ -145,7 +160,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
   root.add(gantry, panel)
 
   const generated: BufferGeometry[] = []
-  const meshesBySlot: Record<Slot, Mesh[]> = { housing: [], lamp: [], post: [], bezel: [] }
+  const meshesBySlot: Record<Slot, Mesh[]> = { housing: [], lamp: [], post: [], bezel: [], glass: [] }
 
   const releaseGenerated = (): void => {
     for (const group of [gantry, panel]) group.clear()
@@ -164,8 +179,8 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
-    mesh.castShadow = true
-    mesh.receiveShadow = true
+    mesh.castShadow = slot !== 'glass'
+    mesh.receiveShadow = slot !== 'glass'
     meshesBySlot[slot].push(mesh)
     group.add(mesh)
   }
@@ -210,9 +225,13 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
 
     const housings: BufferGeometry[] = []
     const bezels: BufferGeometry[] = []
+    const domes: BufferGeometry[] = []
     const faceZ = MODULE_D / 2 + 0.02
     const housingFaceZ = faceZ + MODULE_D / 2
+    // Collar stands ON the face. Lens stays in front of the solid housing, behind the lip.
     const lensZ = housingFaceZ + LAYER_CLEARANCE + LENS_THICK / 2
+    const lipZ = housingFaceZ + WELL_DEPTH / 2
+    const domeZ = housingFaceZ + WELL_DEPTH + LAYER_CLEARANCE + DOME_THICK / 2
     const rowPitch = 0.2 * (4 / rows)
     for (let c = 0; c < COLS; c++) {
       const x = (c - (COLS - 1) / 2) * PITCH
@@ -227,25 +246,33 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
       const x = (c - (COLS - 1) / 2) * PITCH
       for (let r = 0; r < rows; r++) {
         const y = PANEL_Y + ((rows - 1) / 2 - r) * rowPitch
-        const lamp = new CylinderGeometry(LAMP_R * 0.92, LAMP_R * 0.88, LENS_THICK, 18)
+        const lamp = new CylinderGeometry(LAMP_R * 0.78, LAMP_R * 0.74, LENS_THICK, 18)
         lamp.rotateX(Math.PI / 2)
         applyPolarCapUVs(lamp)
         lamp.translate(x, y, lensZ)
         emit('lamp', lamp, panel, `lamp-${c}-${r}`, on ? lampOn : lampOff)
 
-        const bezel = bevelRing(LAMP_R * 0.84, LAMP_R * 1.1, BEZEL_DEPTH, 0.001, 24)
-        bezel.translate(x, y, lensZ)
-        bezels.push(bezel)
+        const step = bevelRing(LAMP_R * 0.72, LAMP_R * 0.92, 0.005, 0.001, 24)
+        step.translate(x, y, housingFaceZ + 0.003)
+        bezels.push(step)
+        const lip = bevelRing(LAMP_R * 0.92, LAMP_R * 1.16, WELL_DEPTH, 0.0015, 24)
+        lip.translate(x, y, lipZ)
+        bezels.push(lip)
+
+        const dome = bevelDisc(LAMP_R * 0.88, DOME_THICK, 0.001, 20)
+        dome.translate(x, y, domeZ)
+        domes.push(dome)
       }
       if (on) {
         const spot = new SpotLight(hex, 1.0, 2.2, Math.PI / 7, 0.55, 2)
         spot.name = `spot-${c}`
-        spot.position.set(x, PANEL_Y, lensZ)
-        spot.target.position.set(x, PANEL_Y - 0.5, lensZ + 4)
+        spot.position.set(x, PANEL_Y, domeZ)
+        spot.target.position.set(x, PANEL_Y - 0.5, domeZ + 4)
         panel.add(spot, spot.target)
       }
     }
     emit('bezel', mergeParts(bezels, 'bezels'), panel, 'bezels')
+    emit('glass', mergeParts(domes, 'domes'), panel, 'domes')
   }
   rebuild()
 
