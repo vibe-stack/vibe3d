@@ -13,28 +13,23 @@
 import {
   BufferGeometry,
   CatmullRomCurve3,
-  ExtrudeGeometry,
   Group,
-  MathUtils,
+  LatheGeometry,
   Mesh,
   MeshStandardMaterial,
-  Path,
-  Shape,
-  TorusGeometry,
   TubeGeometry,
+  Vector2,
   Vector3,
   type Material,
 } from 'three/webgpu'
-import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-
 import {
   AXIS_X,
+  AXIS_Y,
   acquireF1Materials,
   bevelBox,
   bolt,
   createF1Preview,
   disposeF1Materials,
-  groundPad,
   mergeParts,
   taperedTube,
   tubeSection,
@@ -67,7 +62,7 @@ export interface F1HoseReelInstance {
 // 8 wraps across the 0.300 m drum gives a 0.0375 m pitch against a 0.042 m hose OD, so adjacent turns
 // overlap slightly and nest. Anything looser leaves air between wraps and the coil reads as corrugated
 // ducting rather than wound hose.
-const defaults: F1HoseReelConfig = { wraps: 6, layers: 2 }
+const defaults: F1HoseReelConfig = { wraps: 7, layers: 2 }
 
 // --- Drum geometry, world units ---------------------------------------------------------------------
 const AXLE_Y = 0.34        // axle height — low, so the drum's lowest point clears the floor by ~0.06 m
@@ -83,46 +78,37 @@ const X_FLANGE = 0.180     // flange offset from the drum centre along the axle
 // every `.ts` under f1-kit-core ships to kit consumers as permanent public surface.
 // ---------------------------------------------------------------------------------------------------
 
-/** A flat chamfered ring: an annulus from `rIn` to `rOut`, `depth` thick along +Z. */
-function ringPlate(rIn: number, rOut: number, depth: number, bevel: number): BufferGeometry {
-  const shape = new Shape()
-  shape.absarc(0, 0, rOut - bevel, 0, Math.PI * 2, false)
-  const hole = new Path()
-  hole.absarc(0, 0, rIn + bevel, 0, Math.PI * 2, true)
-  shape.holes.push(hole)
-  const geo = new ExtrudeGeometry(shape, {
-    depth: Math.max(1e-4, depth - 2 * bevel),
-    bevelEnabled: bevel > 0,
-    bevelThickness: bevel,
-    bevelSize: bevel,
-    bevelOffset: 0,
-    bevelSegments: 1,
-    steps: 1,
-    curveSegments: 40,
-  })
-  geo.translate(0, 0, -(depth / 2 - bevel))
-  return geo
+/** Thin stamped sheet: rolled outer hem, shallow dish, and a closed inner hub aperture. */
+function flangePlate(): BufferGeometry {
+  const profile = [
+    new Vector2(0.054, 0.007),
+    new Vector2(0.082, 0.008),
+    new Vector2(0.132, 0.004),
+    new Vector2(0.205, -0.003),
+    new Vector2(0.242, -0.001),
+    new Vector2(0.252, 0.004),
+    new Vector2(0.255, 0.000),
+    new Vector2(0.252, -0.007),
+    new Vector2(0.242, -0.010),
+    new Vector2(0.205, -0.011),
+    new Vector2(0.132, -0.004),
+    new Vector2(0.082, 0.003),
+    new Vector2(0.054, 0.002),
+    new Vector2(0.054, 0.007),
+  ]
+  const flange = new LatheGeometry(profile, 64)
+  flange.rotateZ(-Math.PI / 2)
+  return flange
 }
 
-/** A shallow rolled plate flange, matching the pressed-steel Coxreels drum construction. */
-function flangePlate(): BufferGeometry {
-  const parts: BufferGeometry[] = [
-    ringPlate(0.062, R_FLANGE - 0.008, 0.010, 0.003),
-    ringPlate(0.045, 0.092, 0.016, 0.003),
-    new TorusGeometry(R_FLANGE - 0.008, 0.008, 5, 48),
-  ]
-  // Six low pressed swages catch a highlight without turning the dish into a starburst.
-  for (let i = 0; i < 6; i++) {
-    const rib = bevelBox(0.112, 0.012, 0.007, 0.002)
-    rib.translate(0.150, 0, 0.007)
-    rib.rotateZ(i * Math.PI / 3)
-    parts.push(rib)
-  }
-  const geo = mergeParts(parts, 'flange')
-  geo.rotateY(Math.PI / 2)
-  const creased = toCreasedNormals(geo, MathUtils.degToRad(45))
-  if (creased !== geo) geo.dispose()
-  return creased
+function groundPad(
+  size: readonly [number, number],
+  origin: readonly [number, number, number],
+  radius: number,
+): BufferGeometry {
+  const pad = bevelBox(size[0], 0.008, size[1], Math.min(radius, size[0] * 0.35, size[1] * 0.35))
+  pad.translate(origin[0], origin[1], origin[2])
+  return pad
 }
 
 /**
@@ -131,7 +117,7 @@ function flangePlate(): BufferGeometry {
  */
 function coilGeometry(wraps: number, layers: number): BufferGeometry {
   const points: Vector3[] = []
-  const perWrap = 12
+  const perWrap = 28
   for (let layer = 0; layer < layers; layer++) {
     const radius = R_BARREL + HOSE_R + layer * LAYER_PITCH
     const outward = layer % 2 === 0
@@ -144,8 +130,8 @@ function coilGeometry(wraps: number, layers: number): BufferGeometry {
       points.push(new Vector3(across, Math.sin(angle) * radius, Math.cos(angle) * radius))
     }
   }
-  const curve = new CatmullRomCurve3(points)
-  return new TubeGeometry(curve, points.length, HOSE_R, 7, false)
+  const curve = new CatmullRomCurve3(points, false, 'centripetal')
+  return new TubeGeometry(curve, points.length * 2, HOSE_R, 12, false)
 }
 
 export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance {
@@ -244,22 +230,25 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
       }
     }
 
-    // Long right-hand crank: bright arm and journals, with a separate black rotating grip.
-    const crankX = 0.305
-    const throwY = 0.145
-    const arm = bevelBox(0.018, throwY + 0.025, 0.030, 0.005)
-    arm.translate(crankX, AXLE_Y + throwY / 2, 0)
-    metalParts.push(arm)
-    metalParts.push(tubeSection(0.018, 0.100, [crankX - 0.050, AXLE_Y, 0], AXIS_X, 14))
-    emit('hose', tubeSection(0.024, 0.205, [crankX + 0.115, AXLE_Y + throwY, 0], AXIS_X, 16), standGroup, 'crank-grip')
+    // Long offset right crank: curved metal throw, outboard journal, and a free black rotating grip.
+    const crankX = 0.310
+    const throwY = 0.180
+    metalParts.push(taperedTube([
+      new Vector3(crankX, AXLE_Y, 0),
+      new Vector3(crankX, AXLE_Y + 0.085, 0.045),
+      new Vector3(crankX, AXLE_Y + throwY, 0.065),
+    ], 0.014, 12))
+    metalParts.push(tubeSection(0.020, 0.115, [crankX - 0.055, AXLE_Y, 0], AXIS_X, 16))
+    emit('hose', tubeSection(
+      0.024, 0.255, [crankX + 0.137, AXLE_Y + throwY, 0.065], AXIS_X, 18,
+    ), standGroup, 'crank-grip')
 
-    // Prominent left brass swivel with a rotary gland, block body, and raised outlet.
+    // Prominent left cylindrical brass swivel with gland, hex coupling, collar, and upright outlet.
     const brassParts: BufferGeometry[] = []
-    brassParts.push(tubeSection(0.035, 0.085, [-0.280, AXLE_Y, 0], AXIS_X, 18))
-    const swivelBody = bevelBox(0.075, 0.085, 0.072, 0.010)
-    swivelBody.translate(-0.336, AXLE_Y, 0)
-    brassParts.push(swivelBody)
-    brassParts.push(tubeSection(0.027, 0.080, [-0.374, AXLE_Y + 0.065, 0], AXIS_X, 14))
+    brassParts.push(tubeSection(0.038, 0.075, [-0.273, AXLE_Y, 0], AXIS_X, 20))
+    brassParts.push(tubeSection(0.052, 0.072, [-0.334, AXLE_Y, 0], AXIS_X, 6))
+    brassParts.push(tubeSection(0.041, 0.025, [-0.382, AXLE_Y, 0], AXIS_X, 20))
+    brassParts.push(tubeSection(0.028, 0.092, [-0.345, AXLE_Y + 0.067, 0], AXIS_Y, 16))
     const brassGeometry = mergeParts(brassParts, 'brass-swivel')
     generated.push(brassGeometry)
     const brassMesh = new Mesh(brassGeometry, brass)
@@ -281,15 +270,19 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     const upright = 0.278
     for (const sx of [-1, 1] as const) {
       standParts.push(taperedTube([
-        new Vector3(sx * upright, 0.025, 0.31),
-        new Vector3(sx * upright, 0.035, 0.18),
+        new Vector3(sx * upright, 0.023, 0.13),
+        new Vector3(sx * upright, 0.023, 0.27),
+        new Vector3(sx * upright, 0.035, 0.33),
+        new Vector3(sx * upright, 0.105, 0.27),
         new Vector3(sx * upright, AXLE_Y, 0.12),
         new Vector3(sx * upright, AXLE_Y + R_FLANGE + 0.055, 0.04),
         new Vector3(sx * upright, AXLE_Y + R_FLANGE + 0.065, -0.13),
         new Vector3(sx * upright, AXLE_Y, -0.18),
-        new Vector3(sx * upright, 0.075, -0.26),
-        new Vector3(sx * upright, 0.025, -0.32),
-      ], 0.017, 12))
+        new Vector3(sx * upright, 0.105, -0.28),
+        new Vector3(sx * upright, 0.035, -0.34),
+        new Vector3(sx * upright, 0.023, -0.27),
+        new Vector3(sx * upright, 0.023, -0.13),
+      ], 0.017, 14))
 
       standParts.push(tubeSection(0.032, 0.034, [sx * upright, AXLE_Y, 0], AXIS_X, 18))
       standParts.push(tubeSection(

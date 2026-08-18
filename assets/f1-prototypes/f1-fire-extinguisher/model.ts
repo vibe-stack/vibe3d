@@ -78,6 +78,9 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  kit.steel.roughness = 0.07
+  kit.steel.metalness = 1
+  kit.steel.color.set(0xcfd6dc)
   const materialSlots: Record<Slot, Material> = {
     body: options.materials?.body ?? kit.steel,
     hardware: options.materials?.hardware ?? kit.graphite,
@@ -124,14 +127,17 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
     emit('body', revolve(
       [
         [0.000, 0.047],
-        [0.020, 0.054],
-        [0.055, 0.054],
-        [0.075, 0.0525],
-        [0.840, 0.0525],
-        [0.890, 0.052],
-        [0.940, 0.041],
-        [0.980, 0.027],
-        [1.000, 0.022],
+        [0.012, 0.0515],
+        [0.028, 0.054],
+        [0.048, 0.054],
+        [0.064, 0.0525],
+        [0.930, 0.0525],
+        [0.945, 0.0500],
+        [0.958, 0.0460],
+        [0.970, 0.0400],
+        [0.982, 0.0320],
+        [0.992, 0.0250],
+        [1.000, 0.0200],
       ],
       { yBot: 0, yTop: 0.375, segments: 40 },
     ), bodyGroup, 'brushed-aluminum-cylinder')
@@ -154,53 +160,98 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
     label.castShadow = false
     bodyGroup.add(label)
 
-    const hardware: BufferGeometry[] = []
-    hardware.push(tubeSection(0.018, 0.027, [0, 0.3885, 0], [0, 1, 0], 18))
+    // Polished metal neck, left blanking coupling, right hose coupling, and gauge rim remain distinct
+    // from the compact black valve core instead of reading as one oversized block.
+    const fittings: BufferGeometry[] = [
+      tubeSection(0.012, 0.022, [0, 0.386, 0], [0, 1, 0], 20),
+      tubeSection(0.015, 0.008, [0, 0.399, 0], [0, 1, 0], 20),
+      tubeSection(0.0085, 0.020, [-0.019, 0.407, 0], AXIS_X, 16),
+      tubeSection(0.0085, 0.018, [0.019, 0.407, 0], AXIS_X, 16),
+      tubeSection(0.0105, 0.006, [0.030, 0.407, 0], AXIS_X, 16),
+    ]
 
-    const valve = bevelBox(0.052, 0.026, 0.040, 0.004)
-    valve.translate(-0.003, 0.414, 0)
+    const gaugeRim = new CylinderGeometry(0.0095, 0.0095, 0.006, 20)
+    gaugeRim.rotateX(Math.PI / 2)
+    gaugeRim.translate(-0.006, 0.413, 0.019)
+    fittings.push(gaugeRim)
+
+    const pin = tubeSection(0.0016, 0.028, [0.013, 0.427, 0.013], [0, 0, 1], 8)
+    fittings.push(pin)
+    const pinRing = new TorusGeometry(0.009, 0.0015, 6, 20)
+    pinRing.translate(0.026, 0.425, 0.027)
+    fittings.push(pinRing)
+
+    // A metal standoff and circular spring clip positively retain the nozzle against the vessel.
+    const clipMount = bevelBox(0.012, 0.010, 0.024, 0.002)
+    clipMount.translate(0.052, 0.151, 0.010)
+    fittings.push(clipMount)
+    const nozzleClip = new TorusGeometry(0.0115, 0.0022, 6, 18)
+    nozzleClip.rotateX(Math.PI / 2)
+    nozzleClip.translate(0.071, 0.151, 0.024)
+    fittings.push(nozzleClip)
+    emit('body', mergeParts(fittings, 'polished-fittings'), bodyGroup, 'polished-fittings')
+
+    const hardware: BufferGeometry[] = []
+    const valve = bevelBox(0.018, 0.012, 0.016, 0.002)
+    valve.translate(-0.001, 0.409, 0)
     hardware.push(valve)
 
-    // Side outlet coupling, compact fixed handle, and sprung lever are scaled from the photo rather
-    // than enlarged for readability.
-    hardware.push(tubeSection(0.014, 0.040, [0.047, 0.413, 0], AXIS_X, 16))
-    const fixedHandle = bevelBox(0.078, 0.012, 0.020, 0.003)
+    const blankingCap = tubeSection(0.012, 0.020, [-0.038, 0.407, 0], AXIS_X, 16)
+    hardware.push(blankingCap)
+    const capFace = new CylinderGeometry(0.013, 0.013, 0.004, 16)
+    capFace.rotateZ(Math.PI / 2)
+    capFace.translate(-0.050, 0.407, 0)
+    hardware.push(capFace)
+
+    const fixedHandle = bevelBox(0.048, 0.005, 0.009, 0.0015)
     fixedHandle.rotateZ(-0.08)
-    fixedHandle.translate(0.018, 0.438, 0)
+    fixedHandle.translate(0.012, 0.422, 0)
     hardware.push(fixedHandle)
-    const squeezeLever = bevelBox(0.084, 0.009, 0.018, 0.002)
-    squeezeLever.rotateZ(0.14)
-    squeezeLever.translate(0.023, 0.456, 0)
+    const squeezeLever = bevelBox(0.052, 0.0045, 0.008, 0.0015)
+    squeezeLever.rotateZ(0.16)
+    squeezeLever.translate(0.014, 0.434, 0)
     hardware.push(squeezeLever)
 
-    const gauge = new CylinderGeometry(0.012, 0.012, 0.008, 18)
-    gauge.rotateX(Math.PI / 2)
-    gauge.translate(-0.020, 0.419, 0.024)
-    hardware.push(gauge)
+    const pivot = new CylinderGeometry(0.006, 0.006, 0.026, 12)
+    pivot.rotateX(Math.PI / 2)
+    pivot.translate(-0.010, 0.426, 0)
+    hardware.push(pivot)
+    const gaugeFace = new CylinderGeometry(0.0075, 0.0075, 0.007, 16)
+    gaugeFace.rotateX(Math.PI / 2)
+    gaugeFace.translate(-0.006, 0.413, 0.020)
+    hardware.push(gaugeFace)
 
-    const pin = tubeSection(0.002, 0.036, [0.013, 0.438, 0.022], AXIS_X, 8)
-    hardware.push(pin)
-    const pinRing = new TorusGeometry(0.010, 0.0018, 6, 20)
-    pinRing.translate(0.031, 0.438, 0.022)
-    hardware.push(pinRing)
-    const seal = bevelBox(0.010, 0.022, 0.003, 0.001)
-    seal.rotateZ(0.20)
-    seal.translate(0.035, 0.419, 0.024)
-    hardware.push(seal)
+    const sealMaterial = new MeshBasicMaterial({
+      name: 'f1-kit / extinguisher tamper seal',
+      color: 0xd9252e,
+      toneMapped: false,
+    })
+    extras.push(sealMaterial)
+    const sealGeometry = bevelBox(0.011, 0.020, 0.002, 0.001)
+    sealGeometry.rotateZ(0.22)
+    sealGeometry.translate(0.028, 0.405, 0.028)
+    generated.push(sealGeometry)
+    const seal = new Mesh(sealGeometry, sealMaterial)
+    seal.name = 'tamper-seal'
+    seal.castShadow = true
+    bodyGroup.add(seal)
 
-    // The hose exits the side coupling, follows the vessel, and parks its nozzle in a body-mounted clip.
+    // The hose terminates in a tapered, flared nozzle visibly captured by the polished retaining clip.
     emit('hose', taperedTube([
-      new Vector3(0.067, 0.413, 0),
-      new Vector3(0.092, 0.355, 0.018),
-      new Vector3(0.086, 0.270, 0.012),
-      new Vector3(0.070, 0.190, 0.010),
-    ], 0.006, 8), hoseGroup, 'hose')
+      new Vector3(0.033, 0.407, 0),
+      new Vector3(0.073, 0.367, 0.016),
+      new Vector3(0.082, 0.300, 0.022),
+      new Vector3(0.078, 0.225, 0.024),
+      new Vector3(0.071, 0.187, 0.024),
+    ], 0.005, 8), hoseGroup, 'hose')
 
-    const holder = bevelBox(0.020, 0.038, 0.024, 0.003)
-    holder.translate(0.058, 0.168, 0.006)
-    hardware.push(holder)
-    hardware.push(tubeSection(0.009, 0.085, [0.070, 0.137, 0.010], [0, 1, 0], 12))
-    emit('hardware', mergeParts(hardware, 'valve-and-fittings'), bodyGroup, 'valve')
+    const nozzle = new CylinderGeometry(0.006, 0.010, 0.075, 12)
+    nozzle.translate(0.071, 0.146, 0.024)
+    hardware.push(nozzle)
+    const nozzleMouth = new CylinderGeometry(0.010, 0.013, 0.024, 12)
+    nozzleMouth.translate(0.071, 0.097, 0.024)
+    hardware.push(nozzleMouth)
+    emit('hardware', mergeParts(hardware, 'compact-valve-and-nozzle'), bodyGroup, 'valve')
   }
   rebuild()
 

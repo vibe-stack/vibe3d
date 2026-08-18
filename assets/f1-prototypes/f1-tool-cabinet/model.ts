@@ -49,7 +49,7 @@ const defaults: F1ToolCabinetConfig = { width: 0.9 }
 const H = 0.78
 const D = 0.52
 const ROWS = 6
-const CASTOR_R = 0.085
+const CASTOR_R = 0.095
 const PLINTH_H = 0.05
 const PLINTH_Y = CASTOR_R * 2.9
 const BODY_Y = PLINTH_Y + PLINTH_H
@@ -119,13 +119,13 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
 
     const blackParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
-      const rail = bevelBox(0.056, 0.064, D + 0.080, 0.016)
-      rail.translate(sx * (W / 2 + 0.010), topY + 0.041, 0)
+      const rail = bevelBox(0.043, 0.052, D + 0.066, 0.018)
+      rail.translate(sx * (W / 2 + 0.006), topY + 0.035, 0)
       blackParts.push(rail)
     }
     for (const sz of [-1, 1] as const) {
-      const rail = bevelBox(W + 0.075, 0.064, 0.054, 0.016)
-      rail.translate(0, topY + 0.041, sz * (D / 2 + 0.010))
+      const rail = bevelBox(W + 0.058, 0.052, 0.045, 0.018)
+      rail.translate(0, topY + 0.035, sz * (D / 2 + 0.006))
       blackParts.push(rail)
     }
     for (let ix = -7; ix <= 7; ix++) {
@@ -157,11 +157,12 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
       drawerParts.push(face)
 
       const pullY = y + faceH / 2 - Math.min(0.030, faceH * 0.30)
-      const channel = bevelBox(W - 0.135, 0.050, 0.014, 0.006)
-      channel.translate(0, pullY, D / 2 + 0.014)
+      const channel = bevelBox(W - 0.135, 0.060, 0.028, 0.012)
+      channel.translate(0, pullY, D / 2 + 0.016)
       blackParts.push(channel)
-      const pull = bevelBox(W - 0.170, 0.034, 0.008, 0.007)
-      pull.translate(0, pullY, D / 2 + 0.023)
+      const pull = new CylinderGeometry(0.018, 0.018, W - 0.180, 18)
+      pull.rotateZ(Math.PI / 2)
+      pull.translate(0, pullY, D / 2 + 0.011)
       handleParts.push(pull)
       cursorY -= faceH + rowGap
     }
@@ -180,12 +181,12 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
     // Each guard wraps around the front corner instead of reading as an applied row of blocks.
     for (const sx of [-1, 1] as const) {
       for (let i = 0; i < 8; i++) {
-        const segmentH = H / 8 - 0.009
-        const front = bevelBox(0.055, segmentH, 0.038, 0.009)
-        front.translate(sx * (W / 2 + 0.009), BODY_Y + H * (i + 0.5) / 8, D / 2 + 0.018)
+        const segmentH = H / 8 - 0.011
+        const front = bevelBox(0.046, segmentH, 0.034, 0.011)
+        front.translate(sx * (W / 2 + 0.007), BODY_Y + H * (i + 0.5) / 8, D / 2 + 0.016)
         blackParts.push(front)
-        const sideReturn = bevelBox(0.036, segmentH, 0.078, 0.009)
-        sideReturn.translate(sx * (W / 2 + 0.019), BODY_Y + H * (i + 0.5) / 8, D / 2 - 0.020)
+        const sideReturn = bevelBox(0.030, segmentH, 0.064, 0.011)
+        sideReturn.translate(sx * (W / 2 + 0.015), BODY_Y + H * (i + 0.5) / 8, D / 2 - 0.015)
         blackParts.push(sideReturn)
       }
     }
