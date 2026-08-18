@@ -100,17 +100,22 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
   const actionButton = host.querySelector<HTMLButtonElement>('[data-model-action]')!
   const actionHelp = host.querySelector<HTMLElement>('[data-action-help]')!
 
-  if (!navigator.gpu) {
-    loading.classList.add('model-loading--error')
-    loadingText.textContent = 'WebGPU is required. Use a current Chrome, Edge, or Safari release.'
-    return () => undefined
+  // Safari still ships without `navigator.gpu`. Three's WebGPURenderer can
+  // fall back to WebGL 2; TSL bloom cannot, so that path is skipped below.
+  let forceWebGL = !navigator.gpu
+  loadingText.textContent = forceWebGL ? 'Initializing WebGL' : 'Initializing WebGPU'
+
+  const makeRenderer = (webgl: boolean): WebGPURenderer => {
+    const next = new WebGPURenderer({ canvas, antialias: true, forceWebGL: webgl })
+    next.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+    next.outputColorSpace = SRGBColorSpace
+    next.toneMapping = ACESFilmicToneMapping
+    next.toneMappingExposure = 1.08
+    return next
   }
 
-  const renderer = new WebGPURenderer({ canvas, antialias: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
-  renderer.outputColorSpace = SRGBColorSpace
-  renderer.toneMapping = ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.08
+  let renderer = makeRenderer(forceWebGL)
+  let usingWebGPU = !forceWebGL
 
   let viewer: ModelViewer | undefined
   let selected: ModelCatalogEntry | undefined
@@ -189,6 +194,7 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
       }
       controls?.dispose()
       pipeline?.dispose()
+      pipeline = undefined
       viewer?.dispose()
       viewer = next
       selected = entry
@@ -209,9 +215,11 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
       controls.maxDistance = MODEL_ORBIT_MAX_DISTANCE
       controls.update()
 
-      const scenePass = pass(next.scene, next.camera)
-      pipeline = new RenderPipeline(renderer)
-      pipeline.outputNode = scenePass.add(bloom(scenePass, 0.5, 0.7, 0.42))
+      if (usingWebGPU) {
+        const scenePass = pass(next.scene, next.camera)
+        pipeline = new RenderPipeline(renderer)
+        pipeline.outputNode = scenePass.add(bloom(scenePass, 0.5, 0.7, 0.42))
+      }
 
       title.textContent = entry.label
       description.textContent = entry.description
@@ -274,12 +282,37 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
   resizeObserver.observe(host)
   resize()
 
-  await renderer.init()
+  try {
+    await renderer.init()
+  } catch (error) {
+    if (forceWebGL) {
+      loading.classList.add('model-loading--error')
+      loadingText.textContent = error instanceof Error ? error.message : 'Unable to initialize renderer'
+      return () => undefined
+    }
+    renderer.dispose()
+    forceWebGL = true
+    usingWebGPU = false
+    loadingText.textContent = 'Initializing WebGL'
+    renderer = makeRenderer(true)
+    try {
+      await renderer.init()
+    } catch (webglError) {
+      loading.classList.add('model-loading--error')
+      loadingText.textContent =
+        webglError instanceof Error ? webglError.message : 'Unable to initialize renderer'
+      return () => undefined
+    }
+  }
+  usingWebGPU = Boolean(
+    (renderer.backend as typeof renderer.backend & { isWebGPUBackend?: boolean }).isWebGPUBackend,
+  )
+
   renderCatalog()
   await selectModel(findCatalogEntry(new URLSearchParams(window.location.search).get('model')))
 
   renderer.setAnimationLoop((time) => {
-    if (stopped || !viewer || !controls || !pipeline) return
+    if (stopped || !viewer || !controls) return
     const deltaSeconds = previousFrameTime === 0 ? 0 : (time - previousFrameTime) / 1000
     previousFrameTime = time
     const smoothing = 1 - Math.exp(-Math.min(Math.max(deltaSeconds, 0), 0.05) * 8)
@@ -299,7 +332,8 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
       viewer.camera.updateProjectionMatrix()
     }
     controls.update()
-    pipeline.render()
+    if (pipeline) pipeline.render()
+    else renderer.render(viewer.scene, viewer.camera)
     statsElement.textContent =
       `${modelStats.vertices.toLocaleString()} verts · ${Math.round(modelStats.triangles).toLocaleString()} tris · `
       + `${renderer.info.render.drawCalls} draw calls`
