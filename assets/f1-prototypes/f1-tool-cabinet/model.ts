@@ -1,19 +1,22 @@
-// f1-tool-cabinet — a rolling drawer chest: a bevelled carcass on a plinth and four swivel castors, a
-// work-surface top, and a stack of inset drawer faces with pull handles. Static garage-dressing prop.
+// f1-tool-cabinet — a red-enamel rolling drawer chest with a recessed mesh work surface, raised perimeter
+// rails, protected corners, a tubular push handle, and four exposed swivel castors. Static garage prop.
 // `configure({ width })` rebuilds the cabinet at a new width; drawer rows and caster spacing stay
-// proportional. The body defaults to a neutral industrial graphite (still recolorable via the `body` slot).
+// proportional. Four stable material slots preserve the red / silver / black reference separation.
 
 import {
   BufferGeometry,
+  CatmullRomCurve3,
+  CylinderGeometry,
   Group,
   Mesh,
+  TubeGeometry,
+  Vector3,
   type Material,
 } from 'three/webgpu'
 
 import {
   acquireF1Materials,
   bevelBox,
-  castor,
   createF1Preview,
   disposeF1Materials,
   mergeParts,
@@ -46,9 +49,8 @@ const defaults: F1ToolCabinetConfig = { width: 0.9 }
 const H = 0.78
 const D = 0.52
 const ROWS = 6
-const CASTOR_R = 0.06
+const CASTOR_R = 0.074
 const PLINTH_H = 0.05
-// Stem top of `castor()` at position.y = 0 is 2.9 * radius (see parts.ts).
 const PLINTH_Y = CASTOR_R * 2.9
 const BODY_Y = PLINTH_Y + PLINTH_H
 
@@ -57,9 +59,14 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  if (!options.materials?.body) {
+    kit.red.color.setHex(0xc92f27)
+    kit.red.roughness = 0.32
+    kit.red.metalness = 0.22
+  }
   const materialSlots: Record<Slot, Material> = {
-    body: options.materials?.body ?? kit.graphite,
-    top: options.materials?.top ?? kit.slate,
+    body: options.materials?.body ?? kit.red,
+    top: options.materials?.top ?? kit.steel,
     handle: options.materials?.handle ?? kit.steel,
     caster: options.materials?.caster ?? kit.ink,
   }
@@ -96,64 +103,117 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
     const W = Math.max(0.4, config.width)
 
     const bodyParts: BufferGeometry[] = []
-    const carcass = bevelBox(W, H, D, 0.012)
+    const carcass = bevelBox(W, H, D, 0.018)
     carcass.translate(0, BODY_Y + H / 2, 0)
     bodyParts.push(carcass)
 
-    const plinth = bevelBox(W + 0.02, PLINTH_H, D + 0.02, 0.008)
+    const plinth = bevelBox(W + 0.025, PLINTH_H, D + 0.02, 0.009)
     plinth.translate(0, PLINTH_Y + PLINTH_H / 2, 0)
     bodyParts.push(plinth)
     emit('body', mergeParts(bodyParts, 'carcass'), bodyGroup, 'carcass')
 
-    const workTop = bevelBox(W + 0.06, 0.04, D + 0.05, 0.006)
-    workTop.translate(0, BODY_Y + H + 0.02, 0)
-    emit('top', workTop, bodyGroup, 'top')
+    const topY = BODY_Y + H
+    const workSurface = bevelBox(W - 0.055, 0.018, D - 0.035, 0.004)
+    workSurface.translate(0, topY + 0.018, 0)
+    emit('top', workSurface, bodyGroup, 'recessed-mesh-work-surface')
 
-    // FACOM's measured six-drawer layout uses four shallow drawers over two deep drawers. Keep that
-    // hierarchy as normalized weights so configured widths do not affect the vertical mechanism.
-    const fieldH = H - 0.10
-    const rowGap = 0.014
+    const blackParts: BufferGeometry[] = []
+    for (const sx of [-1, 1] as const) {
+      const rail = bevelBox(0.034, 0.038, D + 0.055, 0.009)
+      rail.translate(sx * (W / 2 + 0.006), topY + 0.029, 0)
+      blackParts.push(rail)
+    }
+    for (const sz of [-1, 1] as const) {
+      const rail = bevelBox(W + 0.045, 0.038, 0.032, 0.008)
+      rail.translate(0, topY + 0.029, sz * (D / 2 + 0.006))
+      blackParts.push(rail)
+    }
+    // Recessed dark perforations leave the silver anti-slip panel as the dominant top value.
+    for (let ix = -6; ix <= 6; ix++) {
+      for (let iz = -3; iz <= 3; iz++) {
+        const hole = bevelBox(0.007, 0.004, 0.007, 0.0015)
+        hole.translate(ix * (W - 0.11) / 13, topY + 0.029, iz * (D - 0.10) / 7)
+        blackParts.push(hole)
+      }
+    }
+
+    const fascia = bevelBox(W - 0.075, 0.078, 0.026, 0.008)
+    fascia.translate(0, topY - 0.030, D / 2 + 0.020)
+    emit('top', fascia, bodyGroup, 'front-fascia')
+    for (let i = -2; i <= 2; i++) {
+      const mark = bevelBox(i === 0 ? 0.058 : 0.038, 0.010, 0.010, 0.002)
+      mark.translate(i * 0.052, topY - 0.030, D / 2 + 0.038)
+      blackParts.push(mark)
+    }
+
+    const fieldH = H - 0.125
+    const rowGap = 0.012
     const rowWeights = [1, 1, 1, 1, 1.85, 1.85] as const
     const weightTotal = rowWeights.reduce((sum, weight) => sum + weight, 0)
-    const faceT = 0.024
+    const faceT = 0.020
     const faceZ = D / 2 - 0.008 + faceT / 2
     const drawerParts: BufferGeometry[] = []
     const handleParts: BufferGeometry[] = []
-    let cursorY = BODY_Y + H - 0.05
+    let cursorY = BODY_Y + H - 0.095
     for (let i = 0; i < ROWS; i++) {
       const faceH = (fieldH - rowGap * (ROWS - 1)) * rowWeights[i]! / weightTotal
       const y = cursorY - faceH / 2
-      const face = bevelBox(W - 0.10, faceH, faceT, 0.004)
+      const face = bevelBox(W - 0.105, faceH, faceT, 0.006)
       face.translate(0, y, faceZ)
       drawerParts.push(face)
 
-      const pull = bevelBox(W - 0.16, 0.026, 0.030, 0.004)
-      pull.translate(0, y + faceH / 2 - 0.030, faceZ + faceT / 2 + 0.008)
+      const pull = new CylinderGeometry(0.018, 0.018, W - 0.165, 16)
+      pull.rotateZ(Math.PI / 2)
+      pull.translate(0, y + faceH / 2 - 0.026, faceZ + faceT / 2 + 0.020)
       handleParts.push(pull)
       cursorY -= faceH + rowGap
     }
     emit('body', mergeParts(drawerParts, 'drawers'), drawers, 'faces')
     emit('handle', mergeParts(handleParts, 'handles'), drawers, 'pulls')
 
-    const casterParts: BufferGeometry[] = []
-    // Segmented corner guards are the characteristic protective exoskeleton of a trackside roll cab.
+    const pushPath = new CatmullRomCurve3([
+      new Vector3(-W / 2 + 0.010, topY - 0.075, D * 0.31),
+      new Vector3(-W / 2 - 0.070, topY - 0.075, D * 0.31),
+      new Vector3(-W / 2 - 0.085, topY - 0.075, 0),
+      new Vector3(-W / 2 - 0.070, topY - 0.075, -D * 0.31),
+      new Vector3(-W / 2 + 0.010, topY - 0.075, -D * 0.31),
+    ], false, 'centripetal')
+    emit('handle', new TubeGeometry(pushPath, 32, 0.016, 12, false), bodyGroup, 'tubular-push-handle')
+
+    // Slim segmented guards protect the uprights without hiding the enamel carcass.
     for (const sx of [-1, 1] as const) {
-      for (let i = 0; i < 7; i++) {
-        const guard = bevelBox(0.052, H / 7 - 0.008, 0.040, 0.007)
-        guard.translate(sx * (W / 2 + 0.010), BODY_Y + H * (i + 0.5) / 7, D / 2 + 0.018)
-        casterParts.push(guard)
+      for (let i = 0; i < 8; i++) {
+        const guard = bevelBox(0.037, H / 8 - 0.010, 0.028, 0.006)
+        guard.translate(sx * (W / 2 + 0.008), BODY_Y + H * (i + 0.5) / 8, D / 2 + 0.017)
+        blackParts.push(guard)
       }
     }
+
+    const forkParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
       for (const sz of [-1, 1] as const) {
-        casterParts.push(castor(
-          [sx * (W / 2 - 0.1), 0, sz * (D / 2 - 0.1)],
-          CASTOR_R,
-          sx * sz * 0.35,
-        ))
+        const x = sx * (W / 2 - 0.095)
+        const z = sz * (D / 2 - 0.080)
+        const wheel = new CylinderGeometry(CASTOR_R, CASTOR_R, CASTOR_R * 0.48, 20)
+        wheel.rotateZ(Math.PI / 2)
+        wheel.translate(x, CASTOR_R, z)
+        blackParts.push(wheel)
+
+        for (const side of [-1, 1] as const) {
+          const cheek = bevelBox(CASTOR_R * 0.18, CASTOR_R * 1.55, CASTOR_R * 0.22, 0.004)
+          cheek.translate(x + side * CASTOR_R * 0.36, CASTOR_R * 1.48, z)
+          forkParts.push(cheek)
+        }
+        const crown = bevelBox(CASTOR_R * 1.08, CASTOR_R * 0.18, CASTOR_R * 0.90, 0.005)
+        crown.translate(x, CASTOR_R * 2.18, z)
+        forkParts.push(crown)
+        const stem = new CylinderGeometry(CASTOR_R * 0.18, CASTOR_R * 0.18, CASTOR_R * 0.55, 12)
+        stem.translate(x, CASTOR_R * 2.54, z)
+        forkParts.push(stem)
       }
     }
-    emit('caster', mergeParts(casterParts, 'casters-and-guards'), casters, 'castors')
+    emit('caster', mergeParts(blackParts, 'rubber-guards-and-top-rails'), casters, 'rubber-and-guards')
+    emit('handle', mergeParts(forkParts, 'caster-forks'), casters, 'caster-forks')
   }
   rebuild()
 
