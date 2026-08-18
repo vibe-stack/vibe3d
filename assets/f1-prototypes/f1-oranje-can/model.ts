@@ -90,7 +90,8 @@ const SMOKE_TOP = new Color(0xfff3e8)
 const BILLOW_WIDTH_CYCLE: readonly number[] = [0.78, 1.14, 0.92, 1.22, 0.84]
 const BILLOW_HEIGHT_CYCLE: readonly number[] = [1.18, 0.82, 1.06, 0.76, 1.12]
 const BILLOW_ROTATION_CYCLE: readonly number[] = [-0.3, 0.12, -0.08, 0.28, 0]
-const BILLOW_EDGE_CYCLE: readonly number[] = [0.72, 1.34, 0.88, 1.18, 0.78, 1.42, 0.96]
+const BILLOW_EDGE_CYCLE: readonly number[] = [0.58, 1.52, 0.8, 1.28, 0.66, 1.62, 0.9]
+const BILLOW_OPACITY_CYCLE: readonly number[] = [0.46, 1, 0.7, 0.92, 0.56, 1, 0.78, 0.88, 0.52]
 
 const defaults: F1OranjeCanConfig = { lit: true, windXZ: ZANDVOORT_WIND_XZ }
 
@@ -115,15 +116,13 @@ function createOranjeLabelTexture(): DataTexture {
   const red: readonly [number, number, number] = [198, 38, 42]
   const white: readonly [number, number, number] = [242, 244, 238]
 
-  fillGlyphRect(data, width, 3, 0, 58, 22, red)
-  writeGlyphWord(data, width, 13, 1, 'WP', white, 5)
-  fillGlyphRect(data, width, 3, 224, 58, 32, white)
-  writeGlyphWord(data, width, 13, 227, '40', blue, 5)
+  fillGlyphRect(data, width, 2, 0, 60, 20, red)
+  fillGlyphRect(data, width, 2, 228, 60, 28, white)
 
   const wordWidth = 256
   const wordHeight = 64
   const word = new Uint8Array(wordWidth * wordHeight * 4)
-  writeGlyphWord(word, wordWidth, 24, 4, 'SMOKE', blue, 11)
+  writeGlyphWord(word, wordWidth, 18, 2, 'SMOKE', blue, 12)
   for (let sy = 0; sy < wordHeight; sy++) {
     for (let sx = 0; sx < wordWidth; sx++) {
       const source = (sy * wordWidth + sx) * 4
@@ -206,11 +205,10 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     toneMapped: false,
     side: DoubleSide,
   }))
-  const redCapMat = hardwareOverride ?? own(new MeshStandardMaterial({
-    name: 'f1-kit / wire-pull red cap',
-    color: 0xc52a24,
-    roughness: 0.68,
-    metalness: 0,
+  const redCapMat = hardwareOverride ?? own(new MeshBasicMaterial({
+    name: 'f1-kit / wire-pull safety-red cap',
+    color: 0xd82027,
+    toneMapped: false,
   }))
   const silverHardwareMat = hardwareOverride ?? own(new MeshStandardMaterial({
     name: 'f1-kit / wire-pull silver hardware',
@@ -289,13 +287,11 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       const angle = frac(i * PHI4) * Math.PI * 2
       const spread = frac(i * PHI7) * (0.001 + 0.032 * riseFrac * riseFrac)
       const shapeIndex = i % BILLOW_WIDTH_CYCLE.length
-      const layerCount = 7 + (i % 4)
-      const layer = Math.floor(ageN * layerCount)
-      const layerPhase = frac((layer + 1) * PHI5 + shapeIndex * PHI4) * Math.PI * 2
+      const layerPhase = frac(ageN * (2.35 + (i % 3) * 0.57) + shapeIndex * PHI4) * Math.PI * 2
       const layerOffset = (0.002 + 0.044 * riseFrac) * (0.68 + 0.32 * frac(g * PHI3))
       const edgeFactor = BILLOW_EDGE_CYCLE[i % BILLOW_EDGE_CYCLE.length]!
       const edgePhase = frac((i % BILLOW_EDGE_CYCLE.length) * PHI3) * Math.PI * 2
-      const edgeOffset = 0.018 * Math.pow(riseFrac, 3.2) * edgeFactor
+      const edgeOffset = 0.026 * Math.pow(riseFrac, 3.2) * edgeFactor
       const x = Math.cos(angle) * spread
         + wind[0] * drift
         + Math.cos(wPhase + age * 0.7) * wander
@@ -314,7 +310,9 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       const height = (0.018 + 0.095 * t) / Math.max(0.72, stretch) * BILLOW_HEIGHT_CYCLE[shapeIndex]!
       const fadeIn = clamp01(ageN / 0.02)
       const fadeOut = 0.65 + 0.35 * clamp01((1 - ageN) / 0.32)
-      const alpha = fadeIn * fadeOut
+      const gapCycle = i % 13
+      const gap = riseFrac > 0.62 && (gapCycle === 3 || gapCycle === 9) ? 0.2 : 1
+      const alpha = fadeIn * fadeOut * BILLOW_OPACITY_CYCLE[i % BILLOW_OPACITY_CYCLE.length]! * gap
       if (alpha < 0.03) {
         hideInstance(mesh, i)
         continue
@@ -364,7 +362,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       )
       return geometry
     }
-    emit('body', labelPanel(0.031, 0.088, 0.075, 0.0011), body, 'wire-pull-typography', labelMat)
+    emit('body', labelPanel(0.034, 0.088, 0.075, 0.0011), body, 'wire-pull-typography', labelMat)
 
     const base = bevelDisc(BODY_R * 0.92, 0.004, 0.0007, 18)
     base.rotateX(Math.PI / 2)
@@ -379,7 +377,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
         [0.82, 0],
         [1, 0],
       ],
-      { yBot: BODY_H - 0.012, yTop: BODY_H + 0.004, scaleW: 1, segments: 24 },
+      { yBot: BODY_H - 0.005, yTop: BODY_H + 0.003, scaleW: 1, segments: 24 },
     )
     emit('hardware', capCollar, body, 'red-cap-collar', redCapMat)
 
