@@ -10,15 +10,20 @@
 import {
   BufferGeometry,
   Color,
+  DataTexture,
   DoubleSide,
   Group,
   InstancedMesh,
+  LinearFilter,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   NormalBlending,
   Object3D,
   PlaneGeometry,
+  RGBAFormat,
+  SRGBColorSpace,
+  UnsignedByteType,
   Vector3,
   type Material,
   type PerspectiveCamera,
@@ -35,6 +40,7 @@ import {
   oranjeSmokeTexture,
   revolve,
   tubeSection,
+  writeGlyphWord,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'body' | 'hardware' | 'smoke'
@@ -96,6 +102,26 @@ function normalizeWind(wind: readonly [number, number]): readonly [number, numbe
   return [wind[0] / len, wind[1] / len]
 }
 
+function createOranjeLabelTexture(): DataTexture {
+  const width = 64
+  const height = 256
+  const data = new Uint8Array(width * height * 4)
+  const blue: readonly [number, number, number] = [46, 94, 206]
+  const white: readonly [number, number, number] = [242, 244, 238]
+  writeGlyphWord(data, width, 7, 5, 'WIRE', white, 3)
+  for (const [index, letter] of [...'SMOKE'].entries()) {
+    writeGlyphWord(data, width, 21, 26 + index * 39, letter, blue, 7)
+  }
+  writeGlyphWord(data, width, 7, 232, 'PULL', white, 3)
+  const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType)
+  texture.colorSpace = SRGBColorSpace
+  texture.magFilter = LinearFilter
+  texture.minFilter = LinearFilter
+  texture.generateMipmaps = false
+  texture.needsUpdate = true
+  return texture
+}
+
 export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstance {
   const config: F1OranjeCanConfig = {
     lit: options.lit ?? defaults.lit,
@@ -145,8 +171,16 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     return own(new MeshStandardMaterial({ name, color, roughness, metalness }))
   }
   const orangeBandMat = makeDetailMaterial('f1-kit / oranje identity band', TOKEN.ORANGE_500, 0.88)
-  const labelBlueMat = makeDetailMaterial('f1-kit / wire-pull blue label', 0x2454b8, 0.72)
-  const labelWhiteMat = makeDetailMaterial('f1-kit / wire-pull white label', 0xf1f2ea, 0.76)
+  const labelMap = bodyOverride ? null : createOranjeLabelTexture()
+  if (labelMap) extras.push(labelMap)
+  const labelMat = bodyOverride ?? own(new MeshBasicMaterial({
+    name: 'f1-kit / wire-pull procedural label',
+    map: labelMap,
+    transparent: true,
+    alphaTest: 0.08,
+    toneMapped: false,
+    side: DoubleSide,
+  }))
   const redCapMat = hardwareOverride ?? own(new MeshStandardMaterial({
     name: 'f1-kit / wire-pull red cap',
     color: 0xc52a24,
@@ -221,17 +255,17 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       const age = ageN * life
       const riseTau = 1.6
       const riseFrac = 1 - Math.exp(-age / riseTau)
-      const rise = 0.54 * Math.pow(riseFrac, 2.25)
+      const rise = 0.39 * Math.pow(riseFrac, 2.2)
       const driftT = Math.max(0, age - 0.18)
-      const drift = 0.12 * Math.min(driftT, 2.8)
+      const drift = 0.075 * Math.min(driftT, 2.8)
       const wanderVar = 0.45 + frac(g * PHI4)
       const wander = (0.004 + 0.085 * riseFrac * riseFrac) * wanderVar
       const wPhase = frac(g * PHI5) * Math.PI * 2
       const angle = frac(i * PHI4) * Math.PI * 2
-      const spread = frac(i * PHI7) * (0.002 + 0.038 * riseFrac * riseFrac)
+      const spread = frac(i * PHI7) * (0.001 + 0.032 * riseFrac * riseFrac)
       const layer = Math.floor(ageN * 9)
       const layerPhase = frac((layer + 1) * PHI5) * Math.PI * 2
-      const layerOffset = (0.003 + 0.064 * riseFrac) * (0.7 + 0.3 * frac(g * PHI3))
+      const layerOffset = (0.002 + 0.044 * riseFrac) * (0.68 + 0.32 * frac(g * PHI3))
       const x = Math.cos(angle) * spread
         + wind[0] * drift
         + Math.cos(wPhase + age * 0.7) * wander
@@ -243,8 +277,8 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
         + Math.sin(layerPhase) * layerOffset
       const t = Math.pow(riseFrac, 1.35)
       const stretch = 0.78 + 0.44 * frac(g * PHI4)
-      const width = (0.018 + 0.13 * t) * stretch
-      const height = (0.035 + 0.11 * t) / Math.max(0.68, stretch)
+      const width = (0.012 + 0.115 * t) * stretch
+      const height = (0.027 + 0.095 * t) / Math.max(0.68, stretch)
       const fadeIn = clamp01(ageN / 0.02)
       const fadeOut = 0.65 + 0.35 * clamp01((1 - ageN) / 0.32)
       const alpha = fadeIn * fadeOut
@@ -303,11 +337,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       )
       return geometry
     }
-    emit('body', labelPanel(0.025, 0.082, 0.075, 0.0009), body, 'blue-label-field', labelBlueMat)
-    for (const [index, y] of [0.044, 0.057, 0.07, 0.083, 0.096, 0.109].entries()) {
-      const width = index % 2 === 0 ? 0.017 : 0.013
-      emit('body', labelPanel(width, 0.0024, y, 0.00125), body, `white-label-mark-${index}`, labelWhiteMat)
-    }
+    emit('body', labelPanel(0.029, 0.088, 0.075, 0.0011), body, 'wire-pull-typography', labelMat)
 
     const base = bevelDisc(BODY_R * 0.92, 0.004, 0.0007, 18)
     base.rotateX(Math.PI / 2)
@@ -320,9 +350,6 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     )
     emit('hardware', capCollar, body, 'red-cap-collar', redCapMat)
 
-    const lid = bevelDisc(BODY_R * 0.96, 0.005, 0.0008, 18)
-    lid.translate(0, BODY_H + 0.002, 0)
-    emit('hardware', lid, body, 'red-cap', redCapMat)
     const ringAngle = -0.55
     const ringNormal: readonly [number, number, number] = [Math.sin(ringAngle), 0, Math.cos(ringAngle)]
     const ringTangent: readonly [number, number, number] = [Math.cos(ringAngle), 0, -Math.sin(ringAngle)]
@@ -411,12 +438,12 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
 
 /** Steady-state still — can base on the ground, plume filling the rest of the tile. */
 export function createPreview({ aspect, time }: { aspect: number; time?: number }) {
-  const model = createModel({ lit: true })
+  const model = createModel({ lit: true, windXZ: [-0.852, -0.523] })
   const preview = createF1Preview(model, {
     aspect,
-    target: [0.015, 0.37, 0.03],
-    distance: 1.35,
-    fov: 32,
+    target: [-0.12, 0.285, -0.074],
+    distance: 1.05,
+    fov: 34,
     yaw: -0.55,
     pitch: 0.18,
     ground: false,
