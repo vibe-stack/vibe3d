@@ -1,6 +1,6 @@
 // f1-oranje-can — handheld Dutch-GP orange smoke flare (the "oranje army" support can).
 //
-// Geometry is a lathed can + striker. Smoke clouds and spark jets are closed-form CPU pools
+// Geometry is a lathed can + striker. Smoke clouds and spark jets are closed-form pools
 // imported from devlo-racing `OranjeSmoke` / `OranjeSparkFountains` (Weyl phases, mod-wrapped life,
 // scattering vs emissive families). No TSL, no PRNG. Steady-state at elapsed=0 for stills.
 //
@@ -19,6 +19,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
+  Points,
   SphereGeometry,
   type Material,
 } from 'three/webgpu'
@@ -29,11 +30,14 @@ import {
   bevelBox,
   bevelDisc,
   bevelRing,
+  buildPlumePointGeometry,
   createF1Preview,
+  createPlumePointMaterial,
   disposeF1Materials,
   mergeParts,
   revolve,
   tubeSection,
+  type PlumePointHandle,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'body' | 'hardware' | 'smoke' | 'spark'
@@ -77,9 +81,14 @@ const PLUME_N = 40
 const HAZE_N = 6
 const SPARK_N = 28
 
+const PLUME_CYCLE_S = 8
+const ALBEDO_VAR = 0.08
+const WANDER_VAR = 0.5
+
 const SMOKE_BASE = new Color(0xff6c12)
 const SMOKE_TOP = new Color(0xee8a38)
 const HAZE_BASE = new Color(0xdf8a4e)
+const HAZE_TOP = new Color(0xee8a38)
 const SPARK_COL = new Color(0xfff6d8)
 
 const defaults: F1OranjeCanConfig = { lit: true, windXZ: ZANDVOORT_WIND_XZ }
@@ -97,6 +106,100 @@ function normalizeWind(wind: readonly [number, number]): readonly [number, numbe
   return [wind[0] / len, wind[1] / len]
 }
 
+function buildSmokePool(windXZ: readonly [number, number]): {
+  points: Points
+  handle: PlumePointHandle
+  geo: BufferGeometry
+} {
+  const count = PLUME_N + HAZE_N
+  const built = buildPlumePointGeometry(count)
+  const { pos, seed, seed2 } = built
+
+  for (let i = 0; i < PLUME_N; i++) {
+    const g = IDX_ORANJE + i
+    const angle = frac(i * PHI4) * Math.PI * 2
+    const spread = frac(i * PHI7) * 0.015
+    pos[i * 3] = Math.cos(angle) * spread
+    pos[i * 3 + 1] = MOUTH_Y
+    pos[i * 3 + 2] = Math.sin(angle) * spread
+    seed[i * 4] = frac(g * PHI) * PLUME_CYCLE_S
+    seed[i * 4 + 1] = 4 + 2 * frac(g * PHI3)
+    seed[i * 4 + 2] = 1 - WANDER_VAR + 2 * WANDER_VAR * frac(g * PHI4)
+    seed[i * 4 + 3] = frac(g * PHI5) * Math.PI * 2
+    seed2[i * 2] = 1 - ALBEDO_VAR + 2 * ALBEDO_VAR * frac(g * PHI7)
+    seed2[i * 2 + 1] = 0
+  }
+
+  for (let i = 0; i < HAZE_N; i++) {
+    const k = PLUME_N + i
+    const g = IDX_ORANJE + 50_000 + i
+    pos[k * 3] = 0
+    pos[k * 3 + 1] = MOUTH_Y
+    pos[k * 3 + 2] = 0
+    seed[k * 4] = frac(g * PHI) * PLUME_CYCLE_S
+    seed[k * 4 + 1] = 6.5 + 1.2 * frac(g * PHI3)
+    seed[k * 4 + 2] = 1
+    seed[k * 4 + 3] = frac(g * PHI5) * Math.PI * 2
+    seed2[k * 2] = 1 - ALBEDO_VAR + 2 * ALBEDO_VAR * frac(g * PHI7)
+    seed2[k * 2 + 1] = 1
+  }
+
+  const handle = createPlumePointMaterial({
+    windXZ,
+    plume: {
+      cycle: PLUME_CYCLE_S,
+      riseMax: 1.35,
+      riseTau: 1.8,
+      driftSpeed: 0.14,
+      driftDelay: 0.25,
+      driftCapTime: 2.5,
+      wanderBase: 0.02,
+      wanderGrowth: 0.12,
+      wanderHz: 0.9,
+      radiusStart: 0.03,
+      radiusEnd: 0.22,
+      radiusPow: 1.25,
+      radiusCap: 0.22,
+      alphaPeak: 0.58,
+      fadeInFrac: 0.1,
+      fadeOutFrac: 0.4,
+      alphaFloorFrac: 0.6,
+      albedoPow: 3.4,
+      colBase: SMOKE_BASE,
+      colTop: SMOKE_TOP,
+    },
+    haze: {
+      cycle: PLUME_CYCLE_S,
+      riseMax: 0.9,
+      riseTau: 0.4,
+      driftSpeed: 0.22,
+      driftDelay: 0,
+      driftCapTime: 4,
+      wanderBase: 0.04,
+      wanderGrowth: 0,
+      wanderHz: 0.35,
+      radiusStart: 0.16,
+      radiusEnd: 0.38,
+      radiusPow: 0.8,
+      radiusCap: 0.38,
+      alphaPeak: 0.18,
+      fadeInFrac: 0.08,
+      fadeOutFrac: 0.25,
+      alphaFloorFrac: 0.65,
+      albedoPow: 1,
+      colBase: HAZE_BASE,
+      colTop: HAZE_TOP,
+    },
+    sizeCapPx: 220,
+  })
+  handle.material.name = 'f1-kit / oranje-smoke'
+
+  const points = new Points(built.geo, handle.material)
+  points.name = 'oranje-smoke'
+  points.frustumCulled = false
+  return { points, handle, geo: built.geo }
+}
+
 export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstance {
   const config: F1OranjeCanConfig = {
     lit: options.lit ?? defaults.lit,
@@ -111,26 +214,6 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     return material
   }
 
-  const smokeMat = options.materials?.smoke ?? own(new MeshStandardMaterial({
-    name: 'f1-kit / oranje-smoke',
-    color: SMOKE_BASE,
-    roughness: 1,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.48,
-    depthWrite: false,
-    toneMapped: true,
-  }))
-  const hazeMat = own(new MeshStandardMaterial({
-    name: 'f1-kit / oranje-haze',
-    color: HAZE_BASE,
-    roughness: 1,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.16,
-    depthWrite: false,
-    toneMapped: true,
-  }))
   const sparkMat = options.materials?.spark ?? own(new MeshBasicMaterial({
     name: 'f1-kit / oranje-fountains',
     color: SPARK_COL,
@@ -144,7 +227,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
   const materialSlots: Record<Slot, Material> = {
     body: options.materials?.body ?? own(kit.orange.clone() as MeshStandardMaterial),
     hardware: options.materials?.hardware ?? kit.graphite,
-    smoke: smokeMat,
+    smoke: options.materials?.smoke ?? own(new MeshBasicMaterial({ visible: false })),
     spark: sparkMat,
   }
   if (options.materials?.body === undefined) {
@@ -161,18 +244,18 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
   const meshesBySlot: Record<Slot, Mesh[]> = { body: [], hardware: [], smoke: [], spark: [] }
   const scratch = new Matrix4()
   let elapsed = 0
-  let plumeMesh: InstancedMesh | null = null
-  let hazeMesh: InstancedMesh | null = null
   let sparkMesh: InstancedMesh | null = null
+  let smokePoints: Points | null = null
+  let smokeHandle: PlumePointHandle | null = null
 
   const releaseGenerated = (): void => {
     for (const group of [body, fx]) group.clear()
     for (const geometry of generated) geometry.dispose()
     generated.length = 0
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
-    plumeMesh = null
-    hazeMesh = null
     sparkMesh = null
+    smokePoints = null
+    smokeHandle = null
   }
 
   const emit = (
@@ -192,7 +275,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
   }
 
   const emitInstances = (
-    slot: Slot | null,
+    slot: Slot,
     mesh: InstancedMesh,
     group: Group,
   ): void => {
@@ -200,85 +283,13 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     mesh.castShadow = false
     mesh.receiveShadow = false
     mesh.frustumCulled = false
-    if (slot) meshesBySlot[slot].push(mesh)
+    meshesBySlot[slot].push(mesh)
     group.add(mesh)
   }
 
   const hideInstance = (mesh: InstancedMesh, index: number): void => {
     scratch.makeScale(0, 0, 0)
     mesh.setMatrixAt(index, scratch)
-  }
-
-  const samplePlume = (mesh: InstancedMesh): void => {
-    const wind = config.windXZ
-    for (let i = 0; i < PLUME_N; i++) {
-      if (!config.lit) {
-        hideInstance(mesh, i)
-        continue
-      }
-      const g = IDX_ORANJE + i
-      const cycle = 8
-      const life = 4 + 2 * frac(g * PHI3)
-      const phase = frac(g * PHI) * cycle
-      const ageN = frac((elapsed - phase) / life)
-      const age = ageN * life
-      const riseTau = 1.8
-      const riseFrac = 1 - Math.exp(-age / riseTau)
-      const rise = 1.35 * riseFrac
-      const driftT = Math.max(0, age - 0.25)
-      const drift = 0.35 * Math.min(driftT, 2.5)
-      const wanderVar = 0.5 + frac(g * PHI4)
-      const wander = (0.02 + 0.12 * riseFrac) * wanderVar
-      const wPhase = frac(g * PHI5) * Math.PI * 2
-      const angle = frac(i * PHI4) * Math.PI * 2
-      const spread = frac(i * PHI7) * 0.015
-      const x = Math.cos(angle) * spread + wind[0] * drift + Math.cos(wPhase + age * 0.9) * wander
-      const y = MOUTH_Y + rise
-      const z = Math.sin(angle) * spread + wind[1] * drift + Math.sin(wPhase + age * 0.9) * wander
-      const t = Math.pow(ageN, 1.25)
-      const radius = 0.03 + (0.22 - 0.03) * t
-      const fadeIn = clamp01(ageN / 0.1)
-      const fadeOut = clamp01((1 - ageN) / 0.4)
-      const alpha = fadeIn * fadeOut
-      if (alpha < 0.04) {
-        hideInstance(mesh, i)
-        continue
-      }
-      const tone = Math.pow(riseFrac, 3.4)
-      scratch.makeScale(radius, radius, radius)
-      scratch.setPosition(x, y, z)
-      mesh.setMatrixAt(i, scratch)
-      mesh.setColorAt?.(i, SMOKE_BASE.clone().lerp(SMOKE_TOP, tone))
-    }
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-  }
-
-  const sampleHaze = (mesh: InstancedMesh): void => {
-    const wind = config.windXZ
-    for (let i = 0; i < HAZE_N; i++) {
-      if (!config.lit) {
-        hideInstance(mesh, i)
-        continue
-      }
-      const g = IDX_ORANJE + 50_000 + i
-      const cycle = 8
-      const life = 6.5 + 1.2 * frac(g * PHI3)
-      const phase = frac(g * PHI) * cycle
-      const ageN = frac((elapsed - phase) / life)
-      const age = ageN * life
-      const rise = 0.9 + 0.4 * ageN
-      const drift = 0.22 * Math.min(age, 4)
-      const wPhase = frac(g * PHI5) * Math.PI * 2
-      const x = wind[0] * (0.12 + drift) + Math.cos(wPhase + age * 0.35) * 0.04
-      const y = MOUTH_Y + rise
-      const z = wind[1] * (0.12 + drift) + Math.sin(wPhase + age * 0.35) * 0.04
-      const radius = 0.16 + 0.22 * Math.pow(ageN, 0.8)
-      scratch.makeScale(radius, radius, radius)
-      scratch.setPosition(x, y, z)
-      mesh.setMatrixAt(i, scratch)
-    }
-    mesh.instanceMatrix.needsUpdate = true
   }
 
   const sampleSparks = (mesh: InstancedMesh): void => {
@@ -312,9 +323,10 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     mesh.instanceMatrix.needsUpdate = true
   }
 
-  const sampleFx = (): void => {
-    if (plumeMesh) samplePlume(plumeMesh)
-    if (hazeMesh) sampleHaze(hazeMesh)
+  const syncFx = (): void => {
+    smokeHandle?.setTime(elapsed)
+    smokeHandle?.setWindXZ(config.windXZ)
+    smokeHandle?.setOpacity(config.lit ? 1 : 0)
     if (sparkMesh) sampleSparks(sparkMesh)
   }
 
@@ -352,18 +364,19 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     hardware.push(ring)
     emit('hardware', mergeParts(hardware, 'striker'), body, 'striker')
 
-    const puffGeo = new SphereGeometry(1, 10, 8)
+    const smoke = buildSmokePool(config.windXZ)
+    smokePoints = smoke.points
+    smokeHandle = smoke.handle
+    generated.push(smoke.geo)
+    materialSlots.smoke = smoke.handle.material
+    meshesBySlot.smoke.push(smoke.points as unknown as Mesh)
+    fx.add(smoke.points)
+
     const sparkGeo = new SphereGeometry(1, 8, 6)
-    plumeMesh = new InstancedMesh(puffGeo, materialSlots.smoke, PLUME_N)
-    plumeMesh.name = 'oranje-smoke'
-    emitInstances('smoke', plumeMesh, fx)
-    hazeMesh = new InstancedMesh(puffGeo, hazeMat, HAZE_N)
-    hazeMesh.name = 'oranje-haze'
-    emitInstances(null, hazeMesh, fx)
     sparkMesh = new InstancedMesh(sparkGeo, materialSlots.spark, SPARK_N)
     sparkMesh.name = 'oranje-fountains'
     emitInstances('spark', sparkMesh, fx)
-    sampleFx()
+    syncFx()
   }
   rebuild()
 
@@ -375,7 +388,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     configure(patch) {
       if (patch.lit !== undefined) config.lit = patch.lit
       if (patch.windXZ !== undefined) config.windXZ = normalizeWind(patch.windXZ)
-      sampleFx()
+      syncFx()
     },
     setMaterial(slot, material) {
       materialSlots[slot] = material
@@ -383,7 +396,7 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     },
     update(deltaSeconds) {
       elapsed += deltaSeconds
-      sampleFx()
+      syncFx()
     },
     dispose() {
       releaseGenerated()
@@ -394,9 +407,10 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
   }
 }
 
+/** Steady-state still at t≈2.5 s — full column anchored at the mouth. */
 export function createPreview({ aspect, time }: { aspect: number; time?: number }) {
   const model = createModel({ lit: true })
-  if (time !== undefined) model.update(time)
+  model.update(time ?? 2.5)
   return createF1Preview(model, {
     aspect,
     target: [0.05, 0.55, 0.08],

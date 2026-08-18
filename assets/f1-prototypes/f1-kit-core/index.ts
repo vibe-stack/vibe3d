@@ -53,4 +53,12 @@ export {
   writeGlyphWord,
 } from './glyphs.ts'
 export { DEFAULT_PITCH, DEFAULT_YAW, createF1Preview } from './preview.ts'
+export {
+  REF_HALF_HEIGHT,
+  buildPlumePointGeometry,
+  createPlumePointMaterial,
+  type PlumePointHandle,
+  type PlumePointKindParams,
+  type PlumePointParams,
+} from './plumePoints.ts'
 export type { F1Preview, F1PreviewModel, F1PreviewOptions } from './preview.ts'
