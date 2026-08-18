@@ -1,6 +1,6 @@
 // f1-oranje-can — handheld Dutch-GP orange smoke flare (the "oranje army" support can).
 //
-// Product datum: photography wire-pull tube, 4" × 1" (Smoke Effect orange grenade). Smoke is a
+// Product datum: Enola Gaye WP40 wire-pull tube, 130 mm × 40 mm. Smoke is a
 // dense overlapping field of wispy DataTexture cards, not spheres. Closed-form Weyl phases,
 // NormalBlending, no TSL, no PRNG, Dawn-safe. Steady-state at elapsed=0 for stills.
 //
@@ -71,10 +71,10 @@ const IDX_ORANJE = 400_000
 
 const ZANDVOORT_WIND_XZ: readonly [number, number] = [-0.692, 0.722]
 
-/** Product: 4" height × 1" diameter. */
-const BODY_H = 0.102
-const BODY_R = 0.0125
-const MOUTH_Y = 0.11
+/** Enola Gaye WP40: 130 mm length × 40 mm diameter. */
+const BODY_H = 0.13
+const BODY_R = 0.02
+const MOUTH_Y = 0.14
 
 const PLUME_N = 180
 
@@ -119,7 +119,8 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     color: 0xffffff,
     vertexColors: true,
     transparent: true,
-    opacity: 0.34,
+    opacity: 0.18,
+    alphaTest: 0.025,
     depthWrite: false,
     toneMapped: true,
     blending: NormalBlending,
@@ -199,21 +200,21 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       const age = ageN * life
       const riseTau = 1.6
       const riseFrac = 1 - Math.exp(-age / riseTau)
-      const rise = 1.05 * Math.pow(riseFrac, 2.4)
+      const rise = 0.68 * Math.pow(riseFrac, 2.4)
       const driftT = Math.max(0, age - 0.18)
-      const drift = 0.28 * Math.min(driftT, 2.8)
+      const drift = 0.16 * Math.min(driftT, 2.8)
       const wanderVar = 0.45 + frac(g * PHI4)
-      const wander = (0.012 + 0.22 * riseFrac) * wanderVar
+      const wander = (0.01 + 0.12 * riseFrac) * wanderVar
       const wPhase = frac(g * PHI5) * Math.PI * 2
       const angle = frac(i * PHI4) * Math.PI * 2
-      const spread = frac(i * PHI7) * (0.006 + 0.08 * riseFrac)
+      const spread = frac(i * PHI7) * (0.006 + 0.05 * riseFrac)
       const x = Math.cos(angle) * spread + wind[0] * drift + Math.cos(wPhase + age * 0.7) * wander
       const y = MOUTH_Y + rise
       const z = Math.sin(angle) * spread + wind[1] * drift + Math.sin(wPhase + age * 0.7) * wander
       const t = Math.pow(ageN, 1.2)
       const stretch = 0.65 + 0.7 * frac(g * PHI4)
-      const width = (0.05 + 0.36 * t) * stretch
-      const height = (0.07 + 0.28 * t) / Math.max(0.55, stretch)
+      const width = (0.04 + 0.21 * t) * stretch
+      const height = (0.06 + 0.17 * t) / Math.max(0.55, stretch)
       const fadeIn = clamp01(ageN / 0.02)
       const fadeOut = 0.65 + 0.35 * clamp01((1 - ageN) / 0.32)
       const alpha = fadeIn * fadeOut
@@ -255,12 +256,12 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       { yBot: 0, yTop: BODY_H, scaleW: 1, segments: 24 },
     ), body, 'cylinder')
 
-    const base = bevelDisc(BODY_R * 0.92, 0.003, 0.0005, 18)
+    const base = bevelDisc(BODY_R * 0.92, 0.004, 0.0007, 18)
     base.rotateX(Math.PI / 2)
     base.translate(0, 0.0015, 0)
     emit('body', base, body, 'base')
 
-    const lid = bevelDisc(BODY_R * 0.96, 0.004, 0.0008, 18)
+    const lid = bevelDisc(BODY_R * 0.96, 0.005, 0.0008, 18)
     lid.translate(0, BODY_H + 0.002, 0)
     emit('hardware', lid, body, 'lid')
     const mouth = bevelRing(0.003, 0.007, 0.006, 0.0006, 12)
@@ -268,10 +269,10 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
     emit('hardware', mouth, body, 'mouth')
 
     const hardware: BufferGeometry[] = []
-    hardware.push(tubeSection(0.0012, 0.018, [0.006, BODY_H + 0.01, 0], [0, 1, 0], 8))
-    const ring = bevelRing(0.006, 0.009, 0.0016, 0.0004, 14)
+    hardware.push(tubeSection(0.0012, 0.022, [0.009, BODY_H + 0.012, 0], [0, 1, 0], 8))
+    const ring = bevelRing(0.01, 0.013, 0.0018, 0.0004, 18)
     ring.rotateZ(Math.PI / 2)
-    ring.translate(0.016, BODY_H + 0.02, 0)
+    ring.translate(0.027, BODY_H + 0.024, 0)
     hardware.push(ring)
     emit('hardware', mergeParts(hardware, 'wire-pull'), body, 'wire-pull')
 
@@ -324,12 +325,12 @@ export function createPreview({ aspect, time }: { aspect: number; time?: number 
   const model = createModel({ lit: true })
   const preview = createF1Preview(model, {
     aspect,
-    target: [0.03, 0.28, 0.04],
-    distance: 1.35,
-    fov: 36,
+    target: [0.03, 0.5, 0.04],
+    distance: 1.7,
+    fov: 34,
     yaw: -0.55,
-    pitch: 0.22,
-    ground: true,
+    pitch: 0.18,
+    ground: false,
     bloom: true,
   })
   model.lookAt(preview.camera)
