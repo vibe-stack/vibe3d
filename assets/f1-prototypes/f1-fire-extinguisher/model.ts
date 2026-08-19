@@ -58,12 +58,14 @@ function extinguisherLabelTexture(): DataTexture {
   const ink: [number, number, number] = [14, 18, 22]
   const red: [number, number, number] = [184, 24, 34]
   fillGlyphRect(data, w, 0, 0, w, h, paper)
-  writeGlyphWord(data, w, 8, 9, 'LIFELINE', red, 2)
-  writeGlyphWord(data, w, 21, 34, '360', ink, 5)
-  writeGlyphWord(data, w, 16, 70, 'FIRE', ink, 4)
-  fillGlyphRect(data, w, 9, 102, 78, 3, red)
-  for (let row = 0; row < 4; row++) {
-    fillGlyphRect(data, w, 10, 116 + row * 9, 60 - row * 6, 2, ink)
+  writeGlyphWord(data, w, 6, 6, 'LIFELINE', red, 2)
+  writeGlyphWord(data, w, 10, 28, 'ZERO', red, 3)
+  writeGlyphWord(data, w, 18, 52, '360', ink, 5)
+  writeGlyphWord(data, w, 10, 86, 'FIRE', ink, 3)
+  for (let col = 0; col < 4; col++) {
+    fillGlyphRect(data, w, 8 + col * 22, 118, 18, 32, ink)
+    fillGlyphRect(data, w, 10 + col * 22, 120, 14, 28, paper)
+    fillGlyphRect(data, w, 13 + col * 22, 128, 8, 12, red)
   }
   const texture = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
   texture.minFilter = NearestFilter
@@ -78,9 +80,9 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
 
   const bundle = acquireF1Materials()
   const kit = bundle.materials
-  kit.steel.roughness = 0.07
-  kit.steel.metalness = 1
-  kit.steel.color.set(0xcfd6dc)
+  kit.steel.roughness = 0.08
+  kit.steel.metalness = 0.96
+  kit.steel.color.set(0xe8eef4)
   const materialSlots: Record<Slot, Material> = {
     body: options.materials?.body ?? kit.steel,
     hardware: options.materials?.hardware ?? kit.graphite,
@@ -203,13 +205,13 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
     capFace.translate(-0.050, 0.407, 0)
     hardware.push(capFace)
 
-    const fixedHandle = bevelBox(0.048, 0.005, 0.009, 0.0015)
-    fixedHandle.rotateZ(-0.08)
-    fixedHandle.translate(0.012, 0.422, 0)
+    const fixedHandle = bevelBox(0.072, 0.010, 0.016, 0.003)
+    fixedHandle.rotateZ(-0.18)
+    fixedHandle.translate(0.018, 0.418, 0)
     hardware.push(fixedHandle)
-    const squeezeLever = bevelBox(0.052, 0.0045, 0.008, 0.0015)
-    squeezeLever.rotateZ(0.16)
-    squeezeLever.translate(0.014, 0.434, 0)
+    const squeezeLever = bevelBox(0.078, 0.010, 0.016, 0.003)
+    squeezeLever.rotateZ(0.42)
+    squeezeLever.translate(0.016, 0.448, 0)
     hardware.push(squeezeLever)
 
     const pivot = new CylinderGeometry(0.006, 0.006, 0.026, 12)

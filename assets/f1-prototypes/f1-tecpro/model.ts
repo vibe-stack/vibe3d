@@ -4,7 +4,6 @@
 
 import {
   BufferGeometry,
-  CylinderGeometry,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -103,33 +102,24 @@ export function createModel(options: F1TecproOptions = {}): F1TecproInstance {
     const shadow: BufferGeometry[] = []
     const strapParts: BufferGeometry[] = []
     const half = ((columns - 1) * BW) / 2
-    const moduleH = BH / 3
-    const seam = 0.018
+    const moduleH = BH / 4
+    const seam = 0.012
 
     for (let c = 0; c < columns; c++) {
       for (let r = 0; r < rows; r++) {
         const x = -half + c * BW
         const y = 0.02 + r * BH
-        for (let module = 0; module < 3; module++) {
+        for (let module = 0; module < 4; module++) {
           const centreY = y + module * moduleH + moduleH / 2
-          const bodyParts = module === 1 ? shadow : wrap
-          const body = bevelBox(BW - BD / 2, moduleH - seam, BD, 0.045)
-          body.translate(x + BD / 4, centreY, 0)
-          bodyParts.push(body)
-          const nose = new CylinderGeometry(BD / 2, BD / 2, moduleH - seam, 24, 1, false, Math.PI, Math.PI)
-          nose.translate(x - BW / 2 + BD / 2, centreY, 0)
-          bodyParts.push(nose)
+          const bodyParts = module === 1 || module === 2 ? shadow : wrap
+          const shell = bevelBox(BW - 0.04, moduleH - seam, BD, 0.08)
+          shell.translate(x, centreY, 0)
+          bodyParts.push(shell)
         }
-        for (let band = 1; band < 3; band++) {
-          const bandY = y + band * moduleH
-          const noseX = x - BW / 2 + BD / 2
-          for (const angle of [-0.55, 0, 0.55] as const) {
-            const strap = bevelBox(0.055, 0.028, 0.16, 0.006)
-            strap.translate(0, 0, BD / 2 + 0.012)
-            strap.rotateY(angle)
-            strap.translate(noseX, bandY, 0)
-            strapParts.push(strap)
-          }
+        for (const t of [0.25, 0.50, 0.75] as const) {
+          const strap = bevelBox(0.12, BH * 0.92, 0.018, 0.006)
+          strap.translate(x - BW * 0.18 + t * 0.12, y + BH / 2, BD / 2 + 0.012)
+          strapParts.push(strap)
         }
       }
     }

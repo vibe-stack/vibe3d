@@ -93,7 +93,7 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
   if (options.materials?.banner === undefined) extras.push(fasciaMat)
 
   const materialSlots: Record<Slot, Material> = {
-    post: options.materials?.post ?? kit.graphite,
+    post: options.materials?.post ?? kit.steel,
     beam: options.materials?.beam ?? kit.slate,
     banner: fasciaMat,
   }
@@ -138,31 +138,14 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     const postParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
       const x = sx * half
-      for (const z of [-0.16, 0.16] as const) {
-        postParts.push(member(
-          new Vector3(x + sx * 0.22, 0.08, z * 1.35),
-          new Vector3(x, height - 0.08, z),
-          0.045,
-          8,
-        ))
-      }
-      const bays = 7
-      for (let i = 0; i < bays; i++) {
-        const y0 = 0.25 + (i / bays) * (height - 0.5)
-        const y1 = 0.25 + ((i + 1) / bays) * (height - 0.5)
-        const z0 = i % 2 === 0 ? -0.16 : 0.16
-        postParts.push(member(
-          new Vector3(x + sx * 0.18 * (1 - y0 / height), y0, z0),
-          new Vector3(x + sx * 0.18 * (1 - y1 / height), y1, -z0),
-          0.018,
-          6,
-        ))
-      }
-      const plate = bevelBox(0.62, 0.07, 0.54, 0.012)
-      plate.translate(x + sx * 0.18, 0.035, 0)
+      const pole = new CylinderGeometry(0.055, 0.062, height, 16)
+      pole.translate(x, height / 2, 0)
+      postParts.push(pole)
+      const plate = bevelBox(0.28, 0.05, 0.28, 0.01)
+      plate.translate(x, 0.025, 0)
       postParts.push(plate)
-      const bracket = bevelBox(0.3, 0.18, 0.42, 0.015)
-      bracket.translate(x, height - 0.08, 0)
+      const bracket = bevelBox(0.22, 0.12, 0.22, 0.012)
+      bracket.translate(x, height - 0.04, 0)
       postParts.push(bracket)
     }
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
@@ -234,18 +217,18 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     emit('banner', mergeParts(placards, 'display-boards'), banner, 'display-boards', kit.graphite)
 
     const mounts: BufferGeometry[] = []
-    for (const x of [-boardOffset, -LIGHT_PITCH, 0, LIGHT_PITCH, boardOffset] as const) {
+    const subBar = bevelBox(LIGHT_PITCH * 6.2, 0.06, 0.08, 0.012)
+    subBar.translate(0, bannerY + HOUSE_H / 2 + 0.08, 0.22)
+    mounts.push(subBar)
+    for (const x of [-LIGHT_PITCH * 1.6, LIGHT_PITCH * 1.6] as const) {
       mounts.push(member(
-        new Vector3(x, height - 0.12, 0.08),
-        new Vector3(x, bannerY + HOUSE_H / 2 + 0.03, 0.3),
-        0.014,
-        6,
+        new Vector3(x, height - 0.10, 0.06),
+        new Vector3(x, bannerY + HOUSE_H / 2 + 0.10, 0.22),
+        0.016,
+        8,
       ))
-      const bracket = bevelBox(0.11, 0.055, 0.16, 0.01)
-      bracket.translate(x, bannerY + HOUSE_H / 2 + 0.015, 0.28)
-      mounts.push(bracket)
     }
-    emit('banner', mergeParts(mounts, 'hangers'), banner, 'hangers', kit.slate)
+    emit('banner', mergeParts(mounts, 'hangers'), banner, 'hangers', kit.steel)
 
     const housings: BufferGeometry[] = []
     const lamps: BufferGeometry[] = []
@@ -261,8 +244,8 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
       const house = loftRoundedBox(HOUSE_W, HOUSE_H, HOUSE_D, 0.04)
       house.translate(x, bannerY, houseZ)
       housings.push(house)
-      for (let r = 0; r < 4; r++) {
-        const y = bannerY + (1.5 - r) * 0.18
+      for (let r = 0; r < 2; r++) {
+        const y = bannerY + (0.5 - r) * 0.28
         const lamp = new CylinderGeometry(LAMP_R * 0.78, LAMP_R * 0.74, LENS_THICK, 14)
         lamp.rotateX(Math.PI / 2)
         applyPolarCapUVs(lamp)

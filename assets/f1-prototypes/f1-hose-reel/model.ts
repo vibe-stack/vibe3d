@@ -101,16 +101,6 @@ function flangePlate(): BufferGeometry {
   return flange
 }
 
-function groundPad(
-  size: readonly [number, number],
-  origin: readonly [number, number, number],
-  radius: number,
-): BufferGeometry {
-  const pad = bevelBox(size[0], 0.008, size[1], Math.min(radius, size[0] * 0.35, size[1] * 0.35))
-  pad.translate(origin[0], origin[1], origin[2])
-  return pad
-}
-
 /**
  * The wound coil: one continuous helix swept as a single tube. It winds out across the drum, steps up a
  * layer, then winds back, so successive layers run in opposite directions exactly as hand-wound hose does.
@@ -191,8 +181,6 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
   const rebuild = (): void => {
     releaseGenerated()
     const { wraps, layers } = config
-    const rOuter = R_BARREL + HOSE_R + (layers - 1) * LAYER_PITCH + HOSE_R
-
     // --- Flanges: rolled plates standing just proud of the outermost wrap ----------------------------
     const flanges: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
@@ -256,15 +244,9 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
     brassMesh.castShadow = true
     standGroup.add(brassMesh)
 
-    // Guide roller pair forming the nip the lead hose passes through, at the drum's front quarter.
-    // Axes run parallel to the drum axle, as a real hose guide's do.
-    for (const sz of [-1, 1] as const) {
-      metalParts.push(tubeSection(
-        0.015, 0.048,
-        [0, AXLE_Y + rOuter * 0.86 + sz * 0.005, 0.205 + sz * 0.026],
-        AXIS_X, 14,
-      ))
-    }
+    const clip = bevelBox(0.018, 0.028, 0.012, 0.003)
+    clip.translate(X_FLANGE + 0.010, AXLE_Y + R_FLANGE * 0.72, 0.02)
+    metalParts.push(clip)
 
     // Each side is one continuous bent sled from front foot, around the drum, to rear foot.
     const upright = 0.278
@@ -290,8 +272,8 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
         [sx * (X_FLANGE + (upright - X_FLANGE) / 2), AXLE_Y, 0],
         AXIS_X, 14,
       ))
-      for (const sz of [-1, 1] as const) {
-        standParts.push(groundPad([0.058, 0.050], [sx * upright, 0.002, sz * 0.30], 0.016))
+      for (const sxHub of [sx] as const) {
+        standParts.push(tubeSection(0.028, 0.018, [sxHub * (X_FLANGE + 0.020), AXLE_Y, 0], AXIS_X, 16))
       }
     }
     standParts.push(taperedTube([
@@ -332,6 +314,6 @@ export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
-    aspect, target: [0, 0.34, 0], distance: 1.72, yaw: -0.58, pitch: 0.27,
+    aspect, target: [0.04, 0.34, 0], distance: 1.68, yaw: 0.72, pitch: 0.22,
   })
 }

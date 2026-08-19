@@ -122,7 +122,8 @@ function createOranjeLabelTexture(): DataTexture {
   const wordWidth = 256
   const wordHeight = 64
   const word = new Uint8Array(wordWidth * wordHeight * 4)
-  writeGlyphWord(word, wordWidth, 18, 2, 'SMOKE', blue, 12)
+  writeGlyphWord(word, wordWidth, 8, 2, 'SMOKE', blue, 10)
+  writeGlyphWord(word, wordWidth, 28, 36, 'WP40', white, 5)
   for (let sy = 0; sy < wordHeight; sy++) {
     for (let sx = 0; sx < wordWidth; sx++) {
       const source = (sy * wordWidth + sx) * 4
@@ -341,12 +342,10 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
 
     emit('body', revolve(
       [
-        [0.00, BODY_R * 0.92],
-        [0.04, BODY_R],
-        [0.12, BODY_R * 1.02],
-        [0.88, BODY_R * 1.01],
-        [0.94, BODY_R * 0.94],
-        [1.00, BODY_R * 0.72],
+        [0.00, BODY_R * 0.98],
+        [0.03, BODY_R],
+        [0.97, BODY_R],
+        [1.00, BODY_R * 0.98],
       ],
       { yBot: 0, yTop: BODY_H, scaleW: 1, segments: 24 },
     ), body, 'cylinder')
@@ -424,9 +423,9 @@ export function createModel(options: F1OranjeCanOptions = {}): F1OranjeCanInstan
       connectorAxis,
       8,
     ))
-    const ring = bevelRing(0.0115, 0.015, 0.0018, 0.00045, 20)
+    const ring = bevelRing(0.016, 0.020, 0.0022, 0.0005, 22)
     ring.rotateY(ringAngle)
-    ring.translate(...ringCentre)
+    ring.translate(ringCentre[0], ringCentre[1] - 0.018, ringCentre[2])
     hardware.push(ring)
     emit('hardware', mergeParts(hardware, 'wire-pull'), body, 'wire-pull', silverHardwareMat)
 

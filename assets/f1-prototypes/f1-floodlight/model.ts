@@ -22,7 +22,6 @@ import {
   bolt,
   createF1Preview,
   disposeF1Materials,
-  groundPad,
   loftRoundedBox,
   member,
   mergeParts,
@@ -117,16 +116,19 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     seam.translate(0, lowerH, 0)
     emit('mast', seam, mast, 'segment-collar')
 
-    emit('mast', groundPad([0.58, 0.58], [0, 0, 0], 0.07), mast, 'pad')
-    const collar = bevelBox(0.3, 0.07, 0.3, 0.01)
-    collar.translate(0, 0.1, 0)
+    const pier = new CylinderGeometry(0.28, 0.30, 0.18, 20)
+    pier.translate(0, 0.09, 0)
+    emit('mast', pier, mast, 'pier')
+    const collar = bevelBox(0.34, 0.04, 0.34, 0.008)
+    collar.translate(0, 0.20, 0)
     emit('mast', collar, mast, 'base-collar')
-    for (const x of [-0.15, 0.15] as const) {
-      for (const z of [-0.15, 0.15] as const) {
-        emit('mast', bolt([x, 0.14, z], 0.012, 0.016, AXIS_Y), mast, `anchor-${x}-${z}`)
-      }
+    for (const a of [0.4, 1.2, 2.0, 2.8, 3.6, 4.4] as const) {
+      emit('mast', bolt([Math.cos(a) * 0.18, 0.23, Math.sin(a) * 0.18], 0.014, 0.018, AXIS_Y), mast, `anchor-${a}`)
     }
 
+    const cabinet = bevelBox(0.28, 0.42, 0.16, 0.02)
+    cabinet.translate(0, 2.15, 0.18)
+    emit('mast', cabinet, mast, 'driver-cabinet')
     const door = bevelBox(0.18, 0.42, 0.025, 0.012)
     door.translate(0, 1.05, 0.145)
     emit('mast', door, mast, 'access-door')
@@ -164,10 +166,10 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
     }
     for (const [sx, sy] of lampPositions) {
       const cy = height - 0.08 + sy
-      const can = loftRoundedBox(0.58, 0.34, 0.38, 0.055)
+      const can = loftRoundedBox(0.58, 0.22, 0.26, 0.04)
       const canPosition = can.getAttribute('position')
       for (let i = 0; i < canPosition.count; i++) {
-        const t = canPosition.getZ(i) / 0.38 + 0.5
+        const t = canPosition.getZ(i) / 0.26 + 0.5
         const scale = 0.72 + Math.min(1, Math.max(0, t)) * 0.28
         canPosition.setX(i, canPosition.getX(i) * scale)
         canPosition.setY(i, canPosition.getY(i) * scale)
@@ -195,7 +197,7 @@ export function createModel(options: F1FloodlightOptions = {}): F1FloodlightInst
       }
 
       const lens = new PlaneGeometry(0.46, 0.22)
-      lens.translate(0, 0, 0.225)
+      lens.translate(0, 0, 0.248)
       lenses.push(placeOnCan(lens, sx, cy))
       mounts.push(member(
         new Vector3(sx, height - 0.08, 0.04),

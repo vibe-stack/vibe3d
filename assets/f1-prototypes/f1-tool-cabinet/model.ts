@@ -5,12 +5,9 @@
 
 import {
   BufferGeometry,
-  CatmullRomCurve3,
   CylinderGeometry,
   Group,
   Mesh,
-  TubeGeometry,
-  Vector3,
   type Material,
 } from 'three/webgpu'
 
@@ -48,7 +45,7 @@ const defaults: F1ToolCabinetConfig = { width: 0.9 }
 
 const H = 0.78
 const D = 0.52
-const ROWS = 6
+const ROWS = 7
 const CASTOR_R = 0.095
 const PLINTH_H = 0.05
 const PLINTH_Y = CASTOR_R * 2.9
@@ -142,7 +139,7 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
 
     const fieldH = H - 0.125
     const rowGap = 0.012
-    const rowWeights = [1, 1, 1, 1, 2.25, 2.25] as const
+    const rowWeights = [1, 1, 1, 1, 1, 2.1, 2.4] as const
     const weightTotal = rowWeights.reduce((sum, weight) => sum + weight, 0)
     const faceT = 0.020
     const faceZ = D / 2 - 0.008 + faceT / 2
@@ -156,42 +153,41 @@ export function createModel(options: F1ToolCabinetOptions = {}): F1ToolCabinetIn
       face.translate(0, y, faceZ)
       drawerParts.push(face)
 
-      const pull = bevelBox(W - 0.145, 0.013, 0.018, 0.003)
-      pull.translate(0, y + faceH / 2 - 0.009, faceZ - 0.006)
+      const channel = bevelBox(W - 0.118, 0.020, 0.016, 0.004)
+      channel.translate(0, y + faceH / 2 - 0.010, faceZ + 0.001)
+      blackParts.push(channel)
+      const pull = bevelBox(W - 0.122, 0.007, 0.014, 0.002)
+      pull.translate(0, y + faceH / 2 - 0.006, faceZ + 0.010)
       pullParts.push(pull)
       cursorY -= faceH + rowGap
     }
     emit('body', mergeParts(drawerParts, 'drawers'), drawers, 'faces')
     emit('top', mergeParts(pullParts, 'recessed-pulls'), drawers, 'pulls')
 
-    const handleY = topY - 0.16
-    const pushPath = new CatmullRomCurve3([
-      new Vector3(-W / 2 + 0.012, handleY, D * 0.18),
-      new Vector3(-W / 2 - 0.048, handleY, D * 0.16),
-      new Vector3(-W / 2 - 0.058, handleY, 0),
-      new Vector3(-W / 2 - 0.048, handleY, -D * 0.16),
-      new Vector3(-W / 2 + 0.012, handleY, -D * 0.18),
-    ], false, 'centripetal')
-    emit('handle', new TubeGeometry(pushPath, 28, 0.015, 12, false), bodyGroup, 'tubular-push-handle')
+    const handleY = topY - 0.14
+    const bar = new CylinderGeometry(0.017, 0.017, D * 0.46, 16)
+    bar.rotateX(Math.PI / 2)
+    bar.translate(-W / 2 - 0.014, handleY, 0)
+    emit('handle', bar, bodyGroup, 'seated-push-handle')
     const ribs: BufferGeometry[] = []
-    for (const z of [-0.10, -0.05, 0, 0.05, 0.10] as const) {
-      const rib = new CylinderGeometry(0.018, 0.018, 0.008, 12)
+    for (const z of [-0.08, -0.04, 0, 0.04, 0.08] as const) {
+      const rib = new CylinderGeometry(0.021, 0.021, 0.007, 12)
       rib.rotateX(Math.PI / 2)
-      rib.translate(-W / 2 - 0.058, handleY, z)
+      rib.translate(-W / 2 - 0.014, handleY, z)
       ribs.push(rib)
     }
     emit('handle', mergeParts(ribs, 'handle-ribs'), bodyGroup, 'handle-ribs')
 
     for (const sx of [-1, 1] as const) {
-      const front = bevelBox(0.052, H - 0.04, 0.040, 0.016)
-      front.translate(sx * (W / 2 + 0.008), BODY_Y + H / 2, D / 2 + 0.018)
+      const front = bevelBox(0.048, H - 0.02, 0.036, 0.010)
+      front.translate(sx * (W / 2 + 0.006), BODY_Y + H / 2, D / 2 + 0.016)
       blackParts.push(front)
-      const sideReturn = bevelBox(0.038, H - 0.04, 0.090, 0.016)
-      sideReturn.translate(sx * (W / 2 + 0.018), BODY_Y + H / 2, D / 2 - 0.022)
+      const sideReturn = bevelBox(0.034, H - 0.02, 0.22, 0.010)
+      sideReturn.translate(sx * (W / 2 + 0.016), BODY_Y + H / 2, 0)
       blackParts.push(sideReturn)
-      for (const t of [0.18, 0.5, 0.82] as const) {
-        const band = bevelBox(0.070, 0.028, 0.110, 0.010)
-        band.translate(sx * (W / 2 + 0.012), BODY_Y + H * t, D / 2 - 0.004)
+      for (const t of [0.22, 0.50, 0.78] as const) {
+        const band = bevelBox(0.058, 0.012, 0.080, 0.004)
+        band.translate(sx * (W / 2 + 0.010), BODY_Y + H * t, D / 2 + 0.004)
         blackParts.push(band)
       }
     }

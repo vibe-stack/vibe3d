@@ -65,7 +65,7 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
   const bundle = acquireF1Materials()
   const kit = bundle.materials
   const materialSlots: Record<Slot, Material> = {
-    post: options.materials?.post ?? kit.graphite,
+    post: options.materials?.post ?? kit.shell,
     rail: options.materials?.rail ?? kit.shell,
     stripe: options.materials?.stripe ?? kit.red,
   }
@@ -117,14 +117,9 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
       const flangeB = bevelBox(0.08, 1.24, 0.012, 0.003)
       flangeB.translate(x, 0.64, -0.07)
       postParts.push(flangeB)
-      const plate = bevelBox(0.28, 0.05, 0.26, 0.006)
-      plate.translate(x, 0.025, -0.04)
-      postParts.push(plate)
-      for (const ax of [-0.09, 0.09] as const) {
-        for (const az of [-0.08, 0.08] as const) {
-          postParts.push(bolt([x + ax, 0.075, -0.04 + az], 0.013, 0.017, AXIS_Y))
-        }
-      }
+      const socket = bevelBox(0.12, 0.10, 0.12, 0.008)
+      socket.translate(x, 0.02, -0.11)
+      postParts.push(socket)
       for (const y of levels) {
         const bracket = bevelBox(0.16, 0.16, 0.22, 0.012)
         bracket.translate(x, y + W_H / 2, -0.01)
@@ -149,11 +144,7 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
             emit('post', fastener, posts, `lap-bolt-${level}-${joint}-${dx}-${dy}`)
           }
         }
-        if ((joint + level) % 2 === 0) {
-          const marker = bevelBox(0.055, W_H * 0.62, 0.012, 0.004)
-          marker.translate(x, y, W_D + 0.012)
-          accentParts.push(marker)
-        }
+
       }
     }
     if (accentParts.length) emit('stripe', mergeParts(accentParts, 'inspection-marks'), rail, 'inspection-marks')
