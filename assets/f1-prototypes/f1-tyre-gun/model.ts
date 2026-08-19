@@ -83,6 +83,14 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   const bundle = acquireF1Materials()
   const kit = bundle.materials
   const ownsLed = options.materials?.led === undefined
+  const extras: Material[] = []
+  const carbon = options.materials?.gunmetal ?? new MeshStandardMaterial({
+    name: 'f1-kit / tyre-gun carbon cone',
+    color: 0x15181c,
+    roughness: 0.18,
+    metalness: 0.42,
+  })
+  if (options.materials?.gunmetal === undefined) extras.push(carbon)
   const materialSlots: Record<Slot, Material> = {
     gunmetal: options.materials?.gunmetal ?? kit.graphite,
     steel: options.materials?.steel ?? kit.steel,
@@ -130,7 +138,6 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // --- Fat T-shaped impact housing: volume behind the grip, not a heat-gun taper -------------------
     const gunmetalParts: BufferGeometry[] = [
-      axial(0.062, 0.102, 0.16, 0.012, 28),
       axial(0.102, 0.110, 0.10, -0.118, 24),
       axial(0.110, 0.100, 0.12, -0.228, 24),
     ]
@@ -142,12 +149,6 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     const flange = bevelBox(0.028, 0.178, 0.178, 0.006)
     flange.translate(-0.028, 0, 0)
     gunmetalParts.push(flange)
-    for (const [y, z] of [[0.062, 0.062], [0.062, -0.062], [-0.062, 0.062], [-0.062, -0.062]] as const) {
-      const bolt = new CylinderGeometry(0.009, 0.009, 0.018, 10)
-      bolt.rotateZ(Math.PI / 2)
-      bolt.translate(-0.012, y, z)
-      gunmetalParts.push(bolt)
-    }
     for (let i = 0; i < 6; i++) {
       const rib = bevelBox(0.010, 0.028, 0.11, 0.003)
       rib.translate(-0.22 + i * 0.018, 0.092, 0)
@@ -155,19 +156,33 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     }
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
+    const cone = axial(0.048, 0.096, 0.11, 0.020, 28)
+    generated.push(cone)
+    const coneMesh = new Mesh(cone, carbon)
+    coneMesh.name = 'carbon-cone'
+    coneMesh.castShadow = true
+    coneMesh.receiveShadow = true
+    body.add(coneMesh)
+
+    const boltParts: BufferGeometry[] = []
+    for (const [y, z] of [[0.062, 0.062], [0.062, -0.062], [-0.062, 0.062], [-0.062, -0.062]] as const) {
+      const bolt = new CylinderGeometry(0.008, 0.008, 0.016, 8)
+      bolt.rotateZ(Math.PI / 2)
+      bolt.translate(-0.012, y, z)
+      boltParts.push(bolt)
+    }
+    emit('gripRubber', mergeParts(boltParts, 'flange-bolts'), body, 'flange-bolts')
+
     const steelParts: BufferGeometry[] = []
+    const triggerRing = new TorusGeometry(0.024, 0.008, 8, 22)
+    triggerRing.rotateY(Math.PI / 2)
+    triggerRing.translate(0.030, -0.118, 0)
+    steelParts.push(triggerRing)
     steelParts.push(ovalTube([
-      new Vector3(0.012, -0.072, 0),
-      new Vector3(0.048, -0.108, 0),
-      new Vector3(0.052, -0.148, 0),
-      new Vector3(0.022, -0.188, 0),
-    ], 0.007, 0.007, 8))
-    const triggerUpper = bevelBox(0.022, 0.012, 0.034, 0.003)
-    triggerUpper.translate(0.034, -0.096, 0)
-    steelParts.push(triggerUpper)
-    const triggerLower = bevelBox(0.022, 0.012, 0.034, 0.003)
-    triggerLower.translate(0.036, -0.138, 0)
-    steelParts.push(triggerLower)
+      new Vector3(0.030, -0.142, 0),
+      new Vector3(0.040, -0.168, 0),
+      new Vector3(0.028, -0.198, 0),
+    ], 0.008, 0.010, 10))
     const inlet = new CylinderGeometry(0.015, 0.015, 0.048, 14)
     inlet.translate(-0.018, -0.312, 0)
     steelParts.push(inlet)
@@ -189,7 +204,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // --- Air inlet at the grip heel, plus a blue nose ring kept clear of the socket ------------------
     const accentParts: BufferGeometry[] = []
-    accentParts.push(tubeSection(0.050, 0.016, [0.086, 0, 0], AXIS_X, 24))
+    accentParts.push(tubeSection(0.050, 0.018, [0.090, 0, 0], AXIS_X, 24))
     const reverseKnob = new CylinderGeometry(0.024, 0.024, 0.020, 16)
     reverseKnob.rotateZ(Math.PI / 2)
     reverseKnob.translate(-0.292, 0.038, 0)
@@ -211,7 +226,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // --- Spinner: short anvil, ribbed spline and visibly hollow round socket -------------------------
     const spinnerParts: BufferGeometry[] = [
-      tubeSection(0.016, 0.062, [0.128, 0, 0], AXIS_X, 16),
+      tubeSection(0.016, 0.055, [0.132, 0, 0], AXIS_X, 16),
     ]
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2
@@ -256,6 +271,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     },
     dispose() {
       releaseGenerated()
+      for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
