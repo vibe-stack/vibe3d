@@ -163,12 +163,12 @@ function paintDigit(
 }
 
 function headerTexture(): DataTexture {
-  return stampTexture(256, 80, (data) => {
-    paintLap(data, 256, 4, 28, 4, GREEN)
-    let x = 52
+  return stampTexture(256, 64, (data) => {
+    paintLap(data, 256, 3, 22, 3, GREEN)
+    let x = 42
     for (const ch of '160') {
-      paintDigit(data, 256, x, 4, ch, 14, GREEN)
-      x += 66
+      paintDigit(data, 256, x, 2, ch, 12, GREEN)
+      x += 70
     }
   })
 }
@@ -311,7 +311,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     parts.push(neck)
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const headerH = 0.92
+    const headerH = 0.52
     const faceW = CAB_W - 0.08
     const rowsTop = height - headerH
     const rowsBottom = 0.38
