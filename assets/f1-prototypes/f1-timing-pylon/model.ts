@@ -59,7 +59,7 @@ const YELLOW: [number, number, number] = [255, 236, 0]
 /** Neon lime LED, not mint-white. */
 const GREEN: [number, number, number] = [0, 255, 36]
 const PAPER: [number, number, number] = [255, 255, 255]
-const INK: [number, number, number] = [2, 3, 4]
+const INK: [number, number, number] = [0, 0, 0]
 
 function normalizePositions(positions: readonly number[]): number[] {
   const digits = positions
@@ -164,7 +164,7 @@ function paintDigit(
 
 function headerTexture(): DataTexture {
   return stampTexture(256, 80, (data) => {
-    paintLap(data, 256, 4, 28, 4, PAPER)
+    paintLap(data, 256, 4, 28, 4, GREEN)
     let x = 52
     for (const ch of '160') {
       paintDigit(data, 256, x, 4, ch, 14, GREEN)
@@ -277,8 +277,8 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
-    mesh.castShadow = true
-    mesh.receiveShadow = true
+    mesh.castShadow = slot === 'frame'
+    mesh.receiveShadow = slot === 'frame'
     meshesBySlot[slot].push(mesh)
     group.add(mesh)
   }
@@ -312,7 +312,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
     const headerH = 0.92
-    const faceW = CAB_W + 0.04
+    const faceW = CAB_W - 0.08
     const rowsTop = height - headerH
     const rowsBottom = 0.38
     const rowH = (rowsTop - rowsBottom) / count
@@ -326,9 +326,11 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
       panel.translate(0, y, screenZ)
       emit('screen', panel, screens, `slot-${i}`, slotMats[i] ?? materialSlots.screen)
     }
-    const flag = bevelBox(0.12, 0.20, 0.016, 0.003)
-    flag.translate(0, height + 0.10, 0.01)
-    emit('screen', flag, frame, 'beacon', markerMat ?? materialSlots.screen)
+    const pole = bevelBox(0.010, 0.16, 0.010, 0.002)
+    pole.translate(0, height + 0.08, 0.01)
+    const fly = bevelBox(0.12, 0.07, 0.006, 0.001)
+    fly.translate(0.06, height + 0.13, 0.01)
+    emit('screen', mergeParts([pole, fly], 'beacon'), frame, 'beacon', markerMat ?? materialSlots.screen)
   }
   rebuild()
 
