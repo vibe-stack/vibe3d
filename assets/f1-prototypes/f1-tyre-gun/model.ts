@@ -15,7 +15,6 @@ import {
   Group,
   Mesh,
   MeshStandardMaterial,
-  TorusGeometry,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -29,6 +28,7 @@ import {
   disposeF1Materials,
   mergeParts,
   ovalTube,
+  taperedTube,
   tubeSection,
 } from '../f1-kit-core/index.ts'
 
@@ -86,9 +86,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   const extras: Material[] = []
   const carbon = options.materials?.gunmetal ?? new MeshStandardMaterial({
     name: 'f1-kit / tyre-gun carbon cone',
-    color: 0x15181c,
-    roughness: 0.18,
-    metalness: 0.42,
+    color: 0x0b0d10,
+    roughness: 0.08,
+    metalness: 0.58,
   })
   if (options.materials?.gunmetal === undefined) extras.push(carbon)
   const materialSlots: Record<Slot, Material> = {
@@ -138,8 +138,8 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // --- Fat T-shaped impact housing: volume behind the grip, not a heat-gun taper -------------------
     const gunmetalParts: BufferGeometry[] = [
-      axial(0.102, 0.110, 0.10, -0.118, 24),
-      axial(0.110, 0.100, 0.12, -0.228, 24),
+      axial(0.104, 0.118, 0.11, -0.118, 24),
+      axial(0.118, 0.108, 0.14, -0.242, 24),
     ]
     for (const sz of [-1, 1] as const) {
       const cover = bevelBox(0.16, 0.122, 0.024, 0.014)
@@ -174,15 +174,18 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gripRubber', mergeParts(boltParts, 'flange-bolts'), body, 'flange-bolts')
 
     const steelParts: BufferGeometry[] = []
-    const triggerRing = new TorusGeometry(0.024, 0.008, 8, 22)
-    triggerRing.rotateY(Math.PI / 2)
-    triggerRing.translate(0.030, -0.118, 0)
-    steelParts.push(triggerRing)
-    steelParts.push(ovalTube([
-      new Vector3(0.030, -0.142, 0),
-      new Vector3(0.040, -0.168, 0),
-      new Vector3(0.028, -0.198, 0),
-    ], 0.008, 0.010, 10))
+    const plateTop = bevelBox(0.012, 0.014, 0.046, 0.003)
+    plateTop.translate(0.028, -0.086, 0)
+    steelParts.push(plateTop)
+    const plateBot = bevelBox(0.012, 0.018, 0.050, 0.003)
+    plateBot.translate(0.028, -0.152, 0)
+    steelParts.push(plateBot)
+    const plateL = bevelBox(0.012, 0.040, 0.010, 0.003)
+    plateL.translate(0.028, -0.118, 0.020)
+    steelParts.push(plateL)
+    const plateR = bevelBox(0.012, 0.040, 0.010, 0.003)
+    plateR.translate(0.028, -0.118, -0.020)
+    steelParts.push(plateR)
     const inlet = new CylinderGeometry(0.015, 0.015, 0.048, 14)
     inlet.translate(-0.018, -0.312, 0)
     steelParts.push(inlet)
@@ -193,21 +196,21 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // --- Slender rubber grip -------------------------------------------------------------------------
     const gripParts: BufferGeometry[] = [
-      ovalTube([
+      taperedTube([
         new Vector3(-0.025, -0.062, 0),
         new Vector3(-0.002, -0.135, 0),
         new Vector3(0.002, -0.215, 0),
         new Vector3(-0.018, -0.285, 0),
-      ], 0.030, 0.038, 12),
+      ], 0.034, 10),
     ]
     emit('gripRubber', mergeParts(gripParts, 'grip'), body, 'grip')
 
     // --- Air inlet at the grip heel, plus a blue nose ring kept clear of the socket ------------------
     const accentParts: BufferGeometry[] = []
-    accentParts.push(tubeSection(0.050, 0.018, [0.090, 0, 0], AXIS_X, 24))
-    const reverseKnob = new CylinderGeometry(0.024, 0.024, 0.020, 16)
+    accentParts.push(tubeSection(0.049, 0.008, [0.080, 0, 0], AXIS_X, 24))
+    const reverseKnob = new CylinderGeometry(0.034, 0.034, 0.024, 20)
     reverseKnob.rotateZ(Math.PI / 2)
-    reverseKnob.translate(-0.292, 0.038, 0)
+    reverseKnob.translate(-0.318, 0, 0)
     accentParts.push(reverseKnob)
     emit('accent', mergeParts(accentParts, 'accent'), body, 'accent')
 
