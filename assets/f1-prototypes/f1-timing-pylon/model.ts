@@ -142,20 +142,20 @@ function paintDigit(
   }
   switch (digit) {
     case '1':
-      bar(1.15, 0, 0.85, 5)
+      bar(1.0, 0, 1.2, 5)
       break
     case '6':
-      bar(0, 0, 0.9, 5)
-      bar(0, 0, 3, 0.85)
-      bar(0, 2.05, 3, 0.85)
-      bar(0, 4.15, 3, 0.85)
-      bar(2.1, 2.05, 0.9, 2.95)
+      bar(0, 0, 1.15, 5)
+      bar(0, 0, 3, 1.15)
+      bar(0, 1.95, 3, 1.15)
+      bar(0, 3.85, 3, 1.15)
+      bar(1.85, 1.95, 1.15, 3.05)
       break
     case '0':
-      bar(0, 0, 0.9, 5)
-      bar(2.1, 0, 0.9, 5)
-      bar(0, 0, 3, 0.85)
-      bar(0, 4.15, 3, 0.85)
+      bar(0, 0, 1.15, 5)
+      bar(1.85, 0, 1.15, 5)
+      bar(0, 0, 3, 1.15)
+      bar(0, 3.85, 3, 1.15)
       break
     default:
       writeSolidWord(data, w, ox, oy, digit, rgb, s)
@@ -163,14 +163,16 @@ function paintDigit(
 }
 
 function headerTexture(): DataTexture {
-  return stampTexture(256, 64, (data) => {
-    paintLap(data, 256, 3, 22, 3, GREEN)
-    let x = 42
+  const tex = stampTexture(256, 80, (data) => {
+    paintLap(data, 256, 4, 26, 4, GREEN)
+    let x = 44
     for (const ch of '160') {
-      paintDigit(data, 256, x, 2, ch, 12, GREEN)
+      paintDigit(data, 256, x, 2, ch, 15, GREEN)
       x += 70
     }
   })
+  tex.flipY = false
+  return tex
 }
 
 function cabinetTexture(digit: number, row: number): DataTexture {
@@ -311,8 +313,8 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     parts.push(neck)
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const headerH = 0.52
-    const faceW = CAB_W - 0.08
+    const headerH = 0.86
+    const faceW = CAB_W - 0.02
     const rowsTop = height - headerH
     const rowsBottom = 0.38
     const rowH = (rowsTop - rowsBottom) / count
