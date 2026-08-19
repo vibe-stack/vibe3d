@@ -84,8 +84,10 @@ const GUN_SPIN_RATE = 55 // rad/s the socket spins while running (impact-wrench 
 // ---------------------------------------------------------------------------------------------------
 
 /** A tapered cylinder laid along the tool axis (+X). Equal-radius barrels use tubeSection. */
-function axial(rTop: number, rBottom: number, length: number, x: number, radial = 20): BufferGeometry {
-  const geo = new CylinderGeometry(rTop, rBottom, length, radial)
+function axial(
+  rTop: number, rBottom: number, length: number, x: number, radial = 20, open = false,
+): BufferGeometry {
+  const geo = new CylinderGeometry(rTop, rBottom, length, radial, 1, open)
   geo.rotateZ(Math.PI / 2)
   geo.translate(x, 0, 0)
   return geo
@@ -179,9 +181,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     carbon = new MeshStandardMaterial({
       name: 'f1-kit / tyre-gun carbon cone',
       map: weave,
-      color: shade(TOKEN.SLATE_650, 0.55),
-      roughness: 0.07,
-      metalness: 0.72,
+      color: shade(TOKEN.SLATE_650, 0.7),
+      roughness: 0.05,
+      metalness: 0.78,
     })
     extras.push(carbon)
   } else {
@@ -196,9 +198,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   if (options.materials?.gunmetal === undefined) extras.push(machined)
   const anodized = options.materials?.accent ?? new MeshStandardMaterial({
     name: 'f1-kit / tyre-gun anodized',
-    color: shade(TOKEN.COBALT_500, 0.22),
-    roughness: 0.14,
-    metalness: 0.7,
+    color: shade(TOKEN.COBALT_500, 0.35),
+    roughness: 0.12,
+    metalness: 0.68,
   })
   if (options.materials?.accent === undefined) extras.push(anodized)
   const materialSlots: Record<Slot, Material> = {
@@ -264,7 +266,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
     // Glossy carbon taper, small end just behind the spline so the blue collar can wrap it.
-    const cone = axial(0.044, 0.096, 0.166, 0.015, 40)
+    const cone = axial(0.044, 0.096, 0.166, 0.015, 40, true)
     generated.push(cone)
     const coneMesh = new Mesh(cone, carbon)
     coneMesh.name = 'carbon-cone'
@@ -306,9 +308,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gripRubber', mergeParts(gripParts, 'grip'), body, 'grip')
 
     // Thin blue collar wrapping the cone, immediately behind the spline — not a nose flange.
-    const collar = new CylinderGeometry(0.047, 0.056, 0.022, 28, 1, true)
+    const collar = new CylinderGeometry(0.046, 0.052, 0.016, 28, 1, true)
     collar.rotateZ(Math.PI / 2)
-    collar.translate(0.084, 0, 0)
+    collar.translate(0.088, 0, 0)
     const reverseDial = bevelDisc(0.038, 0.012, 0.002, 28)
     reverseDial.translate(-0.248, 0.012, 0.114)
     const accentParts: BufferGeometry[] = [collar, reverseDial]
