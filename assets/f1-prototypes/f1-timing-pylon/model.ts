@@ -54,8 +54,8 @@ const CAB_W = 0.78
 const CAB_D = 0.08
 const MAST_D = 0.16
 const MAX_ROWS = 33
-/** Amber LED — orange bias so ACES / distance-mix cannot wash it to pastel. */
-const YELLOW: [number, number, number] = [255, 168, 0]
+/** Hot LED yellow — not amber/gold. */
+const YELLOW: [number, number, number] = [255, 236, 0]
 /** Neon lime LED, not mint-white. */
 const GREEN: [number, number, number] = [0, 255, 36]
 const PAPER: [number, number, number] = [255, 255, 255]
@@ -91,7 +91,7 @@ function writeSolidWord(
   cell: number,
 ): void {
   let i = 0
-  const advance = Math.max(cell * 3 + 2, Math.round(cell * 3.25))
+  const advance = Math.max(cell * 3 + 1, Math.round(cell * 3.15))
   for (const ch of word) {
     const cells = GLYPH_3X5[ch] ?? GLYPH_3X5[ch.toUpperCase()]
     if (!cells) continue
@@ -142,20 +142,20 @@ function paintDigit(
   }
   switch (digit) {
     case '1':
-      bar(1.1, 0, 0.9, 5)
+      bar(1.15, 0, 0.85, 5)
       break
     case '6':
       bar(0, 0, 0.9, 5)
-      bar(0, 0, 3, 0.9)
-      bar(0, 2, 3, 0.9)
-      bar(0, 4.1, 3, 0.9)
-      bar(2.1, 2, 0.9, 3)
+      bar(0, 0, 3, 0.85)
+      bar(0, 2.05, 3, 0.85)
+      bar(0, 4.15, 3, 0.85)
+      bar(2.1, 2.05, 0.9, 2.95)
       break
     case '0':
       bar(0, 0, 0.9, 5)
       bar(2.1, 0, 0.9, 5)
-      bar(0, 0, 3, 0.9)
-      bar(0, 4.1, 3, 0.9)
+      bar(0, 0, 3, 0.85)
+      bar(0, 4.15, 3, 0.85)
       break
     default:
       writeSolidWord(data, w, ox, oy, digit, rgb, s)
@@ -163,22 +163,21 @@ function paintDigit(
 }
 
 function headerTexture(): DataTexture {
-  return stampTexture(256, 128, (data) => {
-    paintLap(data, 256, 6, 48, 4, GREEN)
-    let x = 58
+  return stampTexture(256, 80, (data) => {
+    paintLap(data, 256, 4, 28, 4, PAPER)
+    let x = 52
     for (const ch of '160') {
-      paintDigit(data, 256, x, 6, ch, 22, GREEN)
-      x += 62
+      paintDigit(data, 256, x, 4, ch, 14, GREEN)
+      x += 66
     }
   })
 }
 
 function cabinetTexture(digit: number, row: number): DataTexture {
-  return stampTexture(160, 40, (data) => {
+  return stampTexture(64, 16, (data) => {
     const rank = String(row + 1)
-    const rankRgb = row < 9 ? YELLOW : PAPER
-    writeSolidWord(data, 160, 6, 2, rank, rankRgb, row < 9 ? 8 : 7)
-    writeSolidWord(data, 160, 96, 2, String(digit), PAPER, 7)
+    writeSolidWord(data, 64, 2, 1, rank, row < 9 ? YELLOW : PAPER, 3)
+    writeSolidWord(data, 64, 40, 1, String(digit), PAPER, 3)
   })
 }
 
@@ -310,28 +309,26 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     const neck = bevelBox(0.32, 0.2, 0.3, 0.018)
     neck.translate(0, 0.14, 0)
     parts.push(neck)
-    const crown = bevelBox(CAB_W * 0.82, 0.5, MAST_D + 0.02, 0.035)
-    crown.translate(0, height - 0.29, 0.01)
-    parts.push(crown)
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const headerH = 1.28
-    const rowsTop = height - headerH - 0.04
+    const headerH = 0.92
+    const faceW = CAB_W + 0.04
+    const rowsTop = height - headerH
     const rowsBottom = 0.38
     const rowH = (rowsTop - rowsBottom) / count
     const screenZ = MAST_D / 2 + LAYER_CLEARANCE
-    const header = new PlaneGeometry(CAB_W - 0.06, headerH - 0.04)
-    header.translate(0, height - headerH / 2 - 0.08, screenZ)
+    const header = new PlaneGeometry(faceW, headerH)
+    header.translate(0, height - headerH / 2, screenZ)
     emit('screen', header, frame, 'lap-header', headerMat ?? materialSlots.screen)
     for (let i = 0; i < count; i++) {
       const y = rowsTop - (i + 0.5) * rowH
-      const panel = new PlaneGeometry(CAB_W - 0.10, rowH + 0.001)
+      const panel = new PlaneGeometry(faceW, rowH + 0.001)
       panel.translate(0, y, screenZ)
       emit('screen', panel, screens, `slot-${i}`, slotMats[i] ?? materialSlots.screen)
     }
-    const beacon = bevelBox(0.10, 0.14, 0.10, 0.02)
-    beacon.translate(0, height - 0.08, 0.02)
-    emit('screen', beacon, frame, 'beacon', markerMat ?? materialSlots.screen)
+    const flag = bevelBox(0.12, 0.20, 0.016, 0.003)
+    flag.translate(0, height + 0.10, 0.01)
+    emit('screen', flag, frame, 'beacon', markerMat ?? materialSlots.screen)
   }
   rebuild()
 
