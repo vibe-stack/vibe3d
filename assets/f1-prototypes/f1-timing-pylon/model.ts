@@ -54,8 +54,10 @@ const CAB_W = 0.78
 const CAB_D = 0.08
 const MAST_D = 0.16
 const MAX_ROWS = 33
-const YELLOW: [number, number, number] = [255, 232, 0]
-const GREEN: [number, number, number] = [24, 255, 72]
+/** Amber LED — orange bias so ACES / distance-mix cannot wash it to pastel. */
+const YELLOW: [number, number, number] = [255, 168, 0]
+/** Neon lime LED, not mint-white. */
+const GREEN: [number, number, number] = [0, 255, 36]
 const PAPER: [number, number, number] = [255, 255, 255]
 const INK: [number, number, number] = [2, 3, 4]
 
@@ -78,7 +80,7 @@ function stampTexture(w: number, h: number, paint: (data: Uint8Array) => void): 
   return tex
 }
 
-/** Solid 3×5 blocks — the shared writer leaves 1 px gutters that read as dash grids at tower scale. */
+/** Solid 3×5 blocks with tight tracking — the shared writer leaves 1 px gutters that read as dash grids. */
 function writeSolidWord(
   data: Uint8Array,
   w: number,
@@ -89,13 +91,14 @@ function writeSolidWord(
   cell: number,
 ): void {
   let i = 0
+  const advance = Math.max(cell * 3 + 2, Math.round(cell * 3.25))
   for (const ch of word) {
     const cells = GLYPH_3X5[ch] ?? GLYPH_3X5[ch.toUpperCase()]
     if (!cells) continue
     for (let gy = 0; gy < 5; gy++) {
       for (let gx = 0; gx < 3; gx++) {
         if (!cells[gy * 3 + gx]) continue
-        fillGlyphRect(data, w, ox + i * (cell * 4) + gx * cell, oy + gy * cell, cell, cell, rgb)
+        fillGlyphRect(data, w, ox + i * advance + gx * cell, oy + gy * cell, cell, cell, rgb)
       }
     }
     i++
@@ -124,18 +127,58 @@ function paintLap(
   fillGlyphRect(data, w, px, oy + s * 2, s * 3, s, rgb)
 }
 
+/** Filled 7-segment blocks — solid LED area, not a 3×5 dash grid that mints-out at tower scale. */
+function paintDigit(
+  data: Uint8Array,
+  w: number,
+  ox: number,
+  oy: number,
+  digit: string,
+  s: number,
+  rgb: readonly [number, number, number],
+): void {
+  const bar = (x: number, y: number, bw: number, bh: number): void => {
+    fillGlyphRect(data, w, ox + x * s, oy + y * s, bw * s, bh * s, rgb)
+  }
+  switch (digit) {
+    case '1':
+      bar(1.1, 0, 0.9, 5)
+      break
+    case '6':
+      bar(0, 0, 0.9, 5)
+      bar(0, 0, 3, 0.9)
+      bar(0, 2, 3, 0.9)
+      bar(0, 4.1, 3, 0.9)
+      bar(2.1, 2, 0.9, 3)
+      break
+    case '0':
+      bar(0, 0, 0.9, 5)
+      bar(2.1, 0, 0.9, 5)
+      bar(0, 0, 3, 0.9)
+      bar(0, 4.1, 3, 0.9)
+      break
+    default:
+      writeSolidWord(data, w, ox, oy, digit, rgb, s)
+  }
+}
+
 function headerTexture(): DataTexture {
-  return stampTexture(256, 96, (data) => {
-    paintLap(data, 256, 8, 22, 8, PAPER)
-    writeSolidWord(data, 256, 112, 6, '16', GREEN, 16)
+  return stampTexture(256, 128, (data) => {
+    paintLap(data, 256, 6, 48, 4, GREEN)
+    let x = 58
+    for (const ch of '160') {
+      paintDigit(data, 256, x, 6, ch, 22, GREEN)
+      x += 62
+    }
   })
 }
 
 function cabinetTexture(digit: number, row: number): DataTexture {
   return stampTexture(160, 40, (data) => {
     const rank = String(row + 1)
-    writeSolidWord(data, 160, 6, 3, rank, row < 9 ? YELLOW : PAPER, 7)
-    writeSolidWord(data, 160, 92, 3, String(digit), PAPER, 7)
+    const rankRgb = row < 9 ? YELLOW : PAPER
+    writeSolidWord(data, 160, 6, 2, rank, rankRgb, row < 9 ? 8 : 7)
+    writeSolidWord(data, 160, 96, 2, String(digit), PAPER, 7)
   })
 }
 
@@ -272,17 +315,17 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     parts.push(crown)
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const headerH = 0.95
-    const rowsTop = height - headerH - 0.08
+    const headerH = 1.28
+    const rowsTop = height - headerH - 0.04
     const rowsBottom = 0.38
     const rowH = (rowsTop - rowsBottom) / count
     const screenZ = MAST_D / 2 + LAYER_CLEARANCE
-    const header = new PlaneGeometry(CAB_W - 0.08, headerH - 0.08)
-    header.translate(0, height - headerH / 2 - 0.12, screenZ)
+    const header = new PlaneGeometry(CAB_W - 0.06, headerH - 0.04)
+    header.translate(0, height - headerH / 2 - 0.08, screenZ)
     emit('screen', header, frame, 'lap-header', headerMat ?? materialSlots.screen)
     for (let i = 0; i < count; i++) {
       const y = rowsTop - (i + 0.5) * rowH
-      const panel = new PlaneGeometry(CAB_W - 0.10, rowH - 0.012)
+      const panel = new PlaneGeometry(CAB_W - 0.10, rowH + 0.001)
       panel.translate(0, y, screenZ)
       emit('screen', panel, screens, `slot-${i}`, slotMats[i] ?? materialSlots.screen)
     }
