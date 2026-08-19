@@ -12,22 +12,37 @@
 import {
   BufferGeometry,
   CylinderGeometry,
+  DataTexture,
+  ExtrudeGeometry,
   Group,
+  LinearFilter,
+  LinearMipmapLinearFilter,
+  MathUtils,
   Mesh,
   MeshStandardMaterial,
+  Path,
+  RepeatWrapping,
+  RGBAFormat,
+  Shape,
+  UnsignedByteType,
   Vector3,
   type Material,
 } from 'three/webgpu'
+import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 import {
   AXIS_X,
+  TOKEN,
   acquireF1Materials,
   bevelBox,
+  bevelDisc,
+  bolt,
   clamp01,
   createF1Preview,
   disposeF1Materials,
   mergeParts,
   ovalTube,
+  shade,
   taperedTube,
   tubeSection,
 } from '../f1-kit-core/index.ts'
@@ -74,6 +89,79 @@ function axial(rTop: number, rBottom: number, length: number, x: number, radial 
   return geo
 }
 
+/** 2×2 twill — glossy carbon weave without a PRNG. */
+function carbonTwillTexture(n = 64): DataTexture {
+  const data = new Uint8Array(n * n * 4)
+  const cell = 8
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const cx = (x / cell) | 0
+      const cy = (y / cell) | 0
+      const lx = x - cx * cell
+      const ly = y - cy * cell
+      const warp = ((cx + (cy >> 1)) & 1) === 0
+      const t = (warp ? lx : ly) / cell
+      const ridge = 1 - Math.abs(t * 2 - 1)
+      const base = warp ? 38 : 16
+      const k = base + Math.round(ridge * 30)
+      const i = (y * n + x) * 4
+      data[i] = k
+      data[i + 1] = k + 2
+      data[i + 2] = k + 5
+      data[i + 3] = 255
+    }
+  }
+  const tex = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType)
+  tex.wrapS = RepeatWrapping
+  tex.wrapT = RepeatWrapping
+  tex.magFilter = LinearFilter
+  tex.minFilter = LinearMipmapLinearFilter
+  tex.generateMipmaps = true
+  tex.repeat.set(8, 2)
+  tex.needsUpdate = true
+  return tex
+}
+
+/** One two-finger slab with a circular cutout, plate in YZ, thin along +X. */
+function triggerPlate(): BufferGeometry {
+  const hw = 0.026
+  const hh = 0.046
+  const corner = 0.008
+  const hole = 0.016
+  const thick = 0.014
+  const bevel = 0.002
+  const shape = new Shape()
+  shape.moveTo(-hw + corner, -hh)
+  shape.lineTo(hw - corner, -hh)
+  shape.quadraticCurveTo(hw, -hh, hw, -hh + corner)
+  shape.lineTo(hw, hh - corner)
+  shape.quadraticCurveTo(hw, hh, hw - corner, hh)
+  shape.lineTo(-hw + corner, hh)
+  shape.quadraticCurveTo(-hw, hh, -hw, hh - corner)
+  shape.lineTo(-hw, -hh + corner)
+  shape.quadraticCurveTo(-hw, -hh, -hw + corner, -hh)
+  shape.closePath()
+  const cut = new Path()
+  cut.absarc(0, 0, hole, 0, Math.PI * 2, true)
+  shape.holes.push(cut)
+  const geo = new ExtrudeGeometry(shape, {
+    depth: thick - 2 * bevel,
+    bevelEnabled: true,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelOffset: 0,
+    bevelSegments: 1,
+    steps: 1,
+    curveSegments: 20,
+  })
+  geo.translate(0, 0, -(thick / 2 - bevel))
+  const creased = toCreasedNormals(geo, MathUtils.degToRad(50))
+  if (creased !== geo) geo.dispose()
+  creased.rotateY(Math.PI / 2)
+  creased.translate(0.040, -0.122, 0)
+  return creased
+}
+
 export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   const config: F1TyreGunConfig = {
     engaged: clamp01(options.engaged ?? defaults.engaged),
@@ -84,18 +172,42 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   const kit = bundle.materials
   const ownsLed = options.materials?.led === undefined
   const extras: Material[] = []
-  const carbon = options.materials?.gunmetal ?? new MeshStandardMaterial({
-    name: 'f1-kit / tyre-gun carbon cone',
-    color: 0x0b0d10,
-    roughness: 0.08,
-    metalness: 0.58,
+  const textures: DataTexture[] = []
+  const ownsCone = options.materials?.gunmetal === undefined
+  let carbon: Material
+  if (ownsCone) {
+    const weave = carbonTwillTexture()
+    textures.push(weave)
+    carbon = new MeshStandardMaterial({
+      name: 'f1-kit / tyre-gun carbon cone',
+      map: weave,
+      color: shade(TOKEN.SLATE_650, 0.35),
+      roughness: 0.12,
+      metalness: 0.64,
+    })
+    extras.push(carbon)
+  } else {
+    carbon = options.materials!.gunmetal!
+  }
+  const machined = options.materials?.gunmetal ?? new MeshStandardMaterial({
+    name: 'f1-kit / tyre-gun gunmetal',
+    color: shade(TOKEN.GRAPHITE_800, 0.28),
+    roughness: 0.26,
+    metalness: 0.84,
   })
-  if (options.materials?.gunmetal === undefined) extras.push(carbon)
+  if (options.materials?.gunmetal === undefined) extras.push(machined)
+  const anodized = options.materials?.accent ?? new MeshStandardMaterial({
+    name: 'f1-kit / tyre-gun anodized',
+    color: TOKEN.COBALT_500,
+    roughness: 0.2,
+    metalness: 0.74,
+  })
+  if (options.materials?.accent === undefined) extras.push(anodized)
   const materialSlots: Record<Slot, Material> = {
-    gunmetal: options.materials?.gunmetal ?? kit.graphite,
+    gunmetal: machined,
     steel: options.materials?.steel ?? kit.steel,
     gripRubber: options.materials?.gripRubber ?? kit.ink,
-    accent: options.materials?.accent ?? kit.cobalt,
+    accent: anodized,
     led: options.materials?.led ?? kit.cyan,
   }
 
@@ -156,7 +268,8 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     }
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
-    const cone = axial(0.048, 0.096, 0.11, 0.020, 28)
+    // Glossy carbon taper, small end just behind the spline so the blue collar can wrap it.
+    const cone = axial(0.044, 0.096, 0.132, 0.032, 28)
     generated.push(cone)
     const coneMesh = new Mesh(cone, carbon)
     coneMesh.name = 'carbon-cone'
@@ -166,32 +279,19 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     const boltParts: BufferGeometry[] = []
     for (const [y, z] of [[0.062, 0.062], [0.062, -0.062], [-0.062, 0.062], [-0.062, -0.062]] as const) {
-      const bolt = new CylinderGeometry(0.008, 0.008, 0.016, 8)
-      bolt.rotateZ(Math.PI / 2)
-      bolt.translate(-0.012, y, z)
-      boltParts.push(bolt)
+      boltParts.push(bolt([-0.012, y, z], 0.007, 0.014, AXIS_X))
     }
     emit('gripRubber', mergeParts(boltParts, 'flange-bolts'), body, 'flange-bolts')
 
-    const steelParts: BufferGeometry[] = []
-    const plateTop = bevelBox(0.012, 0.014, 0.046, 0.003)
-    plateTop.translate(0.028, -0.086, 0)
-    steelParts.push(plateTop)
-    const plateBot = bevelBox(0.012, 0.018, 0.050, 0.003)
-    plateBot.translate(0.028, -0.152, 0)
-    steelParts.push(plateBot)
-    const plateL = bevelBox(0.012, 0.040, 0.010, 0.003)
-    plateL.translate(0.028, -0.118, 0.020)
-    steelParts.push(plateL)
-    const plateR = bevelBox(0.012, 0.040, 0.010, 0.003)
-    plateR.translate(0.028, -0.118, -0.020)
-    steelParts.push(plateR)
+    const steelParts: BufferGeometry[] = [triggerPlate()]
     const inlet = new CylinderGeometry(0.015, 0.015, 0.048, 14)
     inlet.translate(-0.018, -0.312, 0)
     steelParts.push(inlet)
     const inletCollar = new CylinderGeometry(0.021, 0.021, 0.016, 14)
     inletCollar.translate(-0.018, -0.288, 0)
     steelParts.push(inletCollar)
+    const dialBolt = bolt([-0.338, 0, 0], 0.008, 0.012, AXIS_X)
+    steelParts.push(dialBolt)
     emit('steel', mergeParts(steelParts, 'trigger-and-inlet'), body, 'nose')
 
     // --- Slender rubber grip -------------------------------------------------------------------------
@@ -205,13 +305,14 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     ]
     emit('gripRubber', mergeParts(gripParts, 'grip'), body, 'grip')
 
-    // --- Air inlet at the grip heel, plus a blue nose ring kept clear of the socket ------------------
-    const accentParts: BufferGeometry[] = []
-    accentParts.push(tubeSection(0.049, 0.008, [0.080, 0, 0], AXIS_X, 24))
-    const reverseKnob = new CylinderGeometry(0.034, 0.034, 0.024, 20)
-    reverseKnob.rotateZ(Math.PI / 2)
-    reverseKnob.translate(-0.318, 0, 0)
-    accentParts.push(reverseKnob)
+    // Thin blue collar wrapping the cone, immediately behind the spline — not a nose flange.
+    const accentParts: BufferGeometry[] = [
+      tubeSection(0.050, 0.008, [0.092, 0, 0], AXIS_X, 24),
+    ]
+    const reverseDial = bevelDisc(0.042, 0.012, 0.002, 28)
+    reverseDial.rotateY(Math.PI / 2)
+    reverseDial.translate(-0.328, 0, 0)
+    accentParts.push(reverseDial)
     emit('accent', mergeParts(accentParts, 'accent'), body, 'accent')
 
     const hose = ovalTube([
@@ -274,6 +375,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     },
     dispose() {
       releaseGenerated()
+      for (const texture of textures) texture.dispose()
       for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
@@ -283,7 +385,13 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel()
-  const preview = createF1Preview(model, { aspect, target: [0, -0.08, 0], distance: 1.05, yaw: 0.82, pitch: 0.12 })
+  const preview = createF1Preview(model, {
+    aspect,
+    target: [-0.04, -0.06, 0],
+    distance: 1.18,
+    yaw: 0.52,
+    pitch: 0.10,
+  })
   let running = false
   return {
     ...preview,
