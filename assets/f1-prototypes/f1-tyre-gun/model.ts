@@ -273,7 +273,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
     // Glossy carbon taper, small end just behind the spline so the blue collar can wrap it.
-    const cone = axial(0.044, 0.096, 0.166, 0.015, 40, true)
+    const cone = axial(0.050, 0.096, 0.166, 0.015, 40, true)
     generated.push(cone)
     const coneMesh = new Mesh(cone, carbon)
     coneMesh.name = 'carbon-cone'
@@ -317,8 +317,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     // Thin blue collar wrapping the cone, immediately behind the spline — not a nose flange.
     // Keep collar and rear dial as separate meshes: merging them makes a paper-thin AABB that
     // plate-overlaps the grip (rule 8).
-    const collar = new CylinderGeometry(0.050, 0.054, 0.014, 28, 1, true)
-    collar.rotateZ(Math.PI / 2)
+    // Thick ring, not a thin shell: inner hugs the spline OD so there is no dark tunnel.
+    const collar = bevelRing(0.040, 0.050, 0.012, 0.0012, 28)
+    collar.rotateY(Math.PI / 2)
     collar.translate(0.093, 0, 0)
     emit('accent', collar, body, 'collar')
     const reverseDial = bevelDisc(0.038, 0.012, 0.002, 28)
@@ -340,12 +341,12 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // --- Spinner: short anvil, ribbed spline and visibly hollow round socket -------------------------
     const spinnerParts: BufferGeometry[] = [
-      tubeSection(0.022, 0.054, [0.121, 0, 0], AXIS_X, 16),
+      tubeSection(0.026, 0.054, [0.121, 0, 0], AXIS_X, 16),
     ]
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2
-      const spline = bevelBox(0.050, 0.011, 0.011, 0.002)
-      spline.translate(0, 0.028, 0)
+      const spline = bevelBox(0.050, 0.012, 0.012, 0.002)
+      spline.translate(0, 0.032, 0)
       spline.rotateX(angle)
       spline.translate(0.121, 0, 0)
       spinnerParts.push(spline)
