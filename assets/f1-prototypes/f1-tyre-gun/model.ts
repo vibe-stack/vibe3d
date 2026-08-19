@@ -36,6 +36,7 @@ import {
   acquireF1Materials,
   bevelBox,
   bevelDisc,
+  bevelRing,
   bolt,
   clamp01,
   createF1Preview,
@@ -177,9 +178,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     carbon = new MeshStandardMaterial({
       name: 'f1-kit / tyre-gun carbon cone',
       map: weave,
-      color: shade(TOKEN.SLATE_650, 0.35),
-      roughness: 0.12,
-      metalness: 0.64,
+      color: shade(TOKEN.SLATE_650, 0.55),
+      roughness: 0.07,
+      metalness: 0.72,
     })
     extras.push(carbon)
   } else {
@@ -187,16 +188,19 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   }
   const machined = options.materials?.gunmetal ?? new MeshStandardMaterial({
     name: 'f1-kit / tyre-gun gunmetal',
-    color: shade(TOKEN.GRAPHITE_800, 0.28),
-    roughness: 0.26,
-    metalness: 0.84,
+    color: shade(TOKEN.GRAPHITE_800, 0.48),
+    roughness: 0.16,
+    metalness: 0.9,
   })
   if (options.materials?.gunmetal === undefined) extras.push(machined)
   const anodized = options.materials?.accent ?? new MeshStandardMaterial({
     name: 'f1-kit / tyre-gun anodized',
-    color: TOKEN.COBALT_500,
-    roughness: 0.2,
-    metalness: 0.74,
+    color: shade(TOKEN.COBALT_500, 0.28),
+    roughness: 0.16,
+    metalness: 0.62,
+    emissive: TOKEN.COBALT_500,
+    emissiveIntensity: 0.45,
+    toneMapped: false,
   })
   if (options.materials?.accent === undefined) extras.push(anodized)
   const materialSlots: Record<Slot, Material> = {
@@ -254,9 +258,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
       cover.translate(-0.12, 0, sz * 0.086)
       gunmetalParts.push(cover)
     }
-    for (let i = 0; i < 6; i++) {
-      const rib = bevelBox(0.010, 0.028, 0.11, 0.003)
-      rib.translate(-0.22 + i * 0.018, 0.092, 0)
+    for (let i = 0; i < 10; i++) {
+      const rib = bevelBox(0.005, 0.016, 0.13, 0.0015)
+      rib.translate(-0.28 + i * 0.012, 0.108, 0)
       gunmetalParts.push(rib)
     }
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
@@ -276,7 +280,11 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     }
     emit('gripRubber', mergeParts(boltParts, 'flange-bolts'), body, 'flange-bolts')
 
-    emit('gunmetal', triggerPlate(), body, 'trigger')
+    emit('gripRubber', triggerPlate(), body, 'trigger')
+    const triggerRim = bevelRing(0.017, 0.0215, 0.009, 0.001, 24)
+    triggerRim.rotateY(Math.PI / 2)
+    triggerRim.translate(0.058, -0.088, 0)
+    emit('steel', triggerRim, body, 'trigger-rim')
     const steelParts: BufferGeometry[] = []
     const inlet = new CylinderGeometry(0.015, 0.015, 0.048, 14)
     inlet.translate(-0.018, -0.312, 0)
@@ -301,7 +309,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // Thin blue collar wrapping the cone, immediately behind the spline — not a nose flange.
     const accentParts: BufferGeometry[] = [
-      tubeSection(0.056, 0.012, [0.090, 0, 0], AXIS_X, 28),
+      tubeSection(0.052, 0.011, [0.096, 0, 0], AXIS_X, 28),
     ]
     const reverseDial = bevelDisc(0.052, 0.014, 0.002, 32)
     reverseDial.rotateY(Math.PI / 2)
@@ -381,10 +389,10 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel()
   const preview = createF1Preview(model, {
     aspect,
-    target: [-0.08, -0.05, 0],
-    distance: 1.22,
-    yaw: 2.55,
-    pitch: 0.12,
+    target: [-0.02, -0.06, 0],
+    distance: 1.24,
+    yaw: 0.28,
+    pitch: 0.10,
   })
   let running = false
   return {
