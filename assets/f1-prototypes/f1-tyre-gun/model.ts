@@ -186,8 +186,8 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
       name: 'f1-kit / tyre-gun carbon cone',
       map: weave,
       color: shade(TOKEN.SHELL_200, -0.15),
-      roughness: 0.04,
-      metalness: 0.82,
+      roughness: 0.025,
+      metalness: 0.88,
     })
     extras.push(carbon)
   } else {
@@ -202,9 +202,12 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   if (options.materials?.gunmetal === undefined) extras.push(machined)
   const anodized = options.materials?.accent ?? new MeshStandardMaterial({
     name: 'f1-kit / tyre-gun anodized',
-    color: shade(TOKEN.COBALT_500, 0.35),
-    roughness: 0.12,
-    metalness: 0.68,
+    color: shade(TOKEN.COBALT_500, 0.42),
+    roughness: 0.22,
+    metalness: 0.35,
+    emissive: TOKEN.COBALT_500,
+    emissiveIntensity: 0.3,
+    toneMapped: false,
   })
   if (options.materials?.accent === undefined) extras.push(anodized)
   const materialSlots: Record<Slot, Material> = {
@@ -285,7 +288,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gripRubber', mergeParts(boltParts, 'flange-bolts'), body, 'flange-bolts')
 
     emit('gripRubber', triggerPlate(), body, 'trigger')
-    const triggerRim = bevelRing(0.017, 0.0215, 0.009, 0.001, 24)
+    const triggerRim = bevelRing(0.0185, 0.0205, 0.0085, 0.0008, 24)
     triggerRim.rotateY(Math.PI / 2)
     triggerRim.translate(0.058, -0.088, 0)
     emit('steel', triggerRim, body, 'trigger-rim')
@@ -312,13 +315,15 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gripRubber', mergeParts(gripParts, 'grip'), body, 'grip')
 
     // Thin blue collar wrapping the cone, immediately behind the spline — not a nose flange.
-    const collar = new CylinderGeometry(0.058, 0.068, 0.022, 28, 1, true)
+    // Keep collar and rear dial as separate meshes: merging them makes a paper-thin AABB that
+    // plate-overlaps the grip (rule 8).
+    const collar = new CylinderGeometry(0.050, 0.054, 0.014, 28, 1, true)
     collar.rotateZ(Math.PI / 2)
-    collar.translate(0.070, 0, 0)
+    collar.translate(0.093, 0, 0)
+    emit('accent', collar, body, 'collar')
     const reverseDial = bevelDisc(0.038, 0.012, 0.002, 28)
     reverseDial.translate(-0.248, 0.012, 0.114)
-    const accentParts: BufferGeometry[] = [collar, reverseDial]
-    emit('accent', mergeParts(accentParts, 'accent'), body, 'accent')
+    emit('accent', reverseDial, body, 'rear-dial')
 
     const hose = ovalTube([
       new Vector3(-0.018, -0.340, 0),
@@ -335,14 +340,14 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // --- Spinner: short anvil, ribbed spline and visibly hollow round socket -------------------------
     const spinnerParts: BufferGeometry[] = [
-      tubeSection(0.022, 0.062, [0.136, 0, 0], AXIS_X, 16),
+      tubeSection(0.022, 0.054, [0.121, 0, 0], AXIS_X, 16),
     ]
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2
-      const spline = bevelBox(0.056, 0.011, 0.011, 0.002)
+      const spline = bevelBox(0.050, 0.011, 0.011, 0.002)
       spline.translate(0, 0.028, 0)
       spline.rotateX(angle)
-      spline.translate(0.136, 0, 0)
+      spline.translate(0.121, 0, 0)
       spinnerParts.push(spline)
     }
     emit('steel', mergeParts(spinnerParts, 'socket'), spinner, 'socket')
