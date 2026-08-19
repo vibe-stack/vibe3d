@@ -20,9 +20,9 @@
 5. Assume winding changes when a ring insets. For a suspect cap or inward rim,
    compare the first triangle's edge cross product with the intended outward
    normal.
-6. Keep chamfers below roughly sixty percent of the affected half-extent.
-   Clamp against the thinnest dimension and inspect for finite,
-   non-degenerate triangles.
+6. Keep chamfers below roughly sixty percent of the affected half-extent. Clamp
+   against the thinnest dimension and inspect for finite, non-degenerate
+   triangles.
 7. Size physical features in world units. Bevels, seams, wear bands, bolts, and
    clearances represent physical dimensions; do not scale them as a percentage
    of every host part.
@@ -32,32 +32,45 @@
 8. Calculate clearance for every applied layer. Compare the host face with the
    detail's back and front faces. In this metre-scale kit, begin with at least
    0.015 units of clearance and verify from the actual camera.
-9. Build, bake, then merge. Derive adjacency data, surface identity, semantic
-   parts, and material ownership while objects remain separate. Merge only
-   afterward. Normalize vertex attributes before merging and respect the
-   renderer's vertex-buffer budget.
-10. Keep runtime anchors outside replaceable generated content. Configuration
+9. Never let two visible faces share a plane facing the same way.
+   Interpenetration is expected here; coincidence is not. The depth buffer
+   cannot order two surfaces at one depth, so the overlap renders as a
+   per-pixel speckle that crawls with the camera — and both a still frame and
+   a resemblance critique miss it. It comes from authoring a part from a
+   landmark it shares with its neighbour: a cap ring as [END - w, END] against
+   a body that ends at END, a marking as [SURFACE, SURFACE + t] on the surface
+   it marks. Separate the two — proud parts 0.02-0.03 further out, lapping
+   parts 0.01-0.02 further in, markings sunk into their host. Flush is the bug,
+   not the fix. Coincidence sealed inside another solid is never rasterised and
+   does not matter; check the rest with `node --import tsx
+   scripts/coplanar-check.ts <model-id>`.
+
+10. Build, bake, then merge. Derive adjacency data, surface identity, semantic
+    parts, and material ownership while objects remain separate. Merge only
+    afterward. Normalize vertex attributes before merging and respect the
+    renderer's vertex-buffer budget.
+11. Keep runtime anchors outside replaceable generated content. Configuration
     can rebuild geometry without invalidating consumer attachments.
 
 ## Reference matching
 
-11. Measure the reference and solve the camera with the model. Compare clean
+12. Measure the reference and solve the camera with the model. Compare clean
     silhouette bounds and cross-sections rather than reflections, smoke,
     shadows, or effects that extend the apparent shape.
-12. Tune yaw, pitch, focal length, and target together. Incorrect perspective
+13. Tune yaw, pitch, focal length, and target together. Incorrect perspective
     can make correct dimensions look wrong.
-13. Treat critic feedback as evidence, not a numeric gradient. Prefer changes
+14. Treat critic feedback as evidence, not a numeric gradient. Prefer changes
     that recur across independent critiques. If critics disagree about the same
     dimension, spend the next iteration on a more stable mismatch.
 
 ## Vibe3D runtime contract
 
-14. Keep the model root stable for its entire lifetime. Rebuild generated
+15. Keep the model root stable for its entire lifetime. Rebuild generated
     children inside it when topology changes.
-15. Expose meaningful runtime anatomy through stable semantic part anchors,
+16. Expose meaningful runtime anatomy through stable semantic part anchors,
     sockets, material slots, and typed actions. Do not make consumers depend on
     anonymous mesh order.
-16. Respect ownership. Dispose model-owned resources exactly once and never
+17. Respect ownership. Dispose model-owned resources exactly once and never
     dispose materials or textures supplied by the consumer.
-17. Keep preview scenery, lights, floors, cameras, smoke, and diagnostic effects
-    out of the installed model root or mark them for export exclusion.
+18. Keep preview scenery, lights, floors, cameras, smoke, and diagnostic
+    effects out of the installed model root or mark them for export exclusion.
