@@ -54,10 +54,10 @@ const CAB_W = 0.78
 const CAB_D = 0.08
 const MAST_D = 0.16
 const MAX_ROWS = 33
-const YELLOW: [number, number, number] = [255, 224, 16]
-const GREEN: [number, number, number] = [48, 220, 92]
-const PAPER: [number, number, number] = [248, 250, 252]
-const INK: [number, number, number] = [4, 6, 8]
+const YELLOW: [number, number, number] = [255, 232, 0]
+const GREEN: [number, number, number] = [24, 255, 72]
+const PAPER: [number, number, number] = [255, 255, 255]
+const INK: [number, number, number] = [2, 3, 4]
 
 function normalizePositions(positions: readonly number[]): number[] {
   const digits = positions
@@ -102,10 +102,32 @@ function writeSolidWord(
   }
 }
 
+function paintLap(
+  data: Uint8Array,
+  w: number,
+  ox: number,
+  oy: number,
+  s: number,
+  rgb: readonly [number, number, number],
+): void {
+  fillGlyphRect(data, w, ox, oy, s, s * 5, rgb)
+  fillGlyphRect(data, w, ox, oy + s * 4, s * 3, s, rgb)
+  const ax = ox + s * 4
+  fillGlyphRect(data, w, ax + s, oy, s, s, rgb)
+  fillGlyphRect(data, w, ax, oy + s, s, s * 4, rgb)
+  fillGlyphRect(data, w, ax + s * 2, oy + s, s, s * 4, rgb)
+  fillGlyphRect(data, w, ax + s, oy + s * 2, s, s, rgb)
+  const px = ox + s * 8
+  fillGlyphRect(data, w, px, oy, s, s * 5, rgb)
+  fillGlyphRect(data, w, px, oy, s * 3, s, rgb)
+  fillGlyphRect(data, w, px + s * 2, oy, s, s * 3, rgb)
+  fillGlyphRect(data, w, px, oy + s * 2, s * 3, s, rgb)
+}
+
 function headerTexture(): DataTexture {
-  return stampTexture(192, 80, (data) => {
-    writeSolidWord(data, 192, 8, 22, 'LAP', PAPER, 7)
-    writeSolidWord(data, 192, 92, 8, '16', GREEN, 13)
+  return stampTexture(256, 96, (data) => {
+    paintLap(data, 256, 8, 22, 8, PAPER)
+    writeSolidWord(data, 256, 112, 6, '16', GREEN, 16)
   })
 }
 
@@ -183,7 +205,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
   const screenMat = options.materials?.screen ?? slotMats[0]!
 
   const materialSlots: Record<Slot, Material> = {
-    frame: options.materials?.frame ?? kit.graphite,
+    frame: options.materials?.frame ?? kit.ink,
     screen: screenMat,
   }
 
