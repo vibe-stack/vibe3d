@@ -53,8 +53,8 @@ const defaults: F1TimingPylonConfig = { height: 9, positions: [1, 2, 3] }
 const CAB_W = 0.78
 const CAB_D = 0.08
 const MAST_D = 0.16
-const MAX_ROWS = 24
-const YELLOW: [number, number, number] = [255, 214, 32]
+const MAX_ROWS = 33
+const YELLOW: [number, number, number] = [255, 224, 16]
 const GREEN: [number, number, number] = [48, 220, 92]
 const PAPER: [number, number, number] = [248, 250, 252]
 const INK: [number, number, number] = [4, 6, 8]
@@ -103,17 +103,17 @@ function writeSolidWord(
 }
 
 function headerTexture(): DataTexture {
-  return stampTexture(160, 48, (data) => {
-    writeSolidWord(data, 160, 8, 10, 'LAP', YELLOW, 5)
-    writeSolidWord(data, 160, 86, 4, '16', GREEN, 8)
+  return stampTexture(192, 80, (data) => {
+    writeSolidWord(data, 192, 8, 22, 'LAP', PAPER, 7)
+    writeSolidWord(data, 192, 92, 8, '16', GREEN, 13)
   })
 }
 
 function cabinetTexture(digit: number, row: number): DataTexture {
   return stampTexture(160, 40, (data) => {
     const rank = String(row + 1)
-    writeSolidWord(data, 160, 8, 4, rank, row < 9 ? YELLOW : PAPER, 6)
-    writeSolidWord(data, 160, 96, 4, String(digit), PAPER, 6)
+    writeSolidWord(data, 160, 6, 3, rank, row < 9 ? YELLOW : PAPER, 7)
+    writeSolidWord(data, 160, 92, 3, String(digit), PAPER, 7)
   })
 }
 
@@ -250,13 +250,13 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
     parts.push(crown)
     emit('frame', mergeParts(parts, 'frame'), frame, 'frame')
 
-    const headerH = 0.42
-    const rowsTop = height - headerH - 0.18
-    const rowsBottom = 0.42
+    const headerH = 0.95
+    const rowsTop = height - headerH - 0.08
+    const rowsBottom = 0.38
     const rowH = (rowsTop - rowsBottom) / count
     const screenZ = MAST_D / 2 + LAYER_CLEARANCE
-    const header = new PlaneGeometry(CAB_W - 0.10, headerH - 0.06)
-    header.translate(0, height - 0.38, screenZ)
+    const header = new PlaneGeometry(CAB_W - 0.08, headerH - 0.08)
+    header.translate(0, height - headerH / 2 - 0.12, screenZ)
     emit('screen', header, frame, 'lap-header', headerMat ?? materialSlots.screen)
     for (let i = 0; i < count; i++) {
       const y = rowsTop - (i + 0.5) * rowH
@@ -304,7 +304,7 @@ export function createModel(options: F1TimingPylonOptions = {}): F1TimingPylonIn
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({
-    positions: [1, 4, 6, 3, 5, 4, 1, 8, 2, 3, 0, 8, 1, 7, 2, 0, 3, 7],
+    positions: [1, 4, 6, 3, 5, 4, 1, 8, 2, 3, 0, 8, 1, 7, 2, 0, 3, 7, 5, 9, 2, 6, 4, 8, 1, 3, 0, 7, 5, 2, 9, 4, 6],
   }), {
     aspect,
     target: [0, 4.7, 0.12],
