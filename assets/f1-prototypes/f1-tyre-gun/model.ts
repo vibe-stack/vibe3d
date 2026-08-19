@@ -90,24 +90,20 @@ function axial(rTop: number, rBottom: number, length: number, x: number, radial 
 }
 
 /** 2×2 twill — glossy carbon weave without a PRNG. */
-function carbonTwillTexture(n = 64): DataTexture {
+function carbonTwillTexture(n = 128): DataTexture {
   const data = new Uint8Array(n * n * 4)
-  const cell = 8
+  const cell = 4
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
-      const cx = (x / cell) | 0
-      const cy = (y / cell) | 0
-      const lx = x - cx * cell
-      const ly = y - cy * cell
-      const warp = ((cx + (cy >> 1)) & 1) === 0
-      const t = (warp ? lx : ly) / cell
-      const ridge = 1 - Math.abs(t * 2 - 1)
-      const base = warp ? 38 : 16
-      const k = base + Math.round(ridge * 30)
+      const twill = ((x + y * 2) & 7) < 4
+      const along = twill ? (x + y) : (x - y)
+      const ridge = 1 - Math.abs(((along % cell) + cell) % cell / cell * 2 - 1)
+      const base = twill ? 48 : 20
+      const k = base + Math.round(ridge * 36)
       const i = (y * n + x) * 4
       data[i] = k
-      data[i + 1] = k + 2
-      data[i + 2] = k + 5
+      data[i + 1] = k + 1
+      data[i + 2] = k + 3
       data[i + 3] = 255
     }
   }
@@ -117,19 +113,19 @@ function carbonTwillTexture(n = 64): DataTexture {
   tex.magFilter = LinearFilter
   tex.minFilter = LinearMipmapLinearFilter
   tex.generateMipmaps = true
-  tex.repeat.set(8, 2)
+  tex.repeat.set(14, 3)
   tex.needsUpdate = true
   return tex
 }
 
 /** One two-finger slab with a circular cutout, plate in YZ, thin along +X. */
 function triggerPlate(): BufferGeometry {
-  const hw = 0.026
-  const hh = 0.046
-  const corner = 0.008
-  const hole = 0.016
-  const thick = 0.014
-  const bevel = 0.002
+  const hw = 0.024
+  const hh = 0.052
+  const corner = 0.007
+  const hole = 0.019
+  const thick = 0.008
+  const bevel = 0.0015
   const shape = new Shape()
   shape.moveTo(-hw + corner, -hh)
   shape.lineTo(hw - corner, -hh)
@@ -158,7 +154,7 @@ function triggerPlate(): BufferGeometry {
   const creased = toCreasedNormals(geo, MathUtils.degToRad(50))
   if (creased !== geo) geo.dispose()
   creased.rotateY(Math.PI / 2)
-  creased.translate(0.040, -0.122, 0)
+  creased.translate(0.058, -0.088, 0)
   return creased
 }
 
@@ -258,9 +254,6 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
       cover.translate(-0.12, 0, sz * 0.086)
       gunmetalParts.push(cover)
     }
-    const flange = bevelBox(0.028, 0.178, 0.178, 0.006)
-    flange.translate(-0.028, 0, 0)
-    gunmetalParts.push(flange)
     for (let i = 0; i < 6; i++) {
       const rib = bevelBox(0.010, 0.028, 0.11, 0.003)
       rib.translate(-0.22 + i * 0.018, 0.092, 0)
@@ -269,7 +262,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gunmetal', mergeParts(gunmetalParts, 'barrel'), body, 'barrel')
 
     // Glossy carbon taper, small end just behind the spline so the blue collar can wrap it.
-    const cone = axial(0.044, 0.096, 0.132, 0.032, 28)
+    const cone = axial(0.044, 0.096, 0.166, 0.015, 40)
     generated.push(cone)
     const coneMesh = new Mesh(cone, carbon)
     coneMesh.name = 'carbon-cone'
@@ -283,16 +276,17 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     }
     emit('gripRubber', mergeParts(boltParts, 'flange-bolts'), body, 'flange-bolts')
 
-    const steelParts: BufferGeometry[] = [triggerPlate()]
+    emit('gunmetal', triggerPlate(), body, 'trigger')
+    const steelParts: BufferGeometry[] = []
     const inlet = new CylinderGeometry(0.015, 0.015, 0.048, 14)
     inlet.translate(-0.018, -0.312, 0)
     steelParts.push(inlet)
     const inletCollar = new CylinderGeometry(0.021, 0.021, 0.016, 14)
     inletCollar.translate(-0.018, -0.288, 0)
     steelParts.push(inletCollar)
-    const dialBolt = bolt([-0.338, 0, 0], 0.008, 0.012, AXIS_X)
+    const dialBolt = bolt([-0.348, 0, 0], 0.010, 0.014, AXIS_X)
     steelParts.push(dialBolt)
-    emit('steel', mergeParts(steelParts, 'trigger-and-inlet'), body, 'nose')
+    emit('steel', mergeParts(steelParts, 'inlet-and-dial'), body, 'nose')
 
     // --- Slender rubber grip -------------------------------------------------------------------------
     const gripParts: BufferGeometry[] = [
@@ -307,11 +301,11 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // Thin blue collar wrapping the cone, immediately behind the spline — not a nose flange.
     const accentParts: BufferGeometry[] = [
-      tubeSection(0.050, 0.008, [0.092, 0, 0], AXIS_X, 24),
+      tubeSection(0.056, 0.012, [0.090, 0, 0], AXIS_X, 28),
     ]
-    const reverseDial = bevelDisc(0.042, 0.012, 0.002, 28)
+    const reverseDial = bevelDisc(0.052, 0.014, 0.002, 32)
     reverseDial.rotateY(Math.PI / 2)
-    reverseDial.translate(-0.328, 0, 0)
+    reverseDial.translate(-0.336, 0, 0)
     accentParts.push(reverseDial)
     emit('accent', mergeParts(accentParts, 'accent'), body, 'accent')
 
@@ -387,10 +381,10 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   const model = createModel()
   const preview = createF1Preview(model, {
     aspect,
-    target: [-0.04, -0.06, 0],
-    distance: 1.18,
-    yaw: 0.52,
-    pitch: 0.10,
+    target: [-0.08, -0.05, 0],
+    distance: 1.22,
+    yaw: 2.55,
+    pitch: 0.12,
   })
   let running = false
   return {
