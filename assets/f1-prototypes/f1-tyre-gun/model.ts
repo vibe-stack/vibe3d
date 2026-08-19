@@ -32,6 +32,7 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 
 import {
   AXIS_X,
+  AXIS_Z,
   TOKEN,
   acquireF1Materials,
   bevelBox,
@@ -195,12 +196,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
   if (options.materials?.gunmetal === undefined) extras.push(machined)
   const anodized = options.materials?.accent ?? new MeshStandardMaterial({
     name: 'f1-kit / tyre-gun anodized',
-    color: shade(TOKEN.COBALT_500, 0.28),
-    roughness: 0.16,
-    metalness: 0.62,
-    emissive: TOKEN.COBALT_500,
-    emissiveIntensity: 0.45,
-    toneMapped: false,
+    color: shade(TOKEN.COBALT_500, 0.22),
+    roughness: 0.14,
+    metalness: 0.7,
   })
   if (options.materials?.accent === undefined) extras.push(anodized)
   const materialSlots: Record<Slot, Material> = {
@@ -292,7 +290,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     const inletCollar = new CylinderGeometry(0.021, 0.021, 0.016, 14)
     inletCollar.translate(-0.018, -0.288, 0)
     steelParts.push(inletCollar)
-    const dialBolt = bolt([-0.348, 0, 0], 0.010, 0.014, AXIS_X)
+    const dialBolt = bolt([-0.248, 0.012, 0.120], 0.008, 0.010, AXIS_Z)
     steelParts.push(dialBolt)
     emit('steel', mergeParts(steelParts, 'inlet-and-dial'), body, 'nose')
 
@@ -308,13 +306,12 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gripRubber', mergeParts(gripParts, 'grip'), body, 'grip')
 
     // Thin blue collar wrapping the cone, immediately behind the spline — not a nose flange.
-    const accentParts: BufferGeometry[] = [
-      tubeSection(0.052, 0.011, [0.096, 0, 0], AXIS_X, 28),
-    ]
-    const reverseDial = bevelDisc(0.052, 0.014, 0.002, 32)
-    reverseDial.rotateY(Math.PI / 2)
-    reverseDial.translate(-0.336, 0, 0)
-    accentParts.push(reverseDial)
+    const collar = new CylinderGeometry(0.047, 0.056, 0.022, 28, 1, true)
+    collar.rotateZ(Math.PI / 2)
+    collar.translate(0.084, 0, 0)
+    const reverseDial = bevelDisc(0.038, 0.012, 0.002, 28)
+    reverseDial.translate(-0.248, 0.012, 0.114)
+    const accentParts: BufferGeometry[] = [collar, reverseDial]
     emit('accent', mergeParts(accentParts, 'accent'), body, 'accent')
 
     const hose = ovalTube([
