@@ -94,20 +94,24 @@ function axial(
 }
 
 /** 2×2 twill — glossy carbon weave without a PRNG. */
-function carbonTwillTexture(n = 128): DataTexture {
+function carbonTwillTexture(n = 64): DataTexture {
   const data = new Uint8Array(n * n * 4)
-  const cell = 4
+  const cell = 8
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
-      const twill = ((x + y * 2) & 7) < 4
-      const along = twill ? (x + y) : (x - y)
-      const ridge = 1 - Math.abs(((along % cell) + cell) % cell / cell * 2 - 1)
-      const base = twill ? 48 : 20
-      const k = base + Math.round(ridge * 36)
+      const cx = (x / cell) | 0
+      const cy = (y / cell) | 0
+      const checker = ((cx + cy) & 1) === 0
+      const lx = x - cx * cell
+      const ly = y - cy * cell
+      const fiber = checker ? lx : ly
+      const ridge = 1 - Math.abs(fiber / cell * 2 - 1)
+      const base = checker ? 72 : 22
+      const k = base + Math.round(ridge * 40)
       const i = (y * n + x) * 4
       data[i] = k
-      data[i + 1] = k + 1
-      data[i + 2] = k + 3
+      data[i + 1] = k + 2
+      data[i + 2] = k + 4
       data[i + 3] = 255
     }
   }
@@ -117,7 +121,7 @@ function carbonTwillTexture(n = 128): DataTexture {
   tex.magFilter = LinearFilter
   tex.minFilter = LinearMipmapLinearFilter
   tex.generateMipmaps = true
-  tex.repeat.set(14, 3)
+  tex.repeat.set(6, 2)
   tex.needsUpdate = true
   return tex
 }
@@ -181,9 +185,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     carbon = new MeshStandardMaterial({
       name: 'f1-kit / tyre-gun carbon cone',
       map: weave,
-      color: shade(TOKEN.SLATE_650, 0.7),
-      roughness: 0.05,
-      metalness: 0.78,
+      color: shade(TOKEN.SHELL_200, -0.15),
+      roughness: 0.04,
+      metalness: 0.82,
     })
     extras.push(carbon)
   } else {
@@ -292,7 +296,7 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     const inletCollar = new CylinderGeometry(0.021, 0.021, 0.016, 14)
     inletCollar.translate(-0.018, -0.288, 0)
     steelParts.push(inletCollar)
-    const dialBolt = bolt([-0.248, 0.012, 0.120], 0.008, 0.010, AXIS_Z)
+    const dialBolt = bolt([-0.248, 0.012, 0.116], 0.008, 0.016, AXIS_Z)
     steelParts.push(dialBolt)
     emit('steel', mergeParts(steelParts, 'inlet-and-dial'), body, 'nose')
 
@@ -308,9 +312,9 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
     emit('gripRubber', mergeParts(gripParts, 'grip'), body, 'grip')
 
     // Thin blue collar wrapping the cone, immediately behind the spline — not a nose flange.
-    const collar = new CylinderGeometry(0.046, 0.052, 0.016, 28, 1, true)
+    const collar = new CylinderGeometry(0.058, 0.068, 0.022, 28, 1, true)
     collar.rotateZ(Math.PI / 2)
-    collar.translate(0.088, 0, 0)
+    collar.translate(0.070, 0, 0)
     const reverseDial = bevelDisc(0.038, 0.012, 0.002, 28)
     reverseDial.translate(-0.248, 0.012, 0.114)
     const accentParts: BufferGeometry[] = [collar, reverseDial]
@@ -331,12 +335,12 @@ export function createModel(options: F1TyreGunOptions = {}): F1TyreGunInstance {
 
     // --- Spinner: short anvil, ribbed spline and visibly hollow round socket -------------------------
     const spinnerParts: BufferGeometry[] = [
-      tubeSection(0.016, 0.055, [0.132, 0, 0], AXIS_X, 16),
+      tubeSection(0.022, 0.062, [0.136, 0, 0], AXIS_X, 16),
     ]
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2
-      const spline = bevelBox(0.050, 0.007, 0.007, 0.001)
-      spline.translate(0, 0.020, 0)
+      const spline = bevelBox(0.056, 0.011, 0.011, 0.002)
+      spline.translate(0, 0.028, 0)
       spline.rotateX(angle)
       spline.translate(0.136, 0, 0)
       spinnerParts.push(spline)
