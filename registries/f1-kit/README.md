@@ -1,62 +1,27 @@
 # F1 Kit
 
-Procedural Formula-1 pit-lane props for real-time Three.js scenes, built
-directly on `three/webgpu`. Install one prop or bring in the complete kit,
-then work directly in your own source tree.
+25 procedural Formula 1 pit-lane and trackside props for real-time Three.js
+(`three/webgpu`). Palette, materials, and hardware live in `f1-kit-core`.
+Colours are generic defaults — no team liveries, sponsor marks, or driver
+likenesses.
 
 ```sh
-bunx vibe3d add @f1-kit/f1-tyre
 bunx vibe3d add @f1-kit
+bunx vibe3d add @f1-kit/f1-tyre
 ```
 
-Every model includes an interactive preview, portable GLB export, and the
-source needed to make it fit your world.
+`tyre-stack` and `gun-rack` compose `f1-tyre` and `f1-tyre-gun`, so recoloring
+the base prop recolors every stack or rack built from it.
 
-## Pit lane, wave one
+## Pit lane (11)
 
-Twenty-four props covering a working pit box and the trackside around it: a loose tyre; the two
-hand tools a pit crew swings during a stop (a lever jack and an impact tyre
-gun); garage dressing (a tool cabinet, a fire extinguisher, an air-hose
-reel); and pit-lane signage and structures (a blanketed tyre stack, a
-tyre-gun rack, a stop/go lollipop board, a numbered pit board, and an
-overhead gantry). Two of them — the tyre stack and the gun rack — are built
-by composing the tyre and the tyre gun, so recoloring either base
-prop recolors every stack or rack built from it.
+`f1-tyre` · `f1-tyre-stack` · `f1-tyre-gun` · `f1-gun-rack` · `f1-pit-jack` ·
+`f1-tool-cabinet` · `f1-fire-extinguisher` · `f1-hose-reel` · `f1-pit-board` ·
+`f1-lollipop-board` · `f1-pit-gantry`
 
-They share one support item rather than each carrying a private copy of the
-palette, hardware, and geometry helpers:
+## Trackside (14)
 
-```sh
-bunx vibe3d add @f1-kit/f1-tool-cabinet
-```
-
-- `@f1-kit/f1-kit-core` — the wave's palette, shared material bundle, hardware
-  vocabulary (bolts, castors, straps, pads), swept-geometry helpers, and the
-  disposal contract every prop in the kit builds on.
-
-
-## Trackside, wave two
-
-Thirteen more props for the circuit itself: catch fence, Armco, a tyre barrier
-instanced from `f1-tyre`, a TecPro stack, FIA start lights, a kerb run, a
-floodlight, a timing pylon, a brake marker, a jumbotron, a marshal post, a
-start/finish gantry, one grandstand bay, and an oranje support can (wire-pull tube + wispy smoke plume).
-
-```sh
-bunx vibe3d add @f1-kit/f1-catch-fence
-```
-
-## No real-team branding
-
-Every color in this kit is a generic default exposed as a real material
-slot — no real F1 team liveries, sponsor branding, or driver likenesses are
-baked into any prop. Recolor freely via `setMaterial()` or by passing your
-own materials into `createModel()`.
-
-## What's next
-
-Preview sheets on vibe-stack/vibe3d#7 are SHA-pinned to `a4f9c75f64138c25913d1faf609f075d0740444d` (`docs/assets/f1-kit-previews/f1-kit.png`).
-
-The assembled car itself — chassis, wings, halo, cockpit, and a paintable
-livery system — is a separate, later addition to this kit, once every
-standalone pit-lane prop has landed.
+`f1-catch-fence` · `f1-armco` · `f1-tyre-barrier` · `f1-tecpro` ·
+`f1-start-lights` · `f1-kerb` · `f1-floodlight` · `f1-timing-pylon` ·
+`f1-brake-marker` · `f1-jumbotron` · `f1-marshal-post` · `f1-start-gantry` ·
+`f1-grandstand-bay` · `f1-oranje-can`
