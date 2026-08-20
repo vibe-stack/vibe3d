@@ -736,14 +736,14 @@ describe('FIA 1:1 datums', () => {
     sf.dispose()
   })
 
-  test('service truck stays inside the EU 96/53 2.55 × 4.0 × 12 box', () => {
+  test('service truck stays inside the EU 96/53 12 m box (Semi width 2.59 m)', () => {
     const model = createServiceTruck()
     model.root.updateMatrixWorld(true)
     const { box, size } = sizeOf(model.root)
     expect(size.x).toBeGreaterThan(11.5)
     expect(size.x).toBeLessThanOrEqual(12.05)
-    expect(size.z).toBeGreaterThan(2.5)
-    expect(size.z).toBeLessThan(3.5)
+    expect(size.z).toBeGreaterThan(2.55)
+    expect(size.z).toBeLessThan(3.6)
     expect(box.max.y).toBeGreaterThan(3.6)
     expect(box.max.y).toBeLessThanOrEqual(4.15)
     model.dispose()
