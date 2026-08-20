@@ -483,7 +483,39 @@ describe('procedural knobs', () => {
     consumer.dispose()
   })
 
-  test('circuit-sign kind and turn are knobs', () => {
+  test('access-gate and crash-cushion share WALL_FITS', () => {
+    const gate = createAccessGate({ fits: 'jersey', width: 2 })
+    expect(gate.getConfig().fits).toBe('jersey')
+    const cushion = createCrashCushion({ fits: 'concrete' })
+    expect(cushion.getConfig().fits).toBe('concrete')
+    cushion.configure({ fits: 'armco' })
+    expect(cushion.getConfig().fits).toBe('armco')
+    gate.dispose()
+    cushion.dispose()
+  })
+
+  test('concrete-wall sockets and sausage modules are knobs', () => {
+    const wall = createConcreteWall({ bays: 2, sockets: true })
+    expect(wall.getConfig().sockets).toBe(true)
+    wall.configure({ sockets: false, height: 1.4 })
+    expect(wall.getConfig()).toMatchObject({ sockets: false, height: 1.4, bays: 2 })
+    wall.dispose()
+    const sausage = createSausageKerb({ modules: 4 })
+    expect(sausage.getConfig().modules).toBe(4)
+    sausage.configure({ modules: 8 })
+    expect(sausage.getConfig().modules).toBe(8)
+    sausage.dispose()
+  })
+
+  test('camera-tower height stays in the 6-12 m deck range', () => {
+    const model = createCameraTower({ height: 3 })
+    expect(model.getConfig().height).toBe(6)
+    model.configure({ height: 20 })
+    expect(model.getConfig().height).toBe(12)
+    model.dispose()
+  })
+
+    test('circuit-sign kind and turn are knobs', () => {
     const model = createCircuitSign({ kind: 'DRS' })
     expect(model.getConfig().kind).toBe('DRS')
     model.configure({ kind: 'T-n', turn: 12 })

@@ -43,7 +43,7 @@ const defaults: F1CameraTowerConfig = { height: 8 }
 
 export function createModel(options: F1CameraTowerOptions = {}): F1CameraTowerInstance {
   const config: F1CameraTowerConfig = {
-    height: Math.max(4, options.height ?? defaults.height),
+    height: Math.min(12, Math.max(6, options.height ?? defaults.height)),
   }
 
   const bundle = acquireF1Materials()
@@ -132,7 +132,7 @@ export function createModel(options: F1CameraTowerOptions = {}): F1CameraTowerIn
     materials: materialSlots,
     getConfig: () => ({ ...config }),
     configure(patch) {
-      if (patch.height !== undefined) config.height = Math.max(4, patch.height)
+      if (patch.height !== undefined) config.height = Math.min(12, Math.max(6, patch.height))
       rebuild()
     },
     setMaterial(slot, material) {

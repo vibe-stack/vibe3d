@@ -48,8 +48,6 @@ function categoryFromId(id: string): string {
     || id.includes('foam-monitor')
     || id.includes('cctv')
     || id.includes('pa-horn')
-    || id.includes('garage-box')
-    || id.includes('pit-wall')
     || id.includes('race-control')
     || id.includes('spectator-bridge')
     || id.includes('podium')
