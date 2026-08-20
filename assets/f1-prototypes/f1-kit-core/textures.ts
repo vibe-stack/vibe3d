@@ -84,6 +84,120 @@ export function roofSheetTexture(size = 128): DataTexture {
   return tex
 }
 
+
+export const FASCIA_STYLES = ['stamp', 'fia', 'blank'] as const
+export type FasciaStyle = (typeof FASCIA_STYLES)[number]
+
+export function isFasciaStyle(value: string): value is FasciaStyle {
+  return (FASCIA_STYLES as readonly string[]).includes(value)
+}
+
+export interface FasciaTextureOptions {
+  /** Bay number or short code stamped large (digits / A–Z only). */
+  readonly number?: string
+  /** Secondary legend under the number (`PIT`, `BOX`, …). */
+  readonly legend?: string
+  /** Built-in plate. `blank` is an empty framed field for a host image. */
+  readonly style?: FasciaStyle
+  readonly width?: number
+  readonly height?: number
+  readonly paper?: readonly [number, number, number]
+  readonly ink?: readonly [number, number, number]
+  readonly accent?: readonly [number, number, number]
+}
+
+/**
+ * Garage / pit-wall fascia. Hosts pass `number` + `legend` + `style`, or
+ * replace the material entirely with `setMaterial('fascia', …)` to hang an image.
+ */
+export function fasciaTexture(options: FasciaTextureOptions = {}): DataTexture {
+  const w = options.width ?? 256
+  const h = options.height ?? 128
+  const style: FasciaStyle = options.style && isFasciaStyle(options.style) ? options.style : 'stamp'
+  const paper = options.paper ?? [236, 242, 245]
+  const ink = options.ink ?? [18, 28, 36]
+  const accent = options.accent ?? [62, 108, 255]
+  const data = new Uint8Array(w * h * 4)
+  fillGlyphRect(data, w, 0, 0, w, h, paper)
+  if (style === 'blank') {
+    fillGlyphRect(data, w, 0, 0, w, 6, ink)
+    fillGlyphRect(data, w, 0, h - 6, w, 6, ink)
+    fillGlyphRect(data, w, 0, 0, 6, h, ink)
+    fillGlyphRect(data, w, w - 6, 0, 6, h, ink)
+  } else if (style === 'fia') {
+    const navy: [number, number, number] = [16, 32, 74]
+    fillGlyphRect(data, w, 0, 0, w, 28, navy)
+    fillGlyphRect(data, w, 0, 28, w, 4, [196, 32, 38])
+    const fia = 'FIA'
+    const fiaCell = 4
+    const fiaW = fia.length * glyphAdvance(fiaCell) - Math.max(4, Math.round(fiaCell * 0.4))
+    writeGlyphWord(data, w, Math.max(10, Math.round((w - fiaW) / 2)), 4, fia, [242, 248, 250], fiaCell)
+    const number = (options.number ?? '').replace(/[^0-9A-Za-z]/g, '').slice(0, 3).toUpperCase()
+    if (number) {
+      const cell = number.length <= 1 ? 16 : number.length === 2 ? 12 : 8
+      const wordW = number.length * glyphAdvance(cell) - Math.max(4, Math.round(cell * 0.4))
+      writeGlyphWord(data, w, Math.max(12, Math.round((w - wordW) / 2)), 40, number, navy, cell)
+    }
+  } else {
+    fillGlyphRect(data, w, 0, h - 14, w, 14, accent)
+    const number = (options.number ?? '1').replace(/[^0-9A-Za-z]/g, '').slice(0, 3).toUpperCase() || '1'
+    const legend = (options.legend ?? '').replace(/[^0-9A-Za-z ]/g, '').slice(0, 8).toUpperCase()
+    const cell = number.length <= 1 ? 16 : number.length === 2 ? 12 : 8
+    const wordW = number.length * glyphAdvance(cell) - Math.max(4, Math.round(cell * 0.4))
+    writeGlyphWord(data, w, Math.max(12, Math.round((w - wordW) / 2)), 18, number, ink, cell)
+    if (legend) {
+      const legendCell = 4
+      const legendW = legend.length * glyphAdvance(legendCell) - Math.max(4, Math.round(legendCell * 0.4))
+      writeGlyphWord(
+        data, w,
+        Math.max(12, Math.round((w - legendW) / 2)),
+        18 + 5 * cell + 8,
+        legend, ink, legendCell,
+      )
+    }
+  }
+  const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
+  tex.colorSpace = SRGBColorSpace
+  tex.magFilter = LinearFilter
+  tex.minFilter = LinearFilter
+  tex.flipY = true
+  tex.needsUpdate = true
+  return tex
+}
+
+export interface CircuitSignTextureOptions {
+  readonly kind: string
+  readonly width?: number
+  readonly height?: number
+}
+
+/** FIA yellow plate, black 3×5 glyphs. Used by `f1-circuit-sign`. */
+export function circuitSignTexture(options: CircuitSignTextureOptions): DataTexture {
+  const w = options.width ?? 192
+  const h = options.height ?? 128
+  const field = [243, 179, 61] as const
+  const ink = [18, 28, 36] as const
+  const data = new Uint8Array(w * h * 4)
+  fillGlyphRect(data, w, 0, 0, w, h, ink)
+  fillGlyphRect(data, w, 6, 6, w - 12, h - 12, field)
+  const words = options.kind.toUpperCase().split(/\s+/).slice(0, 2)
+  const cell = words.some((word) => word.length > 4) ? 6 : 8
+  const lineH = 5 * cell + 6
+  const top = Math.round((h - words.length * lineH) / 2)
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i]!
+    const wordW = word.length * glyphAdvance(cell) - Math.max(4, Math.round(cell * 0.4))
+    writeGlyphWord(data, w, Math.max(10, Math.round((w - wordW) / 2)), top + i * lineH, word, ink, cell)
+  }
+  const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
+  tex.colorSpace = SRGBColorSpace
+  tex.magFilter = LinearFilter
+  tex.minFilter = LinearFilter
+  tex.flipY = true
+  tex.needsUpdate = true
+  return tex
+}
+
 /** Track-post number plate — white field, graphite digits from the shared 3×5 atlas. */
 export function marshalPlateTexture(text = '12'): DataTexture {
   const w = 96

@@ -39,10 +39,14 @@ export {
   paintedShellTexture,
   roofSheetTexture,
   marshalPlateTexture,
+  fasciaTexture,
+  circuitSignTexture,
+  FASCIA_STYLES,
+  isFasciaStyle,
   stampLedModuleGrid,
   oranjeSmokeTexture,
 } from './textures.ts'
-export type { LampLensTextureOptions } from './textures.ts'
+export type { CircuitSignTextureOptions, FasciaStyle, FasciaTextureOptions, LampLensTextureOptions } from './textures.ts'
 export {
   GLYPH_3X5,
   GLYPH_COLS,
@@ -55,3 +59,12 @@ export {
 } from './glyphs.ts'
 export { DEFAULT_PITCH, DEFAULT_YAW, createF1Preview } from './preview.ts'
 export type { F1Preview, F1PreviewModel, F1PreviewOptions } from './preview.ts'
+export {
+  CIRCUIT_SIGN_KINDS,
+  GARAGE_BAY_PITCH,
+  WALL_END,
+  WALL_FITS,
+  isCircuitSignKind,
+  isWallFit,
+} from './track.ts'
+export type { CircuitSignKind, WallEnd, WallFit } from './track.ts'

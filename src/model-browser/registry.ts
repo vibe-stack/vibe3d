@@ -1916,6 +1916,426 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
       return adaptStaticPreview(createPreview({ aspect }), 0.55)
     },
   },
+  {
+    id: 'f1-concrete-wall',
+    label: 'F1 Concrete Wall',
+    category: 'Vehicles / Motorsport',
+    description: 'Vertical FIA concrete wall with optional fence sockets.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-concrete-wall.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-concrete-wall/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.2)
+    },
+  },
+  {
+    id: 'f1-sausage-kerb',
+    label: 'F1 Sausage Kerb',
+    category: 'Vehicles / Motorsport',
+    description: 'Yellow triangular sausage kerb for chicanes.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-sausage-kerb.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-sausage-kerb/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.2)
+    },
+  },
+  {
+    id: 'f1-astroturf-strip',
+    label: 'F1 Astroturf Strip',
+    category: 'Vehicles / Motorsport',
+    description: 'Green deterrent matting past the rumble.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-astroturf-strip.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-astroturf-strip/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.15)
+    },
+  },
+  {
+    id: 'f1-jersey-barrier',
+    label: 'F1 Jersey Barrier',
+    category: 'Vehicles / Motorsport',
+    description: 'Interlocking New-Jersey profile modules.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-jersey-barrier.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-jersey-barrier/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.5)
+    },
+  },
+  {
+    id: 'f1-access-gate',
+    label: 'F1 Access Gate',
+    category: 'Vehicles / Motorsport',
+    description: 'Marshal gap that mates armco, concrete, or jersey.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-access-gate.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-access-gate/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.7)
+    },
+  },
+  {
+    id: 'f1-crash-cushion',
+    label: 'F1 Crash Cushion',
+    category: 'Vehicles / Motorsport',
+    description: 'Yellow stepped end-terminal for a wall run.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-crash-cushion.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-crash-cushion/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.5)
+    },
+  },
+  {
+    id: 'f1-gravel-trap',
+    label: 'F1 Gravel Trap',
+    category: 'Vehicles / Motorsport',
+    description: 'Placeable raked-gravel tile.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-gravel-trap.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-gravel-trap/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.2)
+    },
+  },
+  {
+    id: 'f1-crowd-fence',
+    label: 'F1 Crowd Fence',
+    category: 'Vehicles / Motorsport',
+    description: '1.1 m pedestrian barrier.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-crowd-fence.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-crowd-fence/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.55)
+    },
+  },
+  {
+    id: 'f1-marker-post',
+    label: 'F1 Marker Post',
+    category: 'Vehicles / Motorsport',
+    description: 'Red/white striped runoff stake.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-marker-post.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-marker-post/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.6)
+    },
+  },
+  {
+    id: 'f1-slot-drain',
+    label: 'F1 Slot Drain',
+    category: 'Vehicles / Motorsport',
+    description: 'Kerb-edge slot drain with grated lid.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-slot-drain.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-slot-drain/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.1)
+    },
+  },
+  {
+    id: 'f1-stairs',
+    label: 'F1 Stairs',
+    category: 'Vehicles / Motorsport',
+    description: 'Steel flight and landing for grandstand or pit wall.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-stairs.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-stairs/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.8)
+    },
+  },
+  {
+    id: 'f1-circuit-sign',
+    label: 'F1 Circuit Sign',
+    category: 'Vehicles / Motorsport',
+    description: 'FIA plate: DRS, pit entry/exit, 80, turn, SC, VSC.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-circuit-sign.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-circuit-sign/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.4)
+    },
+  },
+  {
+    id: 'f1-grid-box',
+    label: 'F1 Grid Box',
+    category: 'Vehicles / Motorsport',
+    description: 'One painted FIA grid stall.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-grid-box.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-grid-box/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.2)
+    },
+  },
+  {
+    id: 'f1-start-finish-line',
+    label: 'F1 Start Finish Line',
+    category: 'Vehicles / Motorsport',
+    description: 'Painted S/F or SC line.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-start-finish-line.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-start-finish-line/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.15)
+    },
+  },
+  {
+    id: 'f1-fia-light-panel',
+    label: 'F1 FIA Light Panel',
+    category: 'Vehicles / Motorsport',
+    description: 'LED marshalling box on a post.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-fia-light-panel.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-fia-light-panel/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1)
+    },
+  },
+  {
+    id: 'f1-chevron-board',
+    label: 'F1 Chevron Board',
+    category: 'Vehicles / Motorsport',
+    description: 'Red/yellow direction chevrons.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-chevron-board.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-chevron-board/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.8)
+    },
+  },
+  {
+    id: 'f1-camera-tower',
+    label: 'F1 Camera Tower',
+    category: 'Vehicles / Motorsport',
+    description: 'Lattice tower with an unbranded camera deck.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-camera-tower.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-camera-tower/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.4)
+    },
+  },
+  {
+    id: 'f1-foam-monitor',
+    label: 'F1 Foam Monitor',
+    category: 'Vehicles / Motorsport',
+    description: 'Trackside foam cannon.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-foam-monitor.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-foam-monitor/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.7)
+    },
+  },
+  {
+    id: 'f1-cctv-mast',
+    label: 'F1 CCTV Mast',
+    category: 'Vehicles / Motorsport',
+    description: 'Pole with camera heads.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-cctv-mast.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-cctv-mast/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.8)
+    },
+  },
+  {
+    id: 'f1-pa-horn',
+    label: 'F1 PA Horn',
+    category: 'Vehicles / Motorsport',
+    description: 'Speaker cluster on a stub mast.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-pa-horn.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-pa-horn/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1)
+    },
+  },
+  {
+    id: 'f1-garage-box',
+    label: 'F1 Garage Box',
+    category: 'Vehicles / Motorsport',
+    description: 'One pit garage; fascia takes number, legend, or a custom image material.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-garage-box.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-garage-box/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.2)
+    },
+  },
+  {
+    id: 'f1-pit-wall',
+    label: 'F1 Pit Wall',
+    category: 'Vehicles / Motorsport',
+    description: 'Pit-wall shelf and monitors, same 7 m bay as the garage.',
+    tags: ['prop', 'vehicles', 'motorsport', 'pit-lane'],
+    exportName: 'f1-pit-wall.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-pit-wall/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.2)
+    },
+  },
+  {
+    id: 'f1-race-control',
+    label: 'F1 Race Control',
+    category: 'Vehicles / Motorsport',
+    description: 'Glass race-control tower.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-race-control.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-race-control/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 4.2)
+    },
+  },
+  {
+    id: 'f1-spectator-bridge',
+    label: 'F1 Spectator Bridge',
+    category: 'Vehicles / Motorsport',
+    description: 'Truss pedestrian bridge over the track.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-spectator-bridge.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-spectator-bridge/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 3.2)
+    },
+  },
+  {
+    id: 'f1-podium',
+    label: 'F1 Podium',
+    category: 'Vehicles / Motorsport',
+    description: 'Three-step podium with an empty backdrop.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-podium.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-podium/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.4)
+    },
+  },
+  {
+    id: 'f1-cone',
+    label: 'F1 Cone',
+    category: 'Vehicles / Motorsport',
+    description: 'Track/pit traffic cone.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-cone.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-cone/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.3)
+    },
+  },
+  {
+    id: 'f1-bollard',
+    label: 'F1 Bollard',
+    category: 'Vehicles / Motorsport',
+    description: 'Short steel bollard.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-bollard.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-bollard/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.5)
+    },
+  },
+  {
+    id: 'f1-weighbridge',
+    label: 'F1 Weighbridge',
+    category: 'Vehicles / Motorsport',
+    description: 'Scrutineering platform with a stamped display.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-weighbridge.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-weighbridge/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.6)
+    },
+  },
+  {
+    id: 'f1-parc-ferme',
+    label: 'F1 Parc Ferme',
+    category: 'Vehicles / Motorsport',
+    description: 'Low enclosure for parc fermé.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-parc-ferme.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-parc-ferme/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.6)
+    },
+  },
+  {
+    id: 'f1-medical-post',
+    label: 'F1 Medical Post',
+    category: 'Vehicles / Motorsport',
+    description: 'Small medical hut.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-medical-post.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-medical-post/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.2)
+    },
+  },
+  {
+    id: 'f1-generator-cabin',
+    label: 'F1 Generator Cabin',
+    category: 'Vehicles / Motorsport',
+    description: 'Acoustic generator enclosure.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-generator-cabin.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-generator-cabin/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.8)
+    },
+  },
+  {
+    id: 'f1-flag-pole',
+    label: 'F1 Flag Pole',
+    category: 'Vehicles / Motorsport',
+    description: 'Pole with a blank flag.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-flag-pole.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-flag-pole/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.8)
+    },
+  },
+  {
+    id: 'f1-camera-platform',
+    label: 'F1 Camera Platform',
+    category: 'Vehicles / Motorsport',
+    description: 'Low scaffold camera deck.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-camera-platform.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-camera-platform/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.4)
+    },
+  },
+  {
+    id: 'f1-tunnel-portal',
+    label: 'F1 Tunnel Portal',
+    category: 'Vehicles / Motorsport',
+    description: 'Concrete tunnel opening.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-tunnel-portal.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-tunnel-portal/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.4)
+    },
+  },
+  {
+    id: 'f1-sector-gantry',
+    label: 'F1 Sector Gantry',
+    category: 'Vehicles / Motorsport',
+    description: 'Overhead sector truss with a stamped fascia.',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
+    exportName: 'f1-sector-gantry.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-sector-gantry/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.8)
+    },
+  },
 ]
 
 function createGaugePreview(

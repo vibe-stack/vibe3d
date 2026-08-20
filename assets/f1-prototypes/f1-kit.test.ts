@@ -32,6 +32,41 @@ import { createModel as createMarshalPost } from './f1-marshal-post/model.ts'
 import { createModel as createStartGantry } from './f1-start-gantry/model.ts'
 import { createModel as createGrandstandBay } from './f1-grandstand-bay/model.ts'
 import { createModel as createOranjeCan } from './f1-oranje-can/model.ts'
+import { createModel as createConcreteWall } from './f1-concrete-wall/model.ts'
+import { createModel as createSausageKerb } from './f1-sausage-kerb/model.ts'
+import { createModel as createAstroturf } from './f1-astroturf-strip/model.ts'
+import { createModel as createJersey } from './f1-jersey-barrier/model.ts'
+import { createModel as createAccessGate } from './f1-access-gate/model.ts'
+import { createModel as createCrashCushion } from './f1-crash-cushion/model.ts'
+import { createModel as createGravelTrap } from './f1-gravel-trap/model.ts'
+import { createModel as createCrowdFence } from './f1-crowd-fence/model.ts'
+import { createModel as createMarkerPost } from './f1-marker-post/model.ts'
+import { createModel as createSlotDrain } from './f1-slot-drain/model.ts'
+import { createModel as createStairs } from './f1-stairs/model.ts'
+import { createModel as createCircuitSign } from './f1-circuit-sign/model.ts'
+import { createModel as createGridBox } from './f1-grid-box/model.ts'
+import { createModel as createStartFinishLine } from './f1-start-finish-line/model.ts'
+import { createModel as createFiaLightPanel } from './f1-fia-light-panel/model.ts'
+import { createModel as createChevronBoard } from './f1-chevron-board/model.ts'
+import { createModel as createCameraTower } from './f1-camera-tower/model.ts'
+import { createModel as createFoamMonitor } from './f1-foam-monitor/model.ts'
+import { createModel as createCctvMast } from './f1-cctv-mast/model.ts'
+import { createModel as createPaHorn } from './f1-pa-horn/model.ts'
+import { createModel as createGarageBox } from './f1-garage-box/model.ts'
+import { createModel as createPitWall } from './f1-pit-wall/model.ts'
+import { createModel as createRaceControl } from './f1-race-control/model.ts'
+import { createModel as createSpectatorBridge } from './f1-spectator-bridge/model.ts'
+import { createModel as createPodium } from './f1-podium/model.ts'
+import { createModel as createCone } from './f1-cone/model.ts'
+import { createModel as createBollard } from './f1-bollard/model.ts'
+import { createModel as createWeighbridge } from './f1-weighbridge/model.ts'
+import { createModel as createParcFerme } from './f1-parc-ferme/model.ts'
+import { createModel as createMedicalPost } from './f1-medical-post/model.ts'
+import { createModel as createGeneratorCabin } from './f1-generator-cabin/model.ts'
+import { createModel as createFlagPole } from './f1-flag-pole/model.ts'
+import { createModel as createCameraPlatform } from './f1-camera-platform/model.ts'
+import { createModel as createTunnelPortal } from './f1-tunnel-portal/model.ts'
+import { createModel as createSectorGantry } from './f1-sector-gantry/model.ts'
 
 // --- dispose instrumentation -------------------------------------------------------------------------
 
@@ -105,6 +140,41 @@ const factories = {
   'f1-start-gantry': () => createStartGantry({ span: 8, height: 5 }),
   'f1-grandstand-bay': () => createGrandstandBay({ rows: 4, width: 5 }),
   'f1-oranje-can': () => createOranjeCan({ lit: true }),
+  'f1-concrete-wall': () => createConcreteWall(),
+  'f1-sausage-kerb': () => createSausageKerb(),
+  'f1-astroturf-strip': () => createAstroturf(),
+  'f1-jersey-barrier': () => createJersey(),
+  'f1-access-gate': () => createAccessGate(),
+  'f1-crash-cushion': () => createCrashCushion(),
+  'f1-gravel-trap': () => createGravelTrap(),
+  'f1-crowd-fence': () => createCrowdFence(),
+  'f1-marker-post': () => createMarkerPost(),
+  'f1-slot-drain': () => createSlotDrain(),
+  'f1-stairs': () => createStairs(),
+  'f1-circuit-sign': () => createCircuitSign(),
+  'f1-grid-box': () => createGridBox(),
+  'f1-start-finish-line': () => createStartFinishLine(),
+  'f1-fia-light-panel': () => createFiaLightPanel(),
+  'f1-chevron-board': () => createChevronBoard(),
+  'f1-camera-tower': () => createCameraTower(),
+  'f1-foam-monitor': () => createFoamMonitor(),
+  'f1-cctv-mast': () => createCctvMast(),
+  'f1-pa-horn': () => createPaHorn(),
+  'f1-garage-box': () => createGarageBox(),
+  'f1-pit-wall': () => createPitWall(),
+  'f1-race-control': () => createRaceControl(),
+  'f1-spectator-bridge': () => createSpectatorBridge(),
+  'f1-podium': () => createPodium(),
+  'f1-cone': () => createCone(),
+  'f1-bollard': () => createBollard(),
+  'f1-weighbridge': () => createWeighbridge(),
+  'f1-parc-ferme': () => createParcFerme(),
+  'f1-medical-post': () => createMedicalPost(),
+  'f1-generator-cabin': () => createGeneratorCabin(),
+  'f1-flag-pole': () => createFlagPole(),
+  'f1-camera-platform': () => createCameraPlatform(),
+  'f1-tunnel-portal': () => createTunnelPortal(),
+  'f1-sector-gantry': () => createSectorGantry(),
 } as const
 
 describe.each(Object.keys(factories) as Array<keyof typeof factories>)('%s ownership', (id) => {
@@ -387,6 +457,47 @@ describe('procedural knobs', () => {
     const next = new Box3().setFromObject(model.root).getSize(new Vector3())
     expect(next.x).toBeCloseTo(4.8, 1)
     model.dispose()
+  })
+
+
+  test('garage fascia number and legend round-trip', () => {
+    const model = createGarageBox({ count: 2, number: '4', legend: 'BOX' })
+    expect(model.getConfig()).toEqual({ count: 2, number: '4', legend: 'BOX', style: 'stamp' })
+    expect(model.parts.fascia.children.length).toBe(2)
+    model.configure({ count: 1, number: '9', legend: 'PIT', style: 'fia' })
+    expect(model.getConfig()).toEqual({ count: 1, number: '9', legend: 'PIT', style: 'fia' })
+    expect(model.parts.fascia.children.length).toBe(1)
+    model.dispose()
+  })
+
+  test('garage fascia consumer image survives configure', () => {
+    const model = createGarageBox({ count: 1, style: 'blank' })
+    const consumer = new MeshStandardMaterial({ name: 'host fascia' })
+    model.setMaterial('fascia', consumer)
+    model.configure({ count: 2, number: '8' })
+    expect(model.parts.fascia.children.length).toBe(2)
+    for (const child of model.parts.fascia.children) {
+      expect((child as Mesh).material).toBe(consumer)
+    }
+    model.dispose()
+    consumer.dispose()
+  })
+
+  test('circuit-sign kind and turn are knobs', () => {
+    const model = createCircuitSign({ kind: 'DRS' })
+    expect(model.getConfig().kind).toBe('DRS')
+    model.configure({ kind: 'T-n', turn: 12 })
+    expect(model.getConfig()).toEqual({ kind: 'T-n', turn: 12 })
+    model.dispose()
+  })
+
+  test('WALL_FITS and CIRCUIT_SIGN_KINDS stay shared', async () => {
+    const { WALL_FITS, CIRCUIT_SIGN_KINDS, GARAGE_BAY_PITCH } = await import('./f1-kit-core/track.ts')
+    const { FASCIA_STYLES } = await import('./f1-kit-core/textures.ts')
+    expect(WALL_FITS).toEqual(['armco', 'concrete', 'jersey'])
+    expect(CIRCUIT_SIGN_KINDS).toContain('DRS')
+    expect(GARAGE_BAY_PITCH).toBe(7)
+    expect(FASCIA_STYLES).toEqual(['stamp', 'fia', 'blank'])
   })
 
   test('floodlight cans pitch the lens face down onto the track', () => {
