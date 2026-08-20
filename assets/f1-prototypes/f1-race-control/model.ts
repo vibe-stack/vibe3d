@@ -106,6 +106,18 @@ export function createModel(options: F1RaceControlOptions = {}): F1RaceControlIn
     const glass = bevelBox(w - 0.32, h - 1.2, 0.012, 0.002)
     glass.translate(0, h / 2, d / 2 - 0.08)
     emit('tower', glass, tower, 'glazing', glassMat)
+    const cols = 4
+    const rows = 7
+    const mullions: BufferGeometry[] = []
+    for (let c = 0; c <= cols; c++) {
+      const x = -w / 2 + 0.16 + (c / cols) * (w - 0.32)
+      mullions.push(bevelBox(0.045, h - 1.25, 0.04, 0.004).translate(x, h / 2, d / 2 - 0.07))
+    }
+    for (let r = 0; r <= rows; r++) {
+      const y = 0.65 + (r / rows) * (h - 1.3)
+      mullions.push(bevelBox(w - 0.3, 0.04, 0.04, 0.004).translate(0, y, d / 2 - 0.07))
+    }
+    emit('tower', mergeParts(mullions, 'mullions'), tower, 'mullions', kit.slate)
     const base = bevelBox(w + 0.6, 0.18, d + 0.8, 0.012)
     base.translate(0, 0.09, 0)
     emit('tower', base, tower, 'podium', kit.graphite)
@@ -155,10 +167,10 @@ export function createModel(options: F1RaceControlOptions = {}): F1RaceControlIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ height: 14 }), {
     aspect,
-    target: [0, 7, 0],
-    distance: 22,
-    fov: 34,
-    yaw: 0.35,
-    pitch: 0.06,
+    target: [0, 7.2, 0],
+    distance: 28,
+    fov: 32,
+    yaw: 0.52,
+    pitch: 0.1,
   })
 }

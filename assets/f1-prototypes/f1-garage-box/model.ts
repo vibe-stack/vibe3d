@@ -138,9 +138,17 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
       roof.translate(x, H + 0.04, -0.05)
       emit('shell', mergeParts([left, right, back, roof], `box-${i}`), shell, `box-${i}`)
 
-      const door = bevelBox(W - WALL * 2 - 0.1, H - FASCIA_H - 0.15, 0.06, 0.008)
-      door.translate(x, (H - FASCIA_H - 0.15) / 2 + 0.08, D / 2 - 0.04)
-      emit('shutter', door, shutter, `shutter-${i}`)
+      const doorH = H - FASCIA_H - 0.15
+      const doorW = W - WALL * 2 - 0.1
+      const slatCount = 12
+      const slatH = doorH / slatCount
+      const slats: BufferGeometry[] = []
+      for (let s = 0; s < slatCount; s++) {
+        const slat = bevelBox(doorW, slatH - 0.01, 0.05, 0.004)
+        slat.translate(x, 0.08 + (s + 0.5) * slatH, D / 2 - 0.04)
+        slats.push(slat)
+      }
+      emit('shutter', mergeParts(slats, `shutter-${i}`), shutter, `shutter-${i}`)
 
       const frame = bevelBox(W - WALL * 2 - 0.08, FASCIA_H - 0.04, 0.05, 0.006)
       frame.translate(x, H - FASCIA_H / 2, D / 2 - 0.02)
@@ -202,10 +210,10 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ count: 3, number: '1', legend: 'PIT', style: 'stamp' }), {
     aspect,
-    target: [0, 2.1, 2.5],
-    distance: 18,
+    target: [0, 2.0, 0],
+    distance: 38,
     fov: 32,
-    yaw: -0.55,
-    pitch: 0.18,
+    yaw: -0.62,
+    pitch: 0.14,
   })
 }

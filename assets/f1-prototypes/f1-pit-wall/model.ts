@@ -186,8 +186,8 @@ export function createModel(options: F1PitWallOptions = {}): F1PitWallInstance {
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ bays: 3 }), {
     aspect,
-    target: [0, 1.2, 0.3],
-    distance: 14,
+    target: [0, 1.2, 0.2],
+    distance: 32,
     fov: 32,
     yaw: -0.45,
     pitch: 0.12,

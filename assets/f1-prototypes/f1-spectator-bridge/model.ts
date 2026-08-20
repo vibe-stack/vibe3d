@@ -161,7 +161,7 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ span: 10 }), {
     aspect,
     target: [0, 1.6, 0],
-    distance: 16,
+    distance: 22,
     fov: 34,
     yaw: 0.25,
     pitch: 0.1,
