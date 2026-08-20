@@ -9,17 +9,12 @@ import {
   CylinderGeometry,
   DataTexture,
   DirectionalLight,
-  EquirectangularReflectionMapping,
   FrontSide,
   Group,
-  LinearFilter,
   Mesh,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
-  RGBAFormat,
-  SRGBColorSpace,
-  UnsignedByteType,
   Vector3,
   type Material,
 } from 'three/webgpu'
@@ -129,36 +124,6 @@ function aeroRing(
   corner(-(bz - br), yBot + br, Math.PI, br)
   pts.reverse()
   return pts
-}
-
-/** Studio lat-long: bright sky + a tight sun so cab faces pick up a traveling spec. */
-function studioEnvMap(): DataTexture {
-  const w = 128
-  const h = 64
-  const data = new Uint8Array(w * h * 4)
-  for (let y = 0; y < h; y++) {
-    const v = y / (h - 1)
-    for (let x = 0; x < w; x++) {
-      const u = x / (w - 1)
-      const sky = Math.max(0, 1 - v * 1.05)
-      const sun = Math.max(0, 1 - Math.hypot((u - 0.20) * 6.2, (v - 0.14) * 7.4))
-      const r = Math.min(255, 18 + sky * 168 + sun ** 2 * 255)
-      const g = Math.min(255, 22 + sky * 178 + sun ** 2 * 236)
-      const b = Math.min(255, 32 + sky * 198 + sun ** 2 * 210)
-      const i = (y * w + x) * 4
-      data[i] = r
-      data[i + 1] = g
-      data[i + 2] = b
-      data[i + 3] = 255
-    }
-  }
-  const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
-  tex.mapping = EquirectangularReflectionMapping
-  tex.magFilter = LinearFilter
-  tex.minFilter = LinearFilter
-  tex.colorSpace = SRGBColorSpace
-  tex.needsUpdate = true
-  return tex
 }
 
 function clampConfig(config: F1ServiceTruckConfig): void {
@@ -518,23 +483,26 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     fov: 28,
     yaw: -0.95,
     pitch: 0.08,
-    bloom: false,
   })
-  const env = studioEnvMap()
-  preview.scene.environment = env
-  preview.scene.environmentIntensity = 1.85
   const sun = new DirectionalLight(0xfff4e6, 3.6)
-  sun.name = 'f1-kit / preview sun'
+  sun.name = 'f1-kit / fake sun'
   sun.userData.excludeFromExport = true
   sun.position.set(-10, 16, 8)
+  sun.visible = false
   preview.scene.add(sun)
+  let sunOn = false
   const inner = preview.dispose
   return {
     ...preview,
+    isFakeSunOn: () => sunOn,
+    toggleFakeSun() {
+      sunOn = !sunOn
+      sun.visible = sunOn
+      return sunOn
+    },
     dispose() {
       preview.scene.remove(sun)
       sun.dispose()
-      env.dispose()
       inner()
     },
   }

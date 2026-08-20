@@ -174,6 +174,7 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
 
   const runPrimaryAction = () => {
     const next = viewer?.action?.run()
+    updateActionUi()
     if (!next) return
     focusYGoal = next.focusY
     fovGoal = next.fov

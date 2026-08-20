@@ -88,7 +88,7 @@ import { createModel as createBarrierSleeve } from './f1-barrier-sleeve/model.ts
 import { createModel as createGazebo } from './f1-gazebo/model.ts'
 import { createModel as createDrinkWall } from './f1-drink-wall/model.ts'
 import { createModel as createFeatherFlag } from './f1-feather-flag/model.ts'
-import { createModel as createServiceTruck } from './f1-service-truck/model.ts'
+import { createModel as createServiceTruck, createPreview as createServiceTruckPreview } from './f1-service-truck/model.ts'
 import { createModel as createStillage } from './f1-stillage/model.ts'
 import { createModel as createHandTrolley } from './f1-hand-trolley/model.ts'
 import { createModel as createCableRamp } from './f1-cable-ramp/model.ts'
@@ -769,6 +769,19 @@ describe('FIA 1:1 datums', () => {
     model.configure({ lamps: true })
     expect(model.getConfig().lamps).toBe(true)
     model.dispose()
+  })
+
+  test('service truck preview keeps the kit env and leaves fake sun off', () => {
+    const preview = createServiceTruckPreview({ aspect: 1 })
+    expect(preview.scene.environment).toBeNull()
+    expect(preview.isFakeSunOn()).toBe(false)
+    const sun = preview.scene.getObjectByName('f1-kit / fake sun')
+    expect(sun?.visible).toBe(false)
+    expect(preview.toggleFakeSun()).toBe(true)
+    expect(preview.isFakeSunOn()).toBe(true)
+    expect(sun?.visible).toBe(true)
+    expect(preview.scene.environment).toBeNull()
+    preview.dispose()
   })
 
   test('trophy cup is 0.55 m tall', () => {
