@@ -1,4 +1,4 @@
-import type { Camera, Scene, WebGPURenderer } from 'three/webgpu'
+import { PMREMGenerator, type Camera, type Scene, type Texture, type WebGPURenderer } from 'three/webgpu'
 import type { RenderPipeline } from 'three/webgpu'
 import { createEmissiveBloomPipeline } from './emissive-bloom-pipeline.ts'
 import type { RgbaImage } from '../image.ts'
@@ -151,25 +151,37 @@ export class DawnCaptureSession {
   async capture(scene: Scene, camera: Camera, options: { bloom?: boolean } = {}): Promise<CaptureResult> {
     if (this.#closed) throw new Error('Dawn capture session is closed')
     this.#renderer.info.reset()
-    let pipeline: RenderPipeline | undefined
-    if (options.bloom) {
-      pipeline = createEmissiveBloomPipeline(this.#renderer, scene, camera)
-      pipeline.render()
-    } else {
-      this.#renderer.render(scene, camera)
+    const previousEnv = scene.environment
+    let pmrem: PMREMGenerator | undefined
+    if (previousEnv && previousEnv.isTexture) {
+      pmrem = new PMREMGenerator(this.#renderer)
+      const envRt = pmrem.fromEquirectangular(previousEnv as Texture)
+      scene.environment = envRt.texture
     }
-    const readback = await this.#renderer.readRenderTargetPixelsAsync(
-      this.#target,
-      0,
-      0,
-      this.width,
-      this.height,
-    )
-    pipeline?.dispose()
-    return {
-      image: { width: this.width, height: this.height, data: packRows(readback, this.width, this.height) },
-      drawCalls: this.#renderer.info.render.drawCalls,
-      triangles: this.#renderer.info.render.triangles,
+    let pipeline: RenderPipeline | undefined
+    try {
+      if (options.bloom) {
+        pipeline = createEmissiveBloomPipeline(this.#renderer, scene, camera)
+        pipeline.render()
+      } else {
+        this.#renderer.render(scene, camera)
+      }
+      const readback = await this.#renderer.readRenderTargetPixelsAsync(
+        this.#target,
+        0,
+        0,
+        this.width,
+        this.height,
+      )
+      pipeline?.dispose()
+      return {
+        image: { width: this.width, height: this.height, data: packRows(readback, this.width, this.height) },
+        drawCalls: this.#renderer.info.render.drawCalls,
+        triangles: this.#renderer.info.render.triangles,
+      }
+    } finally {
+      scene.environment = previousEnv
+      pmrem?.dispose()
     }
   }
 

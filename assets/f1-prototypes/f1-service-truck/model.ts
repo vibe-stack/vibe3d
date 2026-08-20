@@ -192,16 +192,13 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
   const textures: DataTexture[] = []
   let ownsLivery = options.materials?.livery === undefined
   const ownsCab = options.materials?.cab === undefined
-  const envTex = studioEnvMap()
   const cabPaint = options.materials?.cab ?? new MeshPhysicalMaterial({
     name: 'f1-kit / cab metal',
-    color: 0xd4dbe0,
-    metalness: 0.42,
-    roughness: 0.12,
+    color: 0xc5cdd4,
+    metalness: 0.86,
+    roughness: 0.1,
     clearcoat: 1,
     clearcoatRoughness: 0.05,
-    envMap: envTex,
-    envMapIntensity: 1.2,
     side: FrontSide,
   })
   if (ownsCab) owned.push(cabPaint)
@@ -212,8 +209,6 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
     roughness: 0.06,
     clearcoat: 0.4,
     clearcoatRoughness: 0.08,
-    envMap: envTex,
-    envMapIntensity: 0.35,
     side: FrontSide,
   })
   if (options.materials?.glass === undefined) owned.push(glassMat)
@@ -509,7 +504,6 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
     dispose() {
       releaseGenerated()
       for (const material of owned) material.dispose()
-      envTex.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -524,7 +518,7 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     fov: 28,
     yaw: -0.95,
     pitch: 0.08,
-    bloom: true,
+    bloom: false,
   })
   const env = studioEnvMap()
   preview.scene.environment = env
