@@ -70,6 +70,7 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
         <p data-export-status role="status" aria-live="polite"></p>
         <button type="button" class="action-button action-button--secondary" data-model-action hidden></button>
         <button type="button" class="action-button" data-export-glb>Export GLB</button>
+        <button type="button" class="action-button action-button--secondary" data-cab-light hidden>Light: off</button>
       </section>
 
       <p class="model-stats" data-model-stats>—</p>
@@ -98,6 +99,7 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
   const exportButton = host.querySelector<HTMLButtonElement>('[data-export-glb]')!
   const exportStatus = host.querySelector<HTMLElement>('[data-export-status]')!
   const actionButton = host.querySelector<HTMLButtonElement>('[data-model-action]')!
+  const cabLightButton = host.querySelector<HTMLButtonElement>('[data-cab-light]')!
   const actionHelp = host.querySelector<HTMLElement>('[data-action-help]')!
 
   // Safari still ships without `navigator.gpu`. Three's WebGPURenderer can
@@ -172,6 +174,12 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
     actionHelp.textContent = action?.shortcut ? `${action.shortcut}  ${action.label}` : ''
   }
 
+  const updateCabLightUi = () => {
+    const canToggle = typeof viewer?.toggleCabLight === 'function'
+    cabLightButton.hidden = !canToggle
+    cabLightButton.textContent = viewer?.isCabLightOn?.() ? 'Light: on' : 'Light: off'
+  }
+
   const runPrimaryAction = () => {
     const next = viewer?.action?.run()
     updateActionUi()
@@ -187,6 +195,7 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
     exportStatus.textContent = ''
     exportButton.disabled = true
     actionButton.disabled = true
+    cabLightButton.disabled = true
     try {
       const next = await entry.create(aspect())
       if (token !== selectionToken || stopped) {
@@ -228,8 +237,10 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
       window.history.replaceState(null, '', `?model=${encodeURIComponent(entry.id)}`)
       renderCatalog(search.value)
       updateActionUi()
+      updateCabLightUi()
       exportButton.disabled = false
       actionButton.disabled = false
+      cabLightButton.disabled = false
       loading.classList.add('model-loading--complete')
     } catch (error) {
       console.error(`Unable to load model ${entry.id}`, error)
@@ -240,6 +251,10 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
 
   search.addEventListener('input', () => renderCatalog(search.value))
   actionButton.addEventListener('click', runPrimaryAction)
+  cabLightButton.addEventListener('click', () => {
+    viewer?.toggleCabLight?.()
+    updateCabLightUi()
+  })
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
       event.preventDefault()

@@ -17,6 +17,8 @@ export interface ModelViewer {
   readonly camera: PerspectiveCamera
   readonly initialView: ModelViewState
   readonly action?: ModelAction
+  toggleCabLight?(): boolean
+  isCabLightOn?(): boolean
   update(deltaSeconds: number): void
   resize(aspect: number): void
   dispose(): void
@@ -2598,26 +2600,10 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     async create(aspect) {
       const { createPreview } = await import('../../assets/f1-prototypes/f1-service-truck/model.ts')
       const preview = createPreview({ aspect })
-      const action = {
-        label: 'Fake sun: off',
-        shortcut: 'Space',
-        run() {
-          const on = preview.toggleFakeSun()
-          action.label = on ? 'Fake sun: on' : 'Fake sun: off'
-        },
-      }
       return {
-        scene: preview.scene,
-        root: preview.root,
-        camera: preview.camera,
-        initialView: { focusY: 2, fov: preview.camera.fov },
-        action,
-        update: preview.update,
-        resize(nextAspect: number) {
-          preview.camera.aspect = nextAspect
-          preview.camera.updateProjectionMatrix()
-        },
-        dispose: preview.dispose,
+        ...adaptStaticPreview(preview, 2),
+        toggleCabLight: () => preview.toggleCabLight(),
+        isCabLightOn: () => preview.isCabLightOn(),
       }
     },
   },

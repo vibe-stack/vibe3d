@@ -771,15 +771,16 @@ describe('FIA 1:1 datums', () => {
     model.dispose()
   })
 
-  test('service truck preview keeps the kit env and leaves fake sun off', () => {
+  test('service truck preview keeps the kit env, lamps on, and cab light off', () => {
     const preview = createServiceTruckPreview({ aspect: 1 })
     expect(preview.scene.environment).toBeNull()
-    expect(preview.isFakeSunOn()).toBe(false)
-    const sun = preview.scene.getObjectByName('f1-kit / fake sun')
-    expect(sun?.visible).toBe(false)
-    expect(preview.toggleFakeSun()).toBe(true)
-    expect(preview.isFakeSunOn()).toBe(true)
-    expect(sun?.visible).toBe(true)
+    expect(preview.root.getObjectByName('lamps')?.children.length).toBeGreaterThan(0)
+    expect(preview.isCabLightOn()).toBe(false)
+    const cabLight = preview.scene.getObjectByName('f1-kit / cab light')
+    expect(cabLight?.visible).toBe(false)
+    expect(preview.toggleCabLight()).toBe(true)
+    expect(preview.isCabLightOn()).toBe(true)
+    expect(cabLight?.visible).toBe(true)
     expect(preview.scene.environment).toBeNull()
     preview.dispose()
   })

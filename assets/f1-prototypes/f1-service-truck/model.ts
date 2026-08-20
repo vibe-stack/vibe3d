@@ -484,25 +484,27 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
     yaw: -0.95,
     pitch: 0.08,
   })
-  const sun = new DirectionalLight(0xfff4e6, 3.6)
-  sun.name = 'f1-kit / fake sun'
-  sun.userData.excludeFromExport = true
-  sun.position.set(-10, 16, 8)
-  sun.visible = false
-  preview.scene.add(sun)
-  let sunOn = false
+  const cabLight = new DirectionalLight(0xfff4e6, 3.6)
+  cabLight.name = 'f1-kit / cab light'
+  cabLight.userData.excludeFromExport = true
+  cabLight.position.set(-8, 10, 6)
+  cabLight.target.position.set(0, 1.7, 0)
+  cabLight.target.userData.excludeFromExport = true
+  cabLight.visible = false
+  preview.scene.add(cabLight, cabLight.target)
+  let cabLightOn = false
   const inner = preview.dispose
   return {
     ...preview,
-    isFakeSunOn: () => sunOn,
-    toggleFakeSun() {
-      sunOn = !sunOn
-      sun.visible = sunOn
-      return sunOn
+    isCabLightOn: () => cabLightOn,
+    toggleCabLight() {
+      cabLightOn = !cabLightOn
+      cabLight.visible = cabLightOn
+      return cabLightOn
     },
     dispose() {
-      preview.scene.remove(sun)
-      sun.dispose()
+      preview.scene.remove(cabLight, cabLight.target)
+      cabLight.dispose()
       inner()
     },
   }
