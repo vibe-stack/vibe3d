@@ -749,6 +749,28 @@ describe('FIA 1:1 datums', () => {
     model.dispose()
   })
 
+  test('service truck wheels spin from hub transforms', () => {
+    const model = createServiceTruck({ wheelRpm: 60 })
+    const hub = model.parts.wheels.children[0]
+    expect(hub).toBeDefined()
+    const z0 = hub!.rotation.z
+    model.update(1)
+    expect(hub!.rotation.z).toBeCloseTo(z0 + Math.PI * 2, 5)
+    model.dispose()
+  })
+
+  test('service truck lamps stay a stable part group across a toggle', () => {
+    const model = createServiceTruck({ lamps: true })
+    const id = model.parts.lamps.uuid
+    expect(model.parts.lamps.children.length).toBeGreaterThan(0)
+    model.configure({ lamps: false })
+    expect(model.parts.lamps.uuid).toBe(id)
+    expect(model.getConfig().lamps).toBe(false)
+    model.configure({ lamps: true })
+    expect(model.getConfig().lamps).toBe(true)
+    model.dispose()
+  })
+
   test('trophy cup is 0.55 m tall', () => {
     const model = createTrophyCup()
     model.root.updateMatrixWorld(true)
