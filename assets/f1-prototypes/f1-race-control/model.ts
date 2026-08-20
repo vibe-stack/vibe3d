@@ -1,4 +1,4 @@
-// f1-race-control — glass control tower with roof deck and antennas.
+// f1-race-control — Grade 1 multi-storey box (~10 × 8 m) with roof deck and antennas.
 
 import {
   BufferGeometry,
@@ -11,6 +11,7 @@ import {
 } from 'three/webgpu'
 
 import {
+  RACE_CONTROL,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -40,7 +41,9 @@ export interface F1RaceControlInstance {
   dispose(): void
 }
 
-const defaults: F1RaceControlConfig = { height: 18 }
+const defaults: F1RaceControlConfig = { height: RACE_CONTROL.height }
+const W = RACE_CONTROL.width
+const D = RACE_CONTROL.depth
 
 export function createModel(options: F1RaceControlOptions = {}): F1RaceControlInstance {
   const config: F1RaceControlConfig = {
@@ -93,8 +96,8 @@ export function createModel(options: F1RaceControlOptions = {}): F1RaceControlIn
   const rebuild = (): void => {
     releaseGenerated()
     const h = config.height
-    const w = 4.2
-    const d = 6.8
+    const w = W
+    const d = D
     const shellParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
       shellParts.push(bevelBox(0.14, h, d, 0.012).translate(sx * (w / 2 - 0.07), h / 2, 0))
@@ -106,7 +109,7 @@ export function createModel(options: F1RaceControlOptions = {}): F1RaceControlIn
     const glass = bevelBox(w - 0.32, h - 1.2, 0.012, 0.002)
     glass.translate(0, h / 2, d / 2 - 0.08)
     emit('tower', glass, tower, 'glazing', glassMat)
-    const cols = 4
+    const cols = 8
     const rows = 7
     const mullions: BufferGeometry[] = []
     for (let c = 0; c <= cols; c++) {
@@ -132,7 +135,7 @@ export function createModel(options: F1RaceControlOptions = {}): F1RaceControlIn
     }
     emit('deck', mergeParts(railParts, 'rails'), deck, 'rails', kit.steel)
     const masts: BufferGeometry[] = []
-    for (const [x, z] of [[-1.2, 0], [1.2, 0], [0, 1.8]] as const) {
+    for (const [x, z] of [[-2.4, 0], [2.4, 0], [0, 2.2]] as const) {
       const mast = new CylinderGeometry(0.012, 0.016, 1.4, 8)
       mast.translate(x, h + 0.82, z)
       masts.push(mast)
@@ -165,10 +168,10 @@ export function createModel(options: F1RaceControlOptions = {}): F1RaceControlIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ height: 14 }), {
+  return createF1Preview(createModel(), {
     aspect,
     target: [0, 7.2, 0],
-    distance: 28,
+    distance: 40,
     fov: 32,
     yaw: 0.52,
     pitch: 0.1,

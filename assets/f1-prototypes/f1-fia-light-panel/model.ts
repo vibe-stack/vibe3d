@@ -1,8 +1,10 @@
-// f1-fia-light-panel — LED marshalling box on a short post.
+// f1-fia-light-panel — MYLAPS FIA 3504 Grade 1 cabinet (~970 mm square) on a short post.
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
 import {
+  AXIS_Y,
+  FIA_LIGHT_PANEL,
   TOKEN,
   acquireF1Materials,
   bevelBox,
@@ -10,9 +12,7 @@ import {
   createLampMaterial,
   disposeF1Materials,
   loftRoundedBox,
-  mergeParts,
   tubeSection,
-  AXIS_Y,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'post' | 'housing' | 'lamp'
@@ -47,6 +47,8 @@ const MODE_COLOR: Record<F1FiaLightMode, number> = {
   sc: TOKEN.AMBER_400,
   vsc: TOKEN.CYAN_400,
 }
+
+const POST_H = 1.15
 
 export function createModel(options: F1FiaLightPanelOptions = {}): F1FiaLightPanelInstance {
   const config: F1FiaLightPanelConfig = { mode: options.mode ?? defaults.mode }
@@ -107,20 +109,18 @@ export function createModel(options: F1FiaLightPanelOptions = {}): F1FiaLightPan
       else extras.push(lampMat)
       materialSlots.lamp = lampMat
     }
-    emit('post', tubeSection(0.045, 1.35, [0, 0.675, 0], AXIS_Y, 12), post, 'post')
-    const foot = bevelBox(0.28, 0.05, 0.28, 0.008)
+    emit('post', tubeSection(0.05, POST_H, [0, POST_H / 2, 0], AXIS_Y, 12), post, 'post')
+    const foot = bevelBox(0.32, 0.05, 0.32, 0.008)
     foot.translate(0, 0.025, 0)
     emit('post', foot, post, 'foot')
-    const box = loftRoundedBox(0.52, 0.38, 0.16, 0.035)
-    box.translate(0, 1.55, 0)
+    const { width: pw, height: ph, depth: pd } = FIA_LIGHT_PANEL
+    const cy = POST_H + ph / 2
+    const box = loftRoundedBox(pw, ph, pd, 0.04)
+    box.translate(0, cy, 0)
     emit('housing', box, panel, 'housing')
-    const lamps: BufferGeometry[] = []
-    for (let i = 0; i < 3; i++) {
-      const disc = bevelBox(0.12, 0.12, 0.014, 0.004)
-      disc.translate(-0.14 + i * 0.14, 1.55, 0.09)
-      lamps.push(disc)
-    }
-    emit('lamp', mergeParts(lamps, 'lamps'), panel, 'lamps', lampMat)
+    const face = bevelBox(pw - 0.04, ph - 0.04, 0.02, 0.006)
+    face.translate(0, cy, pd / 2 + 0.004)
+    emit('lamp', face, panel, 'face', lampMat)
   }
   rebuild()
 
@@ -150,8 +150,8 @@ export function createModel(options: F1FiaLightPanelOptions = {}): F1FiaLightPan
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ mode: 'yellow' }), {
     aspect,
-    target: [0, 1.4, 0],
-    distance: 3.6,
+    target: [0, 1.6, 0],
+    distance: 4.6,
     fov: 28,
     yaw: -0.4,
     pitch: 0.08,

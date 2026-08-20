@@ -1,4 +1,5 @@
 // f1-spectator-bridge — truss span with mesh sides and stairs at both ends.
+// Deck clears this kit's 5 m catch fence.
 
 import {
   BufferGeometry,
@@ -9,6 +10,7 @@ import {
 } from 'three/webgpu'
 
 import {
+  SPECTATOR_BRIDGE,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -39,8 +41,9 @@ export interface F1SpectatorBridgeInstance {
 }
 
 const defaults: F1SpectatorBridgeConfig = { span: 12 }
-const DECK_H = 3.2
-const WIDTH = 2.4
+const DECK_H = SPECTATOR_BRIDGE.deckHeight
+const WIDTH = SPECTATOR_BRIDGE.width
+const RISE = 0.18
 
 export function createModel(options: F1SpectatorBridgeOptions = {}): F1SpectatorBridgeInstance {
   const config: F1SpectatorBridgeConfig = {
@@ -121,15 +124,15 @@ export function createModel(options: F1SpectatorBridgeOptions = {}): F1Spectator
     emit('mesh', mergeParts(meshParts, 'side-mesh'), mesh, 'side-mesh')
 
     const stairParts: BufferGeometry[] = []
+    const steps = Math.max(8, Math.round(DECK_H / RISE))
     for (const sx of [-1, 1] as const) {
       const x0 = sx * (half + 1.2)
-      const steps = 10
       for (let s = 0; s < steps; s++) {
         const tread = bevelBox(1.0, 0.05, 0.28, 0.004)
-        tread.translate(x0, 0.12 + s * (DECK_H / steps), -WIDTH / 2 + s * 0.12)
+        tread.translate(x0, (s + 0.5) * (DECK_H / steps), -WIDTH / 2 + s * 0.08)
         stairParts.push(tread)
       }
-      stairParts.push(member(new Vector3(x0, 0.2, -WIDTH / 2), new Vector3(x0, DECK_H, -WIDTH / 2 + 1.0), 0.025, 8))
+      stairParts.push(member(new Vector3(x0, 0.2, -WIDTH / 2), new Vector3(x0, DECK_H, -WIDTH / 2 + steps * 0.08), 0.025, 8))
     }
     emit('stairs', mergeParts(stairParts, 'stairs'), stairs, 'stairs')
   }
@@ -160,10 +163,10 @@ export function createModel(options: F1SpectatorBridgeOptions = {}): F1Spectator
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ span: 10 }), {
     aspect,
-    target: [0, 1.6, 0],
-    distance: 22,
+    target: [0, 2.8, 0],
+    distance: 28,
     fov: 34,
     yaw: 0.25,
-    pitch: 0.1,
+    pitch: 0.12,
   })
 }

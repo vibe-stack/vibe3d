@@ -1,4 +1,4 @@
-// f1-pit-wall — low pit shelf with glass and unbranded monitor fascias at GARAGE_BAY_PITCH.
+// f1-pit-wall — FIA signalling shelf: 1.00 m deep, ≤ 2.20 m overall, monitors at GARAGE_BAY_PITCH.
 
 import {
   BufferGeometry,
@@ -13,6 +13,7 @@ import {
 import {
   GARAGE_BAY_PITCH,
   LAYER_CLEARANCE,
+  PIT_WALL,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -44,9 +45,10 @@ export interface F1PitWallInstance {
 }
 
 const defaults: F1PitWallConfig = { bays: 2 }
-const SHELF_H = 1.1
-const DEPTH = 0.55
-const GLASS_H = 0.72
+const SHELF_H = PIT_WALL.shelf
+const DEPTH = PIT_WALL.depth
+const GLASS_H = PIT_WALL.glass
+const CAP_H = PIT_WALL.height - SHELF_H - GLASS_H
 
 function bayLabel(labels: string[] | undefined, index: number): string {
   if (labels?.[index]) return String(labels[index]).slice(0, 3)
@@ -133,7 +135,7 @@ export function createModel(options: F1PitWallOptions = {}): F1PitWallInstance {
       back.translate(x, SHELF_H / 2, -DEPTH / 2 + 0.03)
       emit('shell', back, shell, `back-${i}`)
       const pane = bevelBox(GARAGE_BAY_PITCH - 0.35, GLASS_H, 0.012, 0.002)
-      pane.translate(x, SHELF_H + GLASS_H / 2 + 0.04, DEPTH / 2 - 0.02)
+      pane.translate(x, SHELF_H + GLASS_H / 2 + CAP_H * 0.4, DEPTH / 2 - 0.02)
       emit('glass', pane, glass, `pane-${i}`, glassMat)
       const screen = new PlaneGeometry(0.42, 0.28)
       screen.translate(x, SHELF_H + 0.22, DEPTH / 2 + LAYER_CLEARANCE * 3)
@@ -153,7 +155,7 @@ export function createModel(options: F1PitWallOptions = {}): F1PitWallInstance {
       }
     }
     const cap = bevelBox(span + 0.1, 0.05, DEPTH + 0.08, 0.006)
-    cap.translate(0, SHELF_H + GLASS_H + 0.1, 0)
+    cap.translate(0, PIT_WALL.height - 0.025, 0)
     emit('shell', cap, shell, 'cap')
   }
   rebuild()
@@ -187,7 +189,7 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ bays: 3 }), {
     aspect,
     target: [0, 1.2, 0.2],
-    distance: 32,
+    distance: 34,
     fov: 32,
     yaw: -0.45,
     pitch: 0.12,

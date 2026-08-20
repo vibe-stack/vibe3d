@@ -1,5 +1,12 @@
 # @f1-kit/registry
 
+## 0.0.4
+
+Wave 3 1:1 FIA datum pass. Shared numbers live in `f1-kit-core/track.ts`
+(FIA-published kerbs, walls, lights, and grid; Grade 1 garage / pit-wall /
+race-control envelopes) so props cannot invent a second height.
+
+
 ## 0.0.3
 
 Circuit furniture so a host can instance a full lap: walls, runoff tiles,

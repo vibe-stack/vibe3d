@@ -1,9 +1,10 @@
-// f1-sausage-kerb — yellow triangular sausage (50–100 mm crown) tiled along X.
-// Distinct from f1-kerb (800 mm rumble). Used on chicane apexes.
+// f1-sausage-kerb — FIA Type 4 combination kerb (80 cm wide, 12 cm crown) tiled along X.
+// Distinct from f1-kerb (800 mm rumble). Used on chicane apexes, behind the rumble.
 
 import { BufferGeometry, Group, Mesh, MeshStandardMaterial, type Material } from 'three/webgpu'
 
 import {
+  SAUSAGE_KERB,
   TOKEN,
   acquireF1Materials,
   createF1Preview,
@@ -33,19 +34,19 @@ export interface F1SausageKerbInstance {
 }
 
 const defaults: F1SausageKerbConfig = { modules: 6 }
-const BAND = 0.50
-const WIDTH = 0.25
-const CROWN = 0.08
+const BAND = SAUSAGE_KERB.pitch
+const HALF = SAUSAGE_KERB.width / 2
+const CROWN = SAUSAGE_KERB.crown
 
+/** Solid Type 4 blister: semi-ellipse in ZY, 0.80 m wide × 0.12 m crown. */
 function sausageProfile(): Array<readonly [number, number]> {
-  return [
-    [-WIDTH / 2, 0],
-    [0, CROWN],
-    [WIDTH / 2, 0],
-    [WIDTH / 2 - 0.012, 0],
-    [0, CROWN - 0.012],
-    [-WIDTH / 2 + 0.012, 0],
-  ]
+  const segs = 10
+  const pts: Array<readonly [number, number]> = []
+  for (let i = 0; i <= segs; i++) {
+    const a = (i / segs) * Math.PI
+    pts.push([-HALF * Math.cos(a), CROWN * Math.sin(a)])
+  }
+  return pts
 }
 
 export function createModel(options: F1SausageKerbOptions = {}): F1SausageKerbInstance {
@@ -121,10 +122,10 @@ export function createModel(options: F1SausageKerbOptions = {}): F1SausageKerbIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ modules: 8 }), {
+  return createF1Preview(createModel({ modules: 6 }), {
     aspect,
-    target: [0, 0.04, 0],
-    distance: 3.4,
+    target: [0, 0.06, 0],
+    distance: 5.6,
     fov: 28,
     yaw: -1.1,
     pitch: 0.32,

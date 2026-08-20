@@ -1,6 +1,6 @@
-// f1-garage-box — one F1 pit garage (~7 m bay). Fascia is procedural: pass `number` /
-// `legend` / `style` to stamp a built-in plate, or `setMaterial('fascia', yours)` to hang an image.
-// `count` tiles boxes along X at GARAGE_BAY_PITCH; numbers increment from `number`.
+// f1-garage-box — one F1 pit garage (~7 m bay, ~17 m deep, ~5 m door). Fascia is procedural:
+// pass `number` / `legend` / `style` to stamp a built-in plate, or `setMaterial('fascia', yours)`
+// to hang an image. `count` tiles boxes along X at GARAGE_BAY_PITCH; numbers increment from `number`.
 
 import {
   BufferGeometry,
@@ -13,6 +13,7 @@ import {
 } from 'three/webgpu'
 
 import {
+  GARAGE,
   GARAGE_BAY_PITCH,
   LAYER_CLEARANCE,
   acquireF1Materials,
@@ -53,11 +54,11 @@ export interface F1GarageBoxInstance {
 }
 
 const defaults: F1GarageBoxConfig = { count: 1, number: '1', legend: 'PIT', style: 'stamp' }
-const W = 6.6
-const D = 12.0
-const H = 4.2
-const WALL = 0.18
-const FASCIA_H = 1.1
+const W = GARAGE.width
+const D = GARAGE.depth
+const H = GARAGE.height
+const WALL = GARAGE.wall
+const FASCIA_H = GARAGE.fascia
 
 function bayNumber(start: string, offset: number): string {
   const n = Number.parseInt(start, 10)
@@ -210,8 +211,8 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ count: 3, number: '1', legend: 'PIT', style: 'stamp' }), {
     aspect,
-    target: [0, 2.0, 0],
-    distance: 38,
+    target: [0, 2.4, 0],
+    distance: 52,
     fov: 32,
     yaw: -0.62,
     pitch: 0.14,

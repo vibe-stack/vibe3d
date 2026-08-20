@@ -15,6 +15,12 @@ bunx vibe3d add @f1-kit/f1-garage-box
 and the pit wall share a 7 m bay pitch. Wall gates and crash cushions share
 `WALL_FITS` (`armco` | `concrete` | `jersey`).
 
+1:1 sizes are shared from `f1-kit-core/track.ts` so walls, kerbs, the garage,
+and the pit wall cannot drift: FIA Type 4 sausage (0.80 × 0.12 m), artificial
+grass 2.0 m, grid stall 2.7 × 8 m, MYLAPS Grade 1 light cabinet 970 mm,
+garage bay 7 × 17 × 5 m, pit wall 1.0 m deep / 2.2 m overall, jersey crown
+1.0 m, spectator-bridge deck 5.5 m.
+
 Garage fascia — stamp a number/legend, pick a built-in plate, or hang an image:
 
 ```ts

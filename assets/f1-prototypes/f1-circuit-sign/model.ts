@@ -1,5 +1,5 @@
 // f1-circuit-sign — one FIA plate; `kind` picks DRS / PIT ENTRY / PIT EXIT / 80 / T-n / SC / VSC.
-// Pass a custom plate via setMaterial('plate', …).
+// Pass a custom plate via setMaterial('plate', …). Plate is an FIA yellow board (~600–800 mm).
 
 import {
   BufferGeometry,
@@ -12,6 +12,8 @@ import {
 } from 'three/webgpu'
 
 import {
+  AXIS_Y,
+  CIRCUIT_SIGN_PLATE,
   LAYER_CLEARANCE,
   acquireF1Materials,
   bevelBox,
@@ -20,7 +22,6 @@ import {
   disposeF1Materials,
   isCircuitSignKind,
   tubeSection,
-  AXIS_Y,
   type CircuitSignKind,
 } from '../f1-kit-core/index.ts'
 
@@ -48,6 +49,8 @@ export interface F1CircuitSignInstance {
 }
 
 const defaults: F1CircuitSignConfig = { kind: 'DRS', turn: 1 }
+const PLATE_W = CIRCUIT_SIGN_PLATE.width
+const PLATE_H = CIRCUIT_SIGN_PLATE.height
 
 export function createModel(options: F1CircuitSignOptions = {}): F1CircuitSignInstance {
   const config: F1CircuitSignConfig = {
@@ -93,10 +96,10 @@ export function createModel(options: F1CircuitSignOptions = {}): F1CircuitSignIn
   const rebuild = (): void => {
     releaseGenerated()
     emit('post', tubeSection(0.04, 2.4, [0, 1.2, 0], AXIS_Y, 10), post, 'post')
-    const back = bevelBox(1.05, 0.72, 0.05, 0.006)
+    const back = bevelBox(PLATE_W + 0.06, PLATE_H + 0.08, 0.05, 0.006)
     back.translate(0, 2.05, 0)
     emit('post', back, post, 'back')
-    const face = new PlaneGeometry(0.98, 0.64)
+    const face = new PlaneGeometry(PLATE_W, PLATE_H)
     face.translate(0, 2.05, 0.025 + LAYER_CLEARANCE * 3)
     const label = config.kind === 'T-n' ? `T${config.turn}` : config.kind
     if (ownsPlate) {
@@ -140,7 +143,6 @@ export function createModel(options: F1CircuitSignOptions = {}): F1CircuitSignIn
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ kind: 'DRS' }), {
-    aspect, target: [0, 1.5, 0], distance: 4.4, fov: 28, yaw: -0.45, pitch: 0.08,
+    aspect, target: [0, 1.5, 0], distance: 4.2, fov: 28, yaw: -0.45, pitch: 0.08,
   })
 }
-

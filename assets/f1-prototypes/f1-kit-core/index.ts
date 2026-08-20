@@ -60,8 +60,19 @@ export {
 export { DEFAULT_PITCH, DEFAULT_YAW, createF1Preview } from './preview.ts'
 export type { F1Preview, F1PreviewModel, F1PreviewOptions } from './preview.ts'
 export {
+  ASTROTURF,
   CIRCUIT_SIGN_KINDS,
+  CIRCUIT_SIGN_PLATE,
+  FIA_LIGHT_PANEL,
+  GARAGE,
   GARAGE_BAY_PITCH,
+  GRID_BOX,
+  PIT_WALL,
+  PODIUM_HEIGHTS,
+  RACE_CONTROL,
+  SAUSAGE_KERB,
+  SPECTATOR_BRIDGE,
+  START_FINISH,
   WALL_END,
   WALL_FITS,
   isCircuitSignKind,

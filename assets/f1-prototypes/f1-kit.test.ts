@@ -524,11 +524,36 @@ describe('procedural knobs', () => {
   })
 
   test('WALL_FITS and CIRCUIT_SIGN_KINDS stay shared', async () => {
-    const { WALL_FITS, CIRCUIT_SIGN_KINDS, GARAGE_BAY_PITCH } = await import('./f1-kit-core/track.ts')
+    const {
+      WALL_FITS,
+      CIRCUIT_SIGN_KINDS,
+      GARAGE,
+      GARAGE_BAY_PITCH,
+      SAUSAGE_KERB,
+      ASTROTURF,
+      GRID_BOX,
+      FIA_LIGHT_PANEL,
+      PIT_WALL,
+      SPECTATOR_BRIDGE,
+      PODIUM_HEIGHTS,
+      START_FINISH,
+    } = await import('./f1-kit-core/track.ts')
     const { FASCIA_STYLES } = await import('./f1-kit-core/textures.ts')
     expect(WALL_FITS).toEqual(['armco', 'concrete', 'jersey'])
     expect(CIRCUIT_SIGN_KINDS).toContain('DRS')
     expect(GARAGE_BAY_PITCH).toBe(7)
+    expect(GARAGE.pitch).toBe(7)
+    expect(GARAGE.depth).toBe(17)
+    expect(GARAGE.height).toBe(5)
+    expect(SAUSAGE_KERB).toEqual({ width: 0.80, crown: 0.12, pitch: 0.80 })
+    expect(ASTROTURF.width).toBe(2)
+    expect(GRID_BOX).toEqual({ width: 2.7, length: 8 })
+    expect(FIA_LIGHT_PANEL.width).toBeGreaterThanOrEqual(0.9)
+    expect(PIT_WALL.depth).toBe(1)
+    expect(PIT_WALL.height).toBe(2.2)
+    expect(SPECTATOR_BRIDGE.deckHeight).toBeGreaterThanOrEqual(5.5)
+    expect(PODIUM_HEIGHTS).toEqual([1, 0.7, 0.4])
+    expect(START_FINISH).toEqual({ timing: 0.15, chequer: 1 })
     expect(FASCIA_STYLES).toEqual(['stamp', 'fia', 'blank'])
   })
 
@@ -560,5 +585,104 @@ describe('procedural knobs', () => {
       expect(spot.target.position.z).toBeGreaterThan(spot.position.z)
     }
     model.dispose()
+  })
+})
+
+describe('FIA 1:1 datums', () => {
+  const sizeOf = (root: { updateMatrixWorld: (force: boolean) => void }) => {
+    const box = new Box3().setFromObject(root as never)
+    return { box, size: box.getSize(new Vector3()) }
+  }
+
+  test('sausage kerb is FIA Type 4 (0.80 × 0.12)', () => {
+    const model = createSausageKerb({ modules: 4 })
+    model.root.updateMatrixWorld(true)
+    const { box, size } = sizeOf(model.root)
+    expect(size.z).toBeCloseTo(0.80, 1)
+    expect(box.max.y).toBeCloseTo(0.12, 1)
+    expect(size.x).toBeCloseTo(3.2, 1)
+    model.dispose()
+  })
+
+  test('grid box is a 2.7 × 8 painted stall', () => {
+    const model = createGridBox()
+    model.root.updateMatrixWorld(true)
+    const { size } = sizeOf(model.root)
+    expect(size.x).toBeCloseTo(2.7, 1)
+    expect(size.z).toBeCloseTo(8, 1)
+    expect(model.parts.plate.children.length).toBeGreaterThan(0)
+    model.dispose()
+  })
+
+  test('garage bay is 7 m pitch, ~17 m deep, ~5 m high', () => {
+    const model = createGarageBox()
+    model.root.updateMatrixWorld(true)
+    const { size } = sizeOf(model.root)
+    expect(size.z).toBeGreaterThan(16.5)
+    expect(size.z).toBeLessThan(18)
+    expect(size.y).toBeGreaterThan(4.8)
+    expect(size.y).toBeLessThan(5.5)
+    model.dispose()
+  })
+
+  test('pit wall is 1.0 m deep and 2.2 m overall', () => {
+    const model = createPitWall()
+    model.root.updateMatrixWorld(true)
+    const { box, size } = sizeOf(model.root)
+    expect(size.z).toBeGreaterThan(0.95)
+    expect(size.z).toBeLessThan(1.2)
+    expect(box.max.y).toBeCloseTo(2.2, 1)
+    model.dispose()
+  })
+
+  test('FIA panel face is at least 0.9 m square', () => {
+    const model = createFiaLightPanel()
+    model.root.updateMatrixWorld(true)
+    let face: Mesh | undefined
+    model.root.traverse((object) => {
+      const mesh = object as Mesh
+      if (mesh.isMesh && mesh.name === 'face') face = mesh
+    })
+    expect(face).toBeDefined()
+    const size = new Box3().setFromObject(face!).getSize(new Vector3())
+    expect(size.x).toBeGreaterThanOrEqual(0.9)
+    expect(size.y).toBeGreaterThanOrEqual(0.9)
+    model.dispose()
+  })
+
+  test('astroturf strip is 2.0 m wide', () => {
+    const model = createAstroturf({ modules: 4 })
+    model.root.updateMatrixWorld(true)
+    const { size } = sizeOf(model.root)
+    expect(size.z).toBeCloseTo(2.0, 1)
+    model.dispose()
+  })
+
+  test('jersey barrier crown is 1.0 m', () => {
+    const model = createJersey({ modules: 1 })
+    model.root.updateMatrixWorld(true)
+    const { box } = sizeOf(model.root)
+    expect(box.max.y).toBeCloseTo(1.0, 1)
+    model.dispose()
+  })
+
+  test('spectator bridge deck clears the 5 m catch fence', () => {
+    const model = createSpectatorBridge({ span: 10 })
+    model.root.updateMatrixWorld(true)
+    const { box } = sizeOf(model.root)
+    expect(box.max.y).toBeGreaterThanOrEqual(5.5)
+    model.dispose()
+  })
+
+  test('start/finish defaults to a thin timing line; SF uses 1 m tiles', () => {
+    const line = createStartFinishLine()
+    expect(line.getConfig().kind).toBe('LINE')
+    line.root.updateMatrixWorld(true)
+    expect(sizeOf(line.root).size.z).toBeCloseTo(0.15, 1)
+    line.dispose()
+    const sf = createStartFinishLine({ kind: 'SF', width: 8 })
+    sf.root.updateMatrixWorld(true)
+    expect(sizeOf(sf.root).size.z).toBeCloseTo(1.0, 1)
+    sf.dispose()
   })
 })

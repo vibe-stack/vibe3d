@@ -1,4 +1,4 @@
-// f1-podium — three steps with numbered plates and an empty backdrop frame.
+// f1-podium — three 1:1 GP steps with numbered plates and an empty backdrop frame.
 
 import {
   BufferGeometry,
@@ -12,6 +12,7 @@ import {
 
 import {
   LAYER_CLEARANCE,
+  PODIUM_HEIGHTS,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -43,7 +44,7 @@ export interface F1PodiumInstance {
 
 const defaults: F1PodiumConfig = { width: 5.5 }
 const NUMBERS = ['1', '2', '3'] as const
-const HEIGHTS = [0.62, 0.42, 0.28] as const
+const HEIGHTS = PODIUM_HEIGHTS
 const OFFSETS = [0, -0.85, 0.85] as const
 
 export function createModel(options: F1PodiumOptions = {}): F1PodiumInstance {
@@ -107,7 +108,7 @@ export function createModel(options: F1PodiumOptions = {}): F1PodiumInstance {
 
     const backdropParts: BufferGeometry[] = []
     const frameW = w * 0.95
-    const frameH = 2.4
+    const frameH = 2.8
     backdropParts.push(bevelBox(0.08, frameH, 0.08, 0.006).translate(-frameW / 2, frameH / 2, -0.6))
     backdropParts.push(bevelBox(0.08, frameH, 0.08, 0.006).translate(frameW / 2, frameH / 2, -0.6))
     backdropParts.push(bevelBox(frameW, 0.08, 0.08, 0.006).translate(0, frameH - 0.04, -0.6))
@@ -164,8 +165,8 @@ export function createModel(options: F1PodiumOptions = {}): F1PodiumInstance {
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
-    target: [0, 0.5, 0],
-    distance: 7.5,
+    target: [0, 0.7, 0],
+    distance: 8.4,
     fov: 30,
     yaw: -0.55,
     pitch: 0.14,

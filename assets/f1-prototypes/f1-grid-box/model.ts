@@ -1,4 +1,4 @@
-// f1-grid-box — painted FIA grid stall on the ground with a numbered plate.
+// f1-grid-box — painted FIA grid stall (2.7 × 8 m) with a centre guide line and in-ground number.
 
 import {
   BufferGeometry,
@@ -11,12 +11,14 @@ import {
 } from 'three/webgpu'
 
 import {
+  GRID_BOX,
   LAYER_CLEARANCE,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
   disposeF1Materials,
   marshalPlateTexture,
+  mergeParts,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'pad' | 'plate'
@@ -41,9 +43,10 @@ export interface F1GridBoxInstance {
 }
 
 const defaults: F1GridBoxConfig = { index: 1 }
-const W = 2.5
-const D = 5.5
-const THICK = 0.012
+const W = GRID_BOX.width
+const D = GRID_BOX.length
+const THICK = 0.008
+const LINE = 0.08
 
 export function createModel(options: F1GridBoxOptions = {}): F1GridBoxInstance {
   const config: F1GridBoxConfig = {
@@ -93,14 +96,24 @@ export function createModel(options: F1GridBoxOptions = {}): F1GridBoxInstance {
 
   const rebuild = (): void => {
     releaseGenerated()
-    const slab = bevelBox(W, THICK, D, 0.003)
-    slab.translate(0, THICK / 2, 0)
-    emit('pad', slab, pad, 'slab')
-    const back = bevelBox(0.42, 0.28, 0.04, 0.004)
-    back.translate(0, 0.16, D / 2 - 0.08)
-    emit('plate', back, plate, 'back', kit.graphite)
-    const face = new PlaneGeometry(0.38, 0.24)
-    face.translate(0, 0.16, D / 2 - 0.06 + LAYER_CLEARANCE * 3)
+    const y = THICK / 2
+    const bars: BufferGeometry[] = []
+    const north = bevelBox(W, THICK, LINE, 0.001)
+    north.translate(0, y, D / 2 - LINE / 2)
+    const south = bevelBox(W, THICK, LINE, 0.001)
+    south.translate(0, y, -D / 2 + LINE / 2)
+    const west = bevelBox(LINE, THICK, D - LINE * 2, 0.001)
+    west.translate(-W / 2 + LINE / 2, y, 0)
+    const east = bevelBox(LINE, THICK, D - LINE * 2, 0.001)
+    east.translate(W / 2 - LINE / 2, y, 0)
+    const centre = bevelBox(0.04, THICK, D - LINE * 2, 0.001)
+    centre.translate(0, y, 0)
+    bars.push(north, south, west, east, centre)
+    emit('pad', mergeParts(bars, 'box'), pad, 'box')
+
+    const face = new PlaneGeometry(0.7, 0.5)
+    face.rotateX(-Math.PI / 2)
+    face.translate(0, THICK + LAYER_CLEARANCE * 3, D / 2 - 0.55)
     if (ownsPlate) {
       const tex = marshalPlateTexture(String(config.index))
       textures.push(tex)
@@ -111,9 +124,9 @@ export function createModel(options: F1GridBoxOptions = {}): F1GridBoxInstance {
         metalness: 0.05,
       })
       extras.push(mat)
-      emit('plate', face, plate, 'face', mat)
+      emit('plate', face, plate, 'number', mat)
     } else {
-      emit('plate', face, plate, 'face')
+      emit('plate', face, plate, 'number')
     }
   }
   rebuild()
@@ -143,10 +156,10 @@ export function createModel(options: F1GridBoxOptions = {}): F1GridBoxInstance {
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ index: 5 }), {
     aspect,
-    target: [0, 0.08, 0],
-    distance: 6.8,
+    target: [0, 0.04, 0],
+    distance: 12,
     fov: 28,
     yaw: -0.85,
-    pitch: 0.38,
+    pitch: 0.55,
   })
 }
