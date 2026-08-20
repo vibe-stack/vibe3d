@@ -1,6 +1,6 @@
 # F1 Kit
 
-60 procedural Formula 1 props for real-time Three.js (`three/webgpu`): a pit
+85 procedural Formula 1 props for real-time Three.js (`three/webgpu`): a pit
 box, circuit furniture to instance along a racing line, and a pit building
 whose fascia accepts a number, a legend, a built-in plate, or your own image
 material. Palette and hardware live in `f1-kit-core`. Colours are generic
@@ -56,3 +56,29 @@ Heroes: `f1-race-control` · `f1-spectator-bridge` · `f1-podium`
 Weekend extras: `f1-cone` · `f1-bollard` · `f1-weighbridge` · `f1-parc-ferme` ·
 `f1-medical-post` · `f1-generator-cabin` · `f1-flag-pole` ·
 `f1-camera-platform` · `f1-tunnel-portal` · `f1-sector-gantry`
+
+## Ceremony
+
+`f1-trophy-cup` · `f1-trophy-bowl` · `f1-trophy-plinth` · `f1-champagne` ·
+`f1-ice-bucket` · `f1-trophy-table` · `f1-interview-backdrop` ·
+`f1-press-riser` · `f1-cooldown-board`
+
+## Displays
+
+`f1-led-ribbon` · `f1-pit-totem` · `f1-sector-board` · `f1-fan-screen` ·
+`f1-start-clock` · `f1-nameboard`
+
+## Hospitality
+
+`f1-banner-bridge` · `f1-a-frame` · `f1-barrier-sleeve` · `f1-gazebo` ·
+`f1-drink-wall` · `f1-feather-flag`
+
+## Paddock
+
+`f1-service-truck` (EU 96/53 cab-over rigid — assemble `kind` / wheelbase /
+boxLength / axles, hang a wrap with `setMaterial('livery', …)`) ·
+`f1-stillage` · `f1-hand-trolley` · `f1-cable-ramp`
+
+Paddock millimetres live in `f1-kit-core/paddock.ts` (truck envelope, EUR
+stillage) and `ceremony.ts` (cups, LED ribbon, 3 m gazebo). No real team,
+sponsor, or trophy IP.

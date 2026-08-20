@@ -67,6 +67,31 @@ import { createModel as createFlagPole } from './f1-flag-pole/model.ts'
 import { createModel as createCameraPlatform } from './f1-camera-platform/model.ts'
 import { createModel as createTunnelPortal } from './f1-tunnel-portal/model.ts'
 import { createModel as createSectorGantry } from './f1-sector-gantry/model.ts'
+import { createModel as createTrophyCup } from './f1-trophy-cup/model.ts'
+import { createModel as createTrophyBowl } from './f1-trophy-bowl/model.ts'
+import { createModel as createTrophyPlinth } from './f1-trophy-plinth/model.ts'
+import { createModel as createChampagne } from './f1-champagne/model.ts'
+import { createModel as createIceBucket } from './f1-ice-bucket/model.ts'
+import { createModel as createTrophyTable } from './f1-trophy-table/model.ts'
+import { createModel as createInterviewBackdrop } from './f1-interview-backdrop/model.ts'
+import { createModel as createPressRiser } from './f1-press-riser/model.ts'
+import { createModel as createCooldownBoard } from './f1-cooldown-board/model.ts'
+import { createModel as createLedRibbon } from './f1-led-ribbon/model.ts'
+import { createModel as createPitTotem } from './f1-pit-totem/model.ts'
+import { createModel as createSectorBoard } from './f1-sector-board/model.ts'
+import { createModel as createFanScreen } from './f1-fan-screen/model.ts'
+import { createModel as createStartClock } from './f1-start-clock/model.ts'
+import { createModel as createNameboard } from './f1-nameboard/model.ts'
+import { createModel as createBannerBridge } from './f1-banner-bridge/model.ts'
+import { createModel as createAFrame } from './f1-a-frame/model.ts'
+import { createModel as createBarrierSleeve } from './f1-barrier-sleeve/model.ts'
+import { createModel as createGazebo } from './f1-gazebo/model.ts'
+import { createModel as createDrinkWall } from './f1-drink-wall/model.ts'
+import { createModel as createFeatherFlag } from './f1-feather-flag/model.ts'
+import { createModel as createServiceTruck } from './f1-service-truck/model.ts'
+import { createModel as createStillage } from './f1-stillage/model.ts'
+import { createModel as createHandTrolley } from './f1-hand-trolley/model.ts'
+import { createModel as createCableRamp } from './f1-cable-ramp/model.ts'
 
 // --- dispose instrumentation -------------------------------------------------------------------------
 
@@ -175,6 +200,31 @@ const factories = {
   'f1-camera-platform': () => createCameraPlatform(),
   'f1-tunnel-portal': () => createTunnelPortal(),
   'f1-sector-gantry': () => createSectorGantry(),
+  'f1-trophy-cup': () => createTrophyCup(),
+  'f1-trophy-bowl': () => createTrophyBowl(),
+  'f1-trophy-plinth': () => createTrophyPlinth(),
+  'f1-champagne': () => createChampagne(),
+  'f1-ice-bucket': () => createIceBucket(),
+  'f1-trophy-table': () => createTrophyTable(),
+  'f1-interview-backdrop': () => createInterviewBackdrop(),
+  'f1-press-riser': () => createPressRiser(),
+  'f1-cooldown-board': () => createCooldownBoard(),
+  'f1-led-ribbon': () => createLedRibbon(),
+  'f1-pit-totem': () => createPitTotem(),
+  'f1-sector-board': () => createSectorBoard(),
+  'f1-fan-screen': () => createFanScreen(),
+  'f1-start-clock': () => createStartClock(),
+  'f1-nameboard': () => createNameboard(),
+  'f1-banner-bridge': () => createBannerBridge(),
+  'f1-a-frame': () => createAFrame(),
+  'f1-barrier-sleeve': () => createBarrierSleeve(),
+  'f1-gazebo': () => createGazebo(),
+  'f1-drink-wall': () => createDrinkWall(),
+  'f1-feather-flag': () => createFeatherFlag(),
+  'f1-service-truck': () => createServiceTruck(),
+  'f1-stillage': () => createStillage(),
+  'f1-hand-trolley': () => createHandTrolley(),
+  'f1-cable-ramp': () => createCableRamp(),
 } as const
 
 describe.each(Object.keys(factories) as Array<keyof typeof factories>)('%s ownership', (id) => {
@@ -684,5 +734,56 @@ describe('FIA 1:1 datums', () => {
     sf.root.updateMatrixWorld(true)
     expect(sizeOf(sf.root).size.z).toBeCloseTo(1.0, 1)
     sf.dispose()
+  })
+
+  test('service truck stays inside the EU 96/53 2.55 × 4.0 × 12 box', () => {
+    const model = createServiceTruck()
+    model.root.updateMatrixWorld(true)
+    const { box, size } = sizeOf(model.root)
+    expect(size.x).toBeGreaterThan(11.5)
+    expect(size.x).toBeLessThanOrEqual(12.05)
+    expect(size.z).toBeGreaterThan(2.5)
+    expect(size.z).toBeLessThan(3.5)
+    expect(box.max.y).toBeGreaterThan(3.6)
+    expect(box.max.y).toBeLessThanOrEqual(4.15)
+    model.dispose()
+  })
+
+  test('trophy cup is 0.55 m tall', () => {
+    const model = createTrophyCup()
+    model.root.updateMatrixWorld(true)
+    expect(sizeOf(model.root).box.max.y).toBeCloseTo(0.55, 1)
+    model.dispose()
+  })
+
+  test('gazebo span is 3 m', () => {
+    const model = createGazebo()
+    expect(model.getConfig().span).toBe(3)
+    model.root.updateMatrixWorld(true)
+    const { size } = sizeOf(model.root)
+    expect(size.x).toBeGreaterThan(2.95)
+    expect(size.x).toBeLessThan(3.5)
+    expect(size.z).toBeGreaterThan(2.95)
+    expect(size.z).toBeLessThan(3.5)
+    model.dispose()
+  })
+
+  test('LED ribbon is 8 × 1.2 m', () => {
+    const model = createLedRibbon()
+    model.root.updateMatrixWorld(true)
+    const { size } = sizeOf(model.root)
+    expect(size.x).toBeCloseTo(8, 1)
+    expect(size.y).toBeCloseTo(1.2, 1)
+    model.dispose()
+  })
+
+  test('stillage is a EUR pallet 1.20 × 0.80', () => {
+    const model = createStillage({ count: 1 })
+    model.root.updateMatrixWorld(true)
+    const { size } = sizeOf(model.root)
+    expect(size.x).toBeCloseTo(1.20, 1)
+    expect(size.z).toBeCloseTo(0.80, 1)
+    expect(size.y).toBeCloseTo(1.00, 1)
+    model.dispose()
   })
 })

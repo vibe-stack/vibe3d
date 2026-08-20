@@ -2336,6 +2336,306 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
       return adaptStaticPreview(createPreview({ aspect }), 2.8)
     },
   },
+  {
+    id: 'f1-trophy-cup',
+    label: 'F1 Trophy Cup',
+    category: 'Vehicles / Motorsport',
+    description: 'Generic two-handle presentation cup.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-trophy-cup.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-trophy-cup/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.28)
+    },
+  },
+  {
+    id: 'f1-trophy-bowl',
+    label: 'F1 Trophy Bowl',
+    category: 'Vehicles / Motorsport',
+    description: 'Constructors-style bowl on a foot.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-trophy-bowl.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-trophy-bowl/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.24)
+    },
+  },
+  {
+    id: 'f1-trophy-plinth',
+    label: 'F1 Trophy Plinth',
+    category: 'Vehicles / Motorsport',
+    description: 'Presentation block the cups socket onto.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-trophy-plinth.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-trophy-plinth/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.45)
+    },
+  },
+  {
+    id: 'f1-champagne',
+    label: 'F1 Champagne',
+    category: 'Vehicles / Motorsport',
+    description: 'Unbranded magnum with a wire cage.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-champagne.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-champagne/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.18)
+    },
+  },
+  {
+    id: 'f1-ice-bucket',
+    label: 'F1 Ice Bucket',
+    category: 'Vehicles / Motorsport',
+    description: 'Presentation ice bucket.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-ice-bucket.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-ice-bucket/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.22)
+    },
+  },
+  {
+    id: 'f1-trophy-table',
+    label: 'F1 Trophy Table',
+    category: 'Vehicles / Motorsport',
+    description: 'Draped table in front of the podium.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-trophy-table.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-trophy-table/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.4)
+    },
+  },
+  {
+    id: 'f1-interview-backdrop',
+    label: 'F1 Interview Backdrop',
+    category: 'Vehicles / Motorsport',
+    description: 'Cooldown / press wall with fascia slots.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-interview-backdrop.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-interview-backdrop/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.2)
+    },
+  },
+  {
+    id: 'f1-press-riser',
+    label: 'F1 Press Riser',
+    category: 'Vehicles / Motorsport',
+    description: 'Two-to-three-step press platform.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-press-riser.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-press-riser/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.35)
+    },
+  },
+  {
+    id: 'f1-cooldown-board',
+    label: 'F1 Cooldown Board',
+    category: 'Vehicles / Motorsport',
+    description: 'Name / position board on a stand.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-cooldown-board.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-cooldown-board/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.4)
+    },
+  },
+  {
+    id: 'f1-led-ribbon',
+    label: 'F1 LED Ribbon',
+    category: 'Vehicles / Motorsport',
+    description: 'Trackside LED advertising wall.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-led-ribbon.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-led-ribbon/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.6)
+    },
+  },
+  {
+    id: 'f1-pit-totem',
+    label: 'F1 Pit Totem',
+    category: 'Vehicles / Motorsport',
+    description: 'Vertical pit-lane information totem.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-pit-totem.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-pit-totem/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.8)
+    },
+  },
+  {
+    id: 'f1-sector-board',
+    label: 'F1 Sector Board',
+    category: 'Vehicles / Motorsport',
+    description: 'Trackside sector-time cabinet.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-sector-board.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-sector-board/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.5)
+    },
+  },
+  {
+    id: 'f1-fan-screen',
+    label: 'F1 Fan Screen',
+    category: 'Vehicles / Motorsport',
+    description: 'Fan-zone LED wall, flat, not a jumbotron.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-fan-screen.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-fan-screen/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2)
+    },
+  },
+  {
+    id: 'f1-start-clock',
+    label: 'F1 Start Clock',
+    category: 'Vehicles / Motorsport',
+    description: 'Grid countdown clock.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-start-clock.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-start-clock/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.55)
+    },
+  },
+  {
+    id: 'f1-nameboard',
+    label: 'F1 Nameboard',
+    category: 'Vehicles / Motorsport',
+    description: 'Pit-wall driver board on garage pitch.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-nameboard.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-nameboard/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.1)
+    },
+  },
+  {
+    id: 'f1-banner-bridge',
+    label: 'F1 Banner Bridge',
+    category: 'Vehicles / Motorsport',
+    description: 'Walkway branding gantry, 3 m deck.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-banner-bridge.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-banner-bridge/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.2)
+    },
+  },
+  {
+    id: 'f1-a-frame',
+    label: 'F1 A-Frame',
+    category: 'Vehicles / Motorsport',
+    description: 'Sandwich board with fascia slots.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-a-frame.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-a-frame/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.55)
+    },
+  },
+  {
+    id: 'f1-barrier-sleeve',
+    label: 'F1 Barrier Sleeve',
+    category: 'Vehicles / Motorsport',
+    description: 'Printed cover over a wall run.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-barrier-sleeve.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-barrier-sleeve/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.5)
+    },
+  },
+  {
+    id: 'f1-gazebo',
+    label: 'F1 Gazebo',
+    category: 'Vehicles / Motorsport',
+    description: '3 × 3 m hospitality tent.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-gazebo.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-gazebo/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1.3)
+    },
+  },
+  {
+    id: 'f1-drink-wall',
+    label: 'F1 Drink Wall',
+    category: 'Vehicles / Motorsport',
+    description: 'Cooler-bank modules.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-drink-wall.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-drink-wall/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 1)
+    },
+  },
+  {
+    id: 'f1-feather-flag',
+    label: 'F1 Feather Flag',
+    category: 'Vehicles / Motorsport',
+    description: 'Sail flag, distinct from the rectangular pole.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-feather-flag.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-feather-flag/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2.2)
+    },
+  },
+  {
+    id: 'f1-service-truck',
+    label: 'F1 Service Truck',
+    category: 'Vehicles / Motorsport',
+    description: 'EU 96/53 cab-over rigid. Assemble parts; hang a wrap.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-service-truck.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-service-truck/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 2)
+    },
+  },
+  {
+    id: 'f1-stillage',
+    label: 'F1 Stillage',
+    category: 'Vehicles / Motorsport',
+    description: 'EUR-pallet mesh cage.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-stillage.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-stillage/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.5)
+    },
+  },
+  {
+    id: 'f1-hand-trolley',
+    label: 'F1 Hand Trolley',
+    category: 'Vehicles / Motorsport',
+    description: 'Sack truck.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-hand-trolley.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-hand-trolley/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.55)
+    },
+  },
+  {
+    id: 'f1-cable-ramp',
+    label: 'F1 Cable Ramp',
+    category: 'Vehicles / Motorsport',
+    description: 'Hose / cable protector, 0.90 m wide.',
+    tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
+    exportName: 'f1-cable-ramp.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-cable-ramp/model.ts')
+      return adaptStaticPreview(createPreview({ aspect }), 0.08)
+    },
+  },
 ]
 
 function createGaugePreview(

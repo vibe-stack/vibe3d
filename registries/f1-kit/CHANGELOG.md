@@ -1,5 +1,14 @@
 # @f1-kit/registry
 
+## 0.0.5
+
+Wave E paddock / ceremony furniture. 85 props. Shared 1:1 numbers in
+`f1-kit-core/paddock.ts` (EU 96/53 rigid truck, EUR stillage) and
+`ceremony.ts` (cups, LED ribbon, 3 m gazebo). `f1-service-truck` is one
+assembleable vehicle (`kind` / wheelbase / boxLength / axles / livery), not
+five ids. Fascia props take `stamp|fia|blank` plates or `setMaterial` for a
+host image. No real team, sponsor, or championship-trophy IP.
+
 ## 0.0.4
 
 Wave 3 1:1 FIA datum pass. Shared numbers live in `f1-kit-core/track.ts`

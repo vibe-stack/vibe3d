@@ -79,3 +79,34 @@ export {
   isWallFit,
 } from './track.ts'
 export type { CircuitSignKind, WallEnd, WallFit } from './track.ts'
+export {
+  CABLE_RAMP,
+  HAND_TROLLEY,
+  STILLAGE,
+  TRUCK,
+  TRUCK_KINDS,
+  isTruckKind,
+} from './paddock.ts'
+export type { TruckKind } from './paddock.ts'
+export {
+  A_FRAME,
+  BANNER_BRIDGE,
+  CHAMPAGNE,
+  COOLDOWN_BOARD,
+  DRINK_WALL,
+  FAN_SCREEN,
+  FEATHER_FLAG,
+  GAZEBO,
+  ICE_BUCKET,
+  INTERVIEW_BACKDROP,
+  LED_RIBBON,
+  PIT_TOTEM,
+  PRESS_RISER,
+  SECTOR_BOARD,
+  START_CLOCK,
+  TROPHY_BOWL,
+  TROPHY_CUP,
+  TROPHY_PLINTH,
+  TROPHY_TABLE,
+} from './ceremony.ts'
+

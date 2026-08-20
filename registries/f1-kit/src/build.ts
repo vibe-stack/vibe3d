@@ -14,6 +14,32 @@ function titleFromId(id: string): string {
 }
 
 function categoryFromId(id: string): string {
+  if (id.includes('service-truck')) return 'Vehicles'
+  if (
+    id.includes('trophy')
+    || id.includes('champagne')
+    || id.includes('ice-bucket')
+    || id.includes('interview')
+    || id.includes('press-riser')
+    || id.includes('cooldown')
+  ) return 'Ceremony'
+  if (
+    id.includes('led-ribbon')
+    || id.includes('pit-totem')
+    || id.includes('sector-board')
+    || id.includes('fan-screen')
+    || id.includes('start-clock')
+    || id.includes('nameboard')
+  ) return 'Displays'
+  if (
+    id.includes('banner-bridge')
+    || id.includes('a-frame')
+    || id.includes('barrier-sleeve')
+    || id.includes('gazebo')
+    || id.includes('drink-wall')
+    || id.includes('feather-flag')
+  ) return 'Hospitality'
+  if (id.includes('stillage') || id.includes('hand-trolley') || id.includes('cable-ramp')) return 'Paddock'
   if (id.includes('tyre')) return 'Tyres'
   if (id.includes('jack') || id.includes('gun') || id.includes('rack')) return 'Pit Tools'
   if (id.includes('cabinet') || id.includes('extinguisher') || id.includes('reel')) return 'Garage Equipment'
