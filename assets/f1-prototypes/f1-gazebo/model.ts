@@ -61,7 +61,7 @@ export function createModel(options: F1GazeboOptions = {}): F1GazeboInstance {
   const kit = bundle.materials
   const materialSlots: Record<Slot, Material> = {
     frame: options.materials?.frame ?? kit.steel,
-    canopy: options.materials?.canopy ?? kit.fabric,
+    canopy: options.materials?.canopy ?? kit.shell,
   }
   const root = new Group(); root.name = 'f1-gazebo'
   const frame = new Group(); frame.name = 'frame'
