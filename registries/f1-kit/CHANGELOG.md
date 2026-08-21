@@ -1,5 +1,15 @@
 # @f1-kit/registry
 
+## 0.0.9
+
+DAF XG+ critic pass on `f1-service-truck`. Cab is a pinched Super Space Cab
+with a recessed grille cassette, visor light bar, hook DRLs, A-pillar camera
+stalks, and Dawn emissive bloom in the demo (`createPreview({ bloom: true })`).
+Trailer keeps the hospitality window belt, black nose, and black-to-white swoop.
+Median resemblance vs a public XG+ 3/4 plateaued in the 40s — remaining gap is
+class-A surfacing and outdoor IBL, not the 16.50 m envelope. No Cadillac / DAF
+marks.
+
 ## 0.0.8
 
 DAF XG+ high-roof artic replaces the Tesla Semi cab. `f1-service-truck` is an

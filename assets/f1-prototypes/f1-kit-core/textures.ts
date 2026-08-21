@@ -542,14 +542,14 @@ export function truckLiveryTexture(options: {
     for (let x = 0; x < w; x++) {
       const u = x / w
       const v = y / h
-      const split = 0.42 + (v - 0.5) * 0.22
+      const split = 0.40 + (v - 0.5) * 0.58
       const rgb = u > split ? white : black
       put(data, w, x, y, rgb[0], rgb[1], rgb[2])
     }
   }
   const cx = Math.round(w * 0.28)
   const cy = Math.round(h * 0.42)
-  const outer = Math.round(h * 0.28)
+  const outer = Math.round(h * 0.34)
   const inner = Math.round(h * 0.22)
   for (let y = cy - outer; y <= cy + outer; y++) {
     for (let x = cx - outer; x <= cx + outer; x++) {

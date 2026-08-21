@@ -758,6 +758,7 @@ describe('FIA 1:1 datums', () => {
 
   test('service truck preview keeps the kit env, lamps on, and cab light off', () => {
     const preview = createServiceTruckPreview({ aspect: 1 })
+    expect(preview.bloom).toBe(true)
     expect(preview.scene.environment).toBeNull()
     expect(preview.root.getObjectByName('lamps')?.children.length).toBeGreaterThan(0)
     expect(preview.isCabLightOn()).toBe(false)
