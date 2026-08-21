@@ -1,4 +1,4 @@
-// f1-marker-post — red/white striped stake in the runoff. Not f1-brake-marker (100/150 boards).
+// f1-marker-post — red/white square distance post in the runoff. Not f1-brake-marker (100/150 boards).
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
@@ -8,8 +8,6 @@ import {
   createF1Preview,
   disposeF1Materials,
   mergeParts,
-  tubeSection,
-  AXIS_Y,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'post' | 'stripe'
@@ -34,6 +32,8 @@ export interface F1MarkerPostInstance {
 }
 
 const defaults: F1MarkerPostConfig = { height: 1.2 }
+const SIDE = 0.075
+const BAND = 0.12
 
 export function createModel(options: F1MarkerPostOptions = {}): F1MarkerPostInstance {
   const config: F1MarkerPostConfig = {
@@ -76,14 +76,40 @@ export function createModel(options: F1MarkerPostOptions = {}): F1MarkerPostInst
   const rebuild = (): void => {
     releaseGenerated()
     const h = config.height
-    emit('post', tubeSection(0.04, h, [0, h / 2, 0], AXIS_Y, 12), post, 'stake')
-    const bands: BufferGeometry[] = []
-    const band = 0.12
-    for (let y = band; y < h - 0.08; y += band * 2) {
-      const ring = tubeSection(0.046, band - 0.01, [0, y, 0], AXIS_Y, 12)
-      bands.push(ring)
+    const white: BufferGeometry[] = []
+    const red: BufferGeometry[] = []
+    const foot = bevelBox(0.18, 0.04, 0.18, 0.006)
+    foot.translate(0, 0.02, 0)
+    white.push(foot)
+    const socket = bevelBox(0.11, 0.06, 0.11, 0.005)
+    socket.translate(0, 0.06, 0)
+    white.push(socket)
+
+    let y = 0.09
+    let paint = 0
+    while (y + 0.02 < h - 0.08) {
+      const slice = Math.min(BAND, h - 0.08 - y)
+      const block = bevelBox(SIDE, slice, SIDE, 0.004)
+      block.translate(0, y + slice / 2, 0)
+      ;(paint % 2 === 0 ? white : red).push(block)
+      y += slice
+      paint++
     }
-    emit('stripe', mergeParts(bands, 'stripes'), stripes, 'stripes')
+
+    const capH = 0.09
+    const cap = bevelBox(SIDE + 0.01, 0.03, SIDE + 0.01, 0.004)
+    cap.translate(0, h - capH + 0.01, 0)
+    red.push(cap)
+    const peak = bevelBox(0.042, 0.05, 0.042, 0.004)
+    peak.translate(0, h - 0.02, 0)
+    red.push(peak)
+    const diamond = bevelBox(0.09, 0.018, 0.09, 0.003)
+    diamond.rotateY(Math.PI / 4)
+    diamond.translate(0, h - 0.055, 0)
+    red.push(diamond)
+
+    emit('post', mergeParts(white, 'post'), post, 'stake')
+    emit('stripe', mergeParts(red, 'stripes'), stripes, 'stripes')
   }
   rebuild()
 
@@ -113,9 +139,9 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
     target: [0, 0.6, 0],
-    distance: 2.6,
+    distance: 2.4,
     fov: 28,
-    yaw: -0.7,
-    pitch: 0.12,
+    yaw: -0.75,
+    pitch: 0.14,
   })
 }

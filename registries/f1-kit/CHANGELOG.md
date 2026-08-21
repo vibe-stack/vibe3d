@@ -1,5 +1,14 @@
 # @f1-kit/registry
 
+## 0.0.12
+
+Walls and runoff identity pass. Concrete wall, jersey, sausage, astroturf, gravel,
+access gate, crash cushion, crowd fence, marker post, and slot drain now read at
+catalogue distance from geometry (bay joints, NJ kink and drain slots, Type 4
+modules, grass pile, readable stones, marshal-gap stubs, stepped attenuator,
+weldmesh, square distance post, grate + slot). Stairs overpass unchanged. No
+new ids; kit stays 70.
+
 ## 0.0.11
 
 `f1-service-truck` highway 315/80R22.5 wheels on spinning hubs, raycast onto the preview ground, and a see-through Super Space Cab with seats / dash. Live preview parks in place (`wheelRpm` from 8 m/s of spin, no root translation) with bloom and interior light on. No DAF marks.
