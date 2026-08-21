@@ -1,4 +1,4 @@
-// f1-trophy-plinth — presentation block the cups socket onto.
+// f1-trophy-plinth — retired generic cube. Not a GP trophy; kept for catalog id.
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 

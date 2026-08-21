@@ -585,6 +585,7 @@ describe('procedural knobs', () => {
       FIA_LIGHT_PANEL,
       PIT_WALL,
       SPECTATOR_BRIDGE,
+      PODIUM,
       PODIUM_HEIGHTS,
       START_FINISH,
     } = await import('./f1-kit-core/track.ts')
@@ -603,6 +604,8 @@ describe('procedural knobs', () => {
     expect(PIT_WALL.height).toBe(2.2)
     expect(SPECTATOR_BRIDGE.deckHeight).toBeGreaterThanOrEqual(5.5)
     expect(PODIUM_HEIGHTS).toEqual([1, 0.7, 0.4])
+    expect(PODIUM.walkway).toBeGreaterThanOrEqual(1.2)
+    expect(PODIUM.flagGap).toBeGreaterThanOrEqual(0.5)
     expect(START_FINISH).toEqual({ timing: 0.15, chequer: 1 })
     expect(FASCIA_STYLES).toEqual(['stamp', 'fia', 'blank'])
   })
@@ -785,10 +788,42 @@ describe('FIA 1:1 datums', () => {
     preview.dispose()
   })
 
-  test('trophy cup is 0.55 m tall', () => {
+  test('trophy cup is the 0.60 m Piet Boon / Delft cup', () => {
     const model = createTrophyCup()
     model.root.updateMatrixWorld(true)
-    expect(sizeOf(model.root).box.max.y).toBeCloseTo(0.55, 1)
+    expect(sizeOf(model.root).box.max.y).toBeCloseTo(0.60, 1)
+    model.dispose()
+  })
+
+  test('podium is P2 | P1 | P3 with Appendix 5 walkway and flag gap', () => {
+    const model = createPodium()
+    model.root.updateMatrixWorld(true)
+    const p1 = model.root.getObjectByName('dais-1') as never
+    const p2 = model.root.getObjectByName('dais-2') as never
+    const p3 = model.root.getObjectByName('dais-3') as never
+    const rail = model.root.getObjectByName('rail') as never
+    const backdrop = model.root.getObjectByName('backdrop') as never
+    expect(p1).toBeTruthy()
+    expect(p2).toBeTruthy()
+    expect(p3).toBeTruthy()
+    const p1Box = new Box3().setFromObject(p1)
+    const p2Box = new Box3().setFromObject(p2)
+    const p3Box = new Box3().setFromObject(p3)
+    const railBox = new Box3().setFromObject(rail)
+    const wallBox = new Box3().setFromObject(backdrop)
+    const p1Size = p1Box.getSize(new Vector3())
+    const p2Size = p2Box.getSize(new Vector3())
+    const p3Size = p3Box.getSize(new Vector3())
+    expect(p2Box.max.x).toBeLessThan(p1Box.min.x)
+    expect(p3Box.min.x).toBeGreaterThan(p1Box.max.x)
+    expect((p1Box.min.x + p1Box.max.x) / 2).toBeCloseTo(0, 1)
+    expect(p1Size.x).toBeCloseTo(1.20, 1)
+    expect(p1Size.y).toBeCloseTo(1.00, 1)
+    expect(p1Size.z).toBeCloseTo(1.00, 1)
+    expect(p2Size.y).toBeCloseTo(0.70, 1)
+    expect(p3Size.y).toBeCloseTo(0.40, 1)
+    expect(railBox.min.z - p1Box.max.z).toBeGreaterThanOrEqual(1.18)
+    expect(p1Box.min.z - wallBox.max.z).toBeGreaterThanOrEqual(0.48)
     model.dispose()
   })
 

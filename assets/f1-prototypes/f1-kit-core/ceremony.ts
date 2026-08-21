@@ -1,18 +1,22 @@
 /**
- * Shared 1:1 ceremony / display / hospitality datums. Generic GP cup grammar —
- * not a named championship trophy. Display sizes follow common Grade 1 LED
- * installs and the existing FIA yellow-board plate.
+ * Shared 1:1 ceremony / display / hospitality datums. Display sizes follow
+ * common Grade 1 LED installs and the existing FIA yellow-board plate.
  */
 
 import { CIRCUIT_SIGN_PLATE } from './track.ts'
 
-/** Two-handle presentation cup. Typical GP trophy ~500–600 mm. */
-export const TROPHY_CUP = { height: 0.55 } as const
+/**
+ * Winner's cup: Studio Piet Boon / Royal Delft Zandvoort silhouette (1939 cup
+ * redesigned 2021–, photographed on the 2024 Dutch GP podium). Height sits in
+ * FIA Appendix 5 winner/constructor band (0.50–0.65 m). Not a generic two-handle
+ * stand-in and not a championship trophy logo.
+ */
+export const TROPHY_CUP = { height: 0.60, bowlR: 0.13, footR: 0.09 } as const
 
-/** Constructors-style bowl on a foot. */
+/** Retired generic bowl — not a GP trophy. Kept for existing ids. */
 export const TROPHY_BOWL = { height: 0.45 } as const
 
-/** Presentation plinth the cups socket onto. */
+/** Retired presentation cube — not a GP trophy. Kept for existing ids. */
 export const TROPHY_PLINTH = { width: 0.90, height: 0.90, depth: 0.90 } as const
 
 /** 1.5 L magnum bottle. */
@@ -21,7 +25,7 @@ export const CHAMPAGNE = { height: 0.35 } as const
 /** Presentation ice bucket. */
 export const ICE_BUCKET = { height: 0.40, diameter: 0.32 } as const
 
-/** Draped table in front of the existing podium. */
+/** Draped table to the side of the podium (Appendix 5: trophies not on the dais). */
 export const TROPHY_TABLE = { width: 2.0, depth: 0.8, height: 0.75 } as const
 
 /** Cooldown / press interview wall. */

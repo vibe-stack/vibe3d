@@ -2210,7 +2210,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     id: 'f1-podium',
     label: 'F1 Podium',
     category: 'Vehicles / Motorsport',
-    description: 'Three-step podium with an empty backdrop.',
+    description: 'FIA Appendix 5 dais: P2 | P1 | P3, carpet, numbered faces.',
     tags: ['prop', 'vehicles', 'motorsport', 'trackside'],
     exportName: 'f1-podium.glb',
     async create(aspect) {
@@ -2342,7 +2342,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     id: 'f1-trophy-cup',
     label: 'F1 Trophy Cup',
     category: 'Vehicles / Motorsport',
-    description: 'Generic two-handle presentation cup.',
+    description: 'Piet Boon / Royal Delft Zandvoort winner\'s cup (0.60 m).',
     tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
     exportName: 'f1-trophy-cup.glb',
     async create(aspect) {
@@ -2354,7 +2354,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     id: 'f1-trophy-bowl',
     label: 'F1 Trophy Bowl',
     category: 'Vehicles / Motorsport',
-    description: 'Constructors-style bowl on a foot.',
+    description: 'Retired generic bowl — not a GP trophy.',
     tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
     exportName: 'f1-trophy-bowl.glb',
     async create(aspect) {
@@ -2366,7 +2366,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     id: 'f1-trophy-plinth',
     label: 'F1 Trophy Plinth',
     category: 'Vehicles / Motorsport',
-    description: 'Presentation block the cups socket onto.',
+    description: 'Retired generic plinth — not a GP trophy.',
     tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
     exportName: 'f1-trophy-plinth.glb',
     async create(aspect) {
@@ -2402,7 +2402,7 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
     id: 'f1-trophy-table',
     label: 'F1 Trophy Table',
     category: 'Vehicles / Motorsport',
-    description: 'Draped table in front of the podium.',
+    description: 'Side table for trophies (Appendix 5: not on the dais).',
     tags: ['prop', 'vehicles', 'motorsport', 'paddock'],
     exportName: 'f1-trophy-table.glb',
     async create(aspect) {

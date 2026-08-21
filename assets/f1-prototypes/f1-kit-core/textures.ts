@@ -222,6 +222,28 @@ export function marshalPlateTexture(text = '12'): DataTexture {
   return tex
 }
 
+/** Dais front numeral — dark field, white 3×5 glyph filling the face. */
+export function daisNumberTexture(digit: '1' | '2' | '3'): DataTexture {
+  const w = 96
+  const h = 128
+  const data = new Uint8Array(w * h * 4)
+  const field: [number, number, number] = [12, 18, 24]
+  const ink: [number, number, number] = [242, 248, 250]
+  fillGlyphRect(data, w, 0, 0, w, h, field)
+  const cell = 16
+  const wordW = glyphAdvance(cell) - Math.max(4, Math.round(cell * 0.4))
+  const ox = Math.max(8, Math.round((w - wordW) / 2))
+  const oy = Math.max(8, Math.round((h - 5 * cell) / 2))
+  writeGlyphWord(data, w, ox, oy, digit, ink, cell)
+  const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
+  tex.colorSpace = SRGBColorSpace
+  tex.magFilter = LinearFilter
+  tex.minFilter = LinearFilter
+  tex.flipY = true
+  tex.needsUpdate = true
+  return tex
+}
+
 function unpackRgb(hex: number): readonly [number, number, number] {
   return [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255]
 }

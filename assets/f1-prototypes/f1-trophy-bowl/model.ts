@@ -1,4 +1,4 @@
-// f1-trophy-bowl — generic constructors-style plate on a foot.
+// f1-trophy-bowl — retired generic bowl. Not a GP trophy; kept for catalog id.
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 

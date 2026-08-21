@@ -1,5 +1,13 @@
 # @f1-kit/registry
 
+## 0.0.6
+
+Ceremony wave AAA. `f1-podium` follows FIA Appendix 5 plus the 2026 F1-supplied
+dais (P2 | P1 | P3, carpet, 1.20 m walkway, 0.50 m flag slot, numbered faces,
+solid backdrop). `f1-trophy-cup` is the 0.60 m Piet Boon / Royal Delft
+Zandvoort winner's cup. Bowl and plinth stay as retired generic ids, not GP
+trophies.
+
 ## 0.0.5
 
 Wave E paddock / ceremony furniture. 85 props. Shared 1:1 numbers in

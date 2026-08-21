@@ -51,7 +51,9 @@ Existing trackside: `f1-catch-fence` · `f1-armco` · `f1-tyre-barrier` ·
 `f1-timing-pylon` · `f1-brake-marker` · `f1-jumbotron` · `f1-marshal-post` ·
 `f1-start-gantry` · `f1-grandstand-bay` · `f1-oranje-can`
 
-Heroes: `f1-race-control` · `f1-spectator-bridge` · `f1-podium`
+Heroes: `f1-race-control` · `f1-spectator-bridge` · `f1-podium` (FIA Appendix 5
+dais: camera-facing P2 | P1 | P3, 1.20 m walkway, 0.50 m flag slot, carpet,
+numbered faces, solid backdrop)
 
 Weekend extras: `f1-cone` · `f1-bollard` · `f1-weighbridge` · `f1-parc-ferme` ·
 `f1-medical-post` · `f1-generator-cabin` · `f1-flag-pole` ·
@@ -59,9 +61,15 @@ Weekend extras: `f1-cone` · `f1-bollard` · `f1-weighbridge` · `f1-parc-ferme`
 
 ## Ceremony
 
-`f1-trophy-cup` · `f1-trophy-bowl` · `f1-trophy-plinth` · `f1-champagne` ·
-`f1-ice-bucket` · `f1-trophy-table` · `f1-interview-backdrop` ·
-`f1-press-riser` · `f1-cooldown-board`
+FIA Appendix 5 podium ceremony. Winner's cup is the measured Studio Piet Boon /
+Royal Delft Zandvoort silhouette (0.60 m, Appendix 5 winner band) — not a
+generic two-handle stand-in and not a championship trophy.
+
+`f1-trophy-cup` · `f1-champagne` · `f1-ice-bucket` · `f1-trophy-table` ·
+`f1-interview-backdrop` · `f1-press-riser` · `f1-cooldown-board`
+
+`f1-trophy-bowl` and `f1-trophy-plinth` remain catalog ids only (retired
+generic shapes, not GP trophies).
 
 ## Displays
 

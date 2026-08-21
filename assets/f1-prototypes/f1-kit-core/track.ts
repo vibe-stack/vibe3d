@@ -67,8 +67,29 @@ export const PIT_WALL = {
 /** Deck must clear this kit's 5 m catch fence. */
 export const SPECTATOR_BRIDGE = { deckHeight: 5.5, width: 2.4 } as const
 
-/** 1:1 GP podium for standing adults. P1 / P2 / P3. */
-export const PODIUM_HEIGHTS = [1.00, 0.70, 0.40] as const
+/**
+ * FIA Appendix 5 podium (Sporting Regulations) + the 2026 F1-supplied dais
+ * photographed at Albert Park (Wikimedia 028A8788 / 028A8821): camera-facing
+ * P2 | P1 | P3, large numerals on the front face, glass retaining rail.
+ * Walkway and flag slot are Appendix 5 minima, not invented.
+ */
+export const PODIUM = {
+  p1: { height: 1.00, width: 1.20, depth: 1.00 },
+  p2: { height: 0.70, width: 1.10, depth: 1.00 },
+  p3: { height: 0.40, width: 1.10, depth: 1.00 },
+  gap: 0.08,
+  /** Appendix 5: winner's dais edge to retaining barrier ≥ 1.20 m. */
+  walkway: 1.20,
+  /** Appendix 5: space behind the structure for flat flags ≥ 0.50 m. */
+  flagGap: 0.50,
+  deck: 0.12,
+  barrierH: 1.10,
+  backdropH: 3.00,
+  backdropT: 0.10,
+} as const
+
+/** P1 / P2 / P3 dais heights. Prefer `PODIUM.p1.height` in new code. */
+export const PODIUM_HEIGHTS = [PODIUM.p1.height, PODIUM.p2.height, PODIUM.p3.height] as const
 
 /** Timing line is a thin white stripe; ceremonial SF chequer uses 1 m tiles. */
 export const START_FINISH = { timing: 0.15, chequer: 1.0 } as const

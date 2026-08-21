@@ -1,4 +1,4 @@
-// f1-trophy-table — draped table in front of the existing podium.
+// f1-trophy-table — draped table to the side of the podium (FIA Appendix 5).
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
