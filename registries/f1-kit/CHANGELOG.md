@@ -1,5 +1,13 @@
 # @f1-kit/registry
 
+## 0.0.13
+
+`f1-service-truck` Super Space Cab floor sits at the window belt with two
+high-back seats (cushion, back, headrests) visible through the glass. Headlights
+are lamp buckets + lenses with visor spots and roof markers; lamps on and bloom
+in `createPreview`. Steer hubs are punched 10-hole bright metal over a dark
+well; drive duals share one deep-dish steel hub. Preview parks in place.
+
 ## 0.0.12
 
 Walls and runoff identity pass. Concrete wall, jersey, sausage, astroturf, gravel,
