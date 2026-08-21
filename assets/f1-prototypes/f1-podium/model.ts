@@ -4,11 +4,9 @@
 
 import {
   BufferGeometry,
-  DataTexture,
   Group,
   Mesh,
   MeshStandardMaterial,
-  PlaneGeometry,
   type Material,
 } from 'three/webgpu'
 
@@ -20,7 +18,6 @@ import {
   bevelBox,
   bevelPrism,
   createF1Preview,
-  daisNumberTexture,
   disposeF1Materials,
   mergeParts,
   shade,
@@ -65,6 +62,39 @@ function daisX(place: 1 | 2 | 3): number {
   return place === 2 ? -half : half
 }
 
+function raisedDigit(digit: '1' | '2' | '3', width: number, height: number): BufferGeometry {
+  const t = 0.032
+  const hz = width * 0.78
+  const vt = width * 0.18
+  const hh = height * 0.13
+  const yTop = height * 0.38
+  const yMid = 0
+  const yBot = -height * 0.38
+  const xR = width * 0.28
+  const xL = -width * 0.28
+  const vH = height * 0.34
+  const parts: BufferGeometry[] = []
+  const hBar = (y: number) => parts.push(bevelBox(hz, hh, t, 0.003).translate(0, y, 0))
+  const vBar = (x: number, y: number) => parts.push(bevelBox(vt, vH, t, 0.003).translate(x, y, 0))
+  if (digit === '1') {
+    parts.push(bevelBox(vt * 1.15, height * 0.82, t, 0.003))
+    hBar(yBot)
+  } else if (digit === '2') {
+    hBar(yTop)
+    vBar(xR, height * 0.18)
+    hBar(yMid)
+    vBar(xL, -height * 0.18)
+    hBar(yBot)
+  } else {
+    hBar(yTop)
+    vBar(xR, height * 0.18)
+    hBar(yMid)
+    vBar(xR, -height * 0.18)
+    hBar(yBot)
+  }
+  return mergeParts(parts, `digit-${digit}`)
+}
+
 /** D-shaped dais: straight back, curved camera face (2026 F1-supplied blocks). */
 function daisSolid(width: number, height: number, depth: number): BufferGeometry {
   const hw = width / 2
@@ -103,17 +133,21 @@ export function createModel(options: F1PodiumOptions = {}): F1PodiumInstance {
   })
   const glass = new MeshStandardMaterial({
     name: 'f1-kit / podium glass',
-    color: shade(TOKEN.ICE_300, 0.42),
-    roughness: 0.08,
-    metalness: 0.12,
+    color: shade(TOKEN.ICE_300, -0.28),
+    roughness: 0.12,
+    metalness: 0.18,
   })
-  extras.push(carpet, glass)
+  const daisCarpet = new MeshStandardMaterial({
+    name: 'f1-kit / dais carpet',
+    color: shade(TOKEN.COBALT_500, -0.42),
+    roughness: 0.9,
+    metalness: 0,
+  })
+  extras.push(carpet, glass, daisCarpet)
 
-  const plateTextures: DataTexture[] = []
-  const plateExtras: Material[] = []
   const ownsPlate = options.materials?.plate === undefined
   const materialSlots: Record<Slot, Material> = {
-    steps: options.materials?.steps ?? carpet,
+    steps: options.materials?.steps ?? daisCarpet,
     deck: options.materials?.deck ?? carpet,
     barrier: options.materials?.barrier ?? glass,
     frame: options.materials?.frame ?? kit.ink,
@@ -138,12 +172,6 @@ export function createModel(options: F1PodiumOptions = {}): F1PodiumInstance {
     for (const geometry of generated) geometry.dispose()
     generated.length = 0
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
-    if (ownsPlate) {
-      for (const texture of plateTextures) texture.dispose()
-      plateTextures.length = 0
-      for (const material of plateExtras) material.dispose()
-      plateExtras.length = 0
-    }
   }
 
   const emit = (
@@ -210,27 +238,11 @@ export function createModel(options: F1PodiumOptions = {}): F1PodiumInstance {
         `stripe-bot-${place}`,
         kit.shell,
       )
-      const faceZ = spec.depth / 2 + LAYER_CLEARANCE
-      const plateW = spec.width * 0.72
-      const plateH = spec.height * 0.72
-      if (ownsPlate) {
-        const tex = daisNumberTexture(NUMBERS[place - 1])
-        plateTextures.push(tex)
-        const mat = new MeshStandardMaterial({
-          name: `f1-kit / dais ${place}`,
-          map: tex,
-          roughness: 0.55,
-          metalness: 0.04,
-        })
-        plateExtras.push(mat)
-        const face = new PlaneGeometry(plateW, plateH)
-        face.translate(x, y, faceZ)
-        emit('plate', face, plates, `plate-${place}`, mat)
-      } else {
-        const face = new PlaneGeometry(plateW, plateH)
-        face.translate(x, y, faceZ)
-        emit('plate', face, plates, `plate-${place}`)
-      }
+      const faceZ = spec.depth / 2 + 0.06
+      const plateW = spec.width * 0.78
+      const plateH = spec.height * 0.8
+      const digit = raisedDigit(NUMBERS[place - 1], plateW, plateH).translate(x, y, faceZ)
+      emit('plate', digit, plates, `plate-${place}`, ownsPlate ? kit.shell : undefined)
     }
 
     const railH = PODIUM.barrierH
@@ -315,10 +327,10 @@ export function createModel(options: F1PodiumOptions = {}): F1PodiumInstance {
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
     aspect,
-    target: [0, 1.15, 0.35],
-    distance: 11.5,
-    fov: 28,
-    yaw: -0.42,
-    pitch: 0.16,
+    target: [0, 0.65, 0],
+    distance: 8.8,
+    fov: 30,
+    yaw: -0.22,
+    pitch: 0.34,
   })
 }

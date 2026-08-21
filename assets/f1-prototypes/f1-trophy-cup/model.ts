@@ -1,22 +1,21 @@
 // f1-trophy-cup — Studio Piet Boon / Royal Delft Zandvoort winner's cup
 // (1939 silhouette, 2021– redesign). Faceted ceramic, angular handles,
-// cobalt medallion. Height is FIA Appendix 5 winner band (0.50–0.65 m).
+// cobalt disc medallion. Height is FIA Appendix 5 winner band (0.50–0.65 m).
 // No championship mark, team, or sponsor IP.
 
 import { BufferGeometry, Group, Mesh, MeshStandardMaterial, Vector3, type Material } from 'three/webgpu'
 
 import {
-  AXIS_Z,
   TOKEN,
   TROPHY_CUP,
   acquireF1Materials,
   createF1Preview,
   disposeF1Materials,
+  bevelDisc,
   facetRadius,
-  member,
   revolve,
   shade,
-  tubeSection,
+  taperedTube,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'cup' | 'handles'
@@ -91,47 +90,41 @@ export function createModel(options: F1TrophyCupOptions = {}): F1TrophyCupInstan
     const h = config.height
     const k = h / TROPHY_CUP.height
     const bowlR = facetRadius(TROPHY_CUP.bowlR * k, 8)
-    const footR = facetRadius(TROPHY_CUP.footR * k, 8)
+    const footR = facetRadius(TROPHY_CUP.footR * 1.2 * k, 8)
     const body = revolve(
       [
         [0.00, 0.002],
-        [0.02, footR],
-        [0.05, footR],
-        [0.09, footR * 0.62],
-        [0.16, footR * 0.34],
-        [0.30, footR * 0.30],
-        [0.42, footR * 0.38],
-        [0.52, bowlR * 0.55],
-        [0.64, bowlR],
-        [0.80, bowlR * 1.06],
-        [0.92, bowlR * 0.96],
-        [0.97, bowlR * 0.90],
-        [1.00, bowlR * 0.88],
+        [0.03, footR],
+        [0.12, footR],
+        [0.18, footR * 0.70],
+        [0.28, footR * 0.48],
+        [0.40, footR * 0.50],
+        [0.50, bowlR * 0.58],
+        [0.62, bowlR],
+        [0.78, bowlR * 1.05],
+        [0.90, bowlR * 0.98],
+        [0.96, bowlR * 0.92],
+        [1.00, bowlR * 0.90],
       ],
       { yBot: 0, yTop: h, scaleW: 1, segments: 8 },
     )
     emit('cup', body, cup, 'body')
-    const ring = tubeSection(bowlR * 0.28, 0.007 * k, [0, h * 0.68, bowlR * 0.92], AXIS_Z, 16)
-    generated.push(ring)
-    const ringMesh = new Mesh(ring, kit.cobalt)
-    ringMesh.name = 'medallion-ring'
-    ringMesh.castShadow = true
-    cup.add(ringMesh)
-    const disc = tubeSection(bowlR * 0.18, 0.008 * k, [0, h * 0.68, bowlR * 0.93], AXIS_Z, 16)
+    const disc = bevelDisc(bowlR * 0.22, 0.012 * k, 0.002, 24)
+    disc.translate(0, h * 0.66, bowlR * 0.98)
     generated.push(disc)
     const discMesh = new Mesh(disc, kit.cobalt)
     discMesh.name = 'medallion'
     discMesh.castShadow = true
     cup.add(discMesh)
-    const handleR = 0.011 * k
+    const handleR = 0.022 * k
     for (const sx of [-1, 1] as const) {
-      const innerBot = new Vector3(sx * bowlR * 0.92, h * 0.56, 0)
-      const outerBot = new Vector3(sx * (bowlR + 0.055 * k), h * 0.50, 0)
-      const outerTop = new Vector3(sx * (bowlR + 0.048 * k), h * 0.90, 0)
-      const innerTop = new Vector3(sx * bowlR * 0.86, h * 0.94, 0)
-      emit('handles', member(innerBot, outerBot, handleR, 4), handles, `handle-bot-${sx}`)
-      emit('handles', member(outerBot, outerTop, handleR, 4), handles, `handle-up-${sx}`)
-      emit('handles', member(outerTop, innerTop, handleR, 4), handles, `handle-top-${sx}`)
+      const path = [
+        new Vector3(sx * bowlR * 0.88, h * 0.54, 0),
+        new Vector3(sx * (bowlR + 0.068 * k), h * 0.50, 0),
+        new Vector3(sx * (bowlR + 0.068 * k), h * 0.88, 0),
+        new Vector3(sx * bowlR * 0.84, h * 0.93, 0),
+      ]
+      emit('handles', taperedTube(path, handleR, 4), handles, `handle-${sx}`)
     }
   }
   rebuild()
