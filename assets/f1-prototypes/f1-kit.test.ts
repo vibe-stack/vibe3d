@@ -840,8 +840,12 @@ describe('FIA 1:1 datums', () => {
     expect(cabLight?.visible).toBe(false)
     expect(preview.scene.environment).toBeNull()
     const x0 = preview.root.position.x
+    const hub = preview.root.getObjectByName('hub-0-1')
+    const z0 = hub ? hub.rotation.z : 0
     preview.update(0.4)
-    expect(preview.root.position.x).not.toBeCloseTo(x0, 5)
+    expect(preview.root.position.x).toBeCloseTo(x0, 5)
+    expect(hub).toBeTruthy()
+    expect(hub!.rotation.z).not.toBeCloseTo(z0, 5)
     preview.dispose()
   })
 
