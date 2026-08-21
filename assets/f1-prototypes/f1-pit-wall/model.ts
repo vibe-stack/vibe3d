@@ -52,7 +52,7 @@ const CAP_H = PIT_WALL.height - SHELF_H - GLASS_H
 
 function bayLabel(labels: string[] | undefined, index: number): string {
   if (labels?.[index]) return String(labels[index]).slice(0, 3)
-  return String(index + 1)
+  return index === 0 ? '11' : String(index + 1)
 }
 
 export function createModel(options: F1PitWallOptions = {}): F1PitWallInstance {

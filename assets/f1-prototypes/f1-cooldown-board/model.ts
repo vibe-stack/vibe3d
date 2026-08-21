@@ -1,5 +1,5 @@
 // f1-cooldown-board — cooldown name/position plate on a stand.
-// White plate, not a yellow FIA circuit-sign clone. setMaterial('plate') for a host image.
+// Default Checo 11, black and white. setMaterial('plate') for a host image.
 
 import {
   BufferGeometry,
@@ -14,12 +14,13 @@ import {
 import {
   AXIS_Y,
   COOLDOWN_BOARD,
+  DRIVER,
   LAYER_CLEARANCE,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
   disposeF1Materials,
-  fasciaTexture,
+  driverPlateTexture,
   tubeSection,
 } from '../f1-kit-core/index.ts'
 
@@ -27,6 +28,7 @@ type Slot = 'post' | 'plate'
 
 export interface F1CooldownBoardConfig {
   kind: string
+  name: string
 }
 
 export interface F1CooldownBoardOptions extends Partial<F1CooldownBoardConfig> {
@@ -44,11 +46,16 @@ export interface F1CooldownBoardInstance {
   dispose(): void
 }
 
-const defaults: F1CooldownBoardConfig = { kind: 'P1' }
+const defaults: F1CooldownBoardConfig = { kind: DRIVER.number, name: DRIVER.name }
+
+function stamp(value: string, fallback: string, max: number): string {
+  return String(value ?? '').replace(/[^0-9A-Za-z]/g, '').slice(0, max).toUpperCase() || fallback
+}
 
 export function createModel(options: F1CooldownBoardOptions = {}): F1CooldownBoardInstance {
   const config: F1CooldownBoardConfig = {
-    kind: String(options.kind ?? defaults.kind).slice(0, 8).toUpperCase() || 'P1',
+    kind: stamp(options.kind ?? defaults.kind, DRIVER.number, 8),
+    name: stamp(options.name ?? defaults.name, DRIVER.name, 8),
   }
   const bundle = acquireF1Materials()
   const kit = bundle.materials
@@ -101,7 +108,7 @@ export function createModel(options: F1CooldownBoardOptions = {}): F1CooldownBoa
     const face = new PlaneGeometry(COOLDOWN_BOARD.width, COOLDOWN_BOARD.height)
     face.translate(0, plateY, 0.018 + LAYER_CLEARANCE * 3)
     if (ownsPlate) {
-      const tex = fasciaTexture({ number: config.kind, legend: '', style: 'blank' })
+      const tex = driverPlateTexture({ number: config.kind, name: config.name })
       textures.push(tex)
       const mat = new MeshStandardMaterial({
         name: 'f1-kit / cooldown board',
@@ -122,7 +129,8 @@ export function createModel(options: F1CooldownBoardOptions = {}): F1CooldownBoa
     materials: materialSlots,
     getConfig: () => ({ ...config }),
     configure(patch) {
-      if (patch.kind !== undefined) config.kind = String(patch.kind).slice(0, 8).toUpperCase() || 'P1'
+      if (patch.kind !== undefined) config.kind = stamp(patch.kind, DRIVER.number, 8)
+      if (patch.name !== undefined) config.name = stamp(patch.name, DRIVER.name, 8)
       rebuild()
     },
     setMaterial(slot, material) {
@@ -143,7 +151,7 @@ export function createModel(options: F1CooldownBoardOptions = {}): F1CooldownBoa
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ kind: 'P1' }), {
+  return createF1Preview(createModel(), {
     aspect, target: [0, 1.0, 0], distance: 3.2, fov: 28, yaw: -0.4, pitch: 0.08,
   })
 }

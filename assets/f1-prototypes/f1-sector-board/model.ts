@@ -1,10 +1,12 @@
 // f1-sector-board — Grade 1 sector-time cabinet on a short post.
-// Same language as the MYLAPS panel. Face is a dark module; host hangs an image.
+// Invented sponsor strip + sector digit. Host hangs an image via setMaterial('face').
 
 import {
   BufferGeometry,
+  DataTexture,
   Group,
   Mesh,
+  MeshStandardMaterial,
   PlaneGeometry,
   type Material,
 } from 'three/webgpu'
@@ -18,6 +20,7 @@ import {
   createF1Preview,
   disposeF1Materials,
   loftRoundedBox,
+  sponsorWallTexture,
   tubeSection,
 } from '../f1-kit-core/index.ts'
 
@@ -50,6 +53,9 @@ export function createModel(options: F1SectorBoardOptions = {}): F1SectorBoardIn
   }
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  const extras: Material[] = []
+  const textures: DataTexture[] = []
+  let ownsFace = options.materials?.face === undefined
   const materialSlots: Record<Slot, Material> = {
     cabinet: options.materials?.cabinet ?? kit.graphite,
     face: options.materials?.face ?? kit.ink,
@@ -60,15 +66,22 @@ export function createModel(options: F1SectorBoardOptions = {}): F1SectorBoardIn
   root.add(cabinet, face)
   const generated: BufferGeometry[] = []
   const meshesBySlot: Record<Slot, Mesh[]> = { cabinet: [], face: [] }
+  const releaseOwned = (): void => {
+    for (const texture of textures) texture.dispose()
+    textures.length = 0
+    for (const material of extras) material.dispose()
+    extras.length = 0
+  }
   const releaseGenerated = (): void => {
     cabinet.clear(); face.clear()
     for (const geometry of generated) geometry.dispose()
     generated.length = 0
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
+    if (ownsFace) releaseOwned()
   }
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -87,7 +100,20 @@ export function createModel(options: F1SectorBoardOptions = {}): F1SectorBoardIn
     emit('cabinet', box, cabinet, 'box')
     const screen = new PlaneGeometry(w - 0.1, h - 0.1)
     screen.translate(0, postH + h / 2, d / 2 + LAYER_CLEARANCE * 3)
-    emit('face', screen, face, 'face')
+    if (ownsFace) {
+      const tex = sponsorWallTexture({ width: 384, height: 256, columns: 3, rows: 2 })
+      textures.push(tex)
+      const mat = new MeshStandardMaterial({
+        name: 'f1-kit / sector face',
+        map: tex,
+        roughness: 0.4,
+        metalness: 0.06,
+      })
+      extras.push(mat)
+      emit('face', screen, face, 'face', mat)
+    } else {
+      emit('face', screen, face, 'face')
+    }
   }
   rebuild()
   return {
@@ -100,6 +126,10 @@ export function createModel(options: F1SectorBoardOptions = {}): F1SectorBoardIn
       rebuild()
     },
     setMaterial(slot, material) {
+      if (slot === 'face' && ownsFace) {
+        releaseOwned()
+        ownsFace = false
+      }
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) mesh.material = material
     },

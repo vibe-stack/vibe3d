@@ -53,7 +53,7 @@ export interface F1GarageBoxInstance {
   dispose(): void
 }
 
-const defaults: F1GarageBoxConfig = { count: 1, number: '1', legend: 'PIT', style: 'stamp' }
+const defaults: F1GarageBoxConfig = { count: 1, number: '11', legend: 'CHECO', style: 'stamp' }
 const W = GARAGE.width
 const D = GARAGE.depth
 const H = GARAGE.height
@@ -209,7 +209,7 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ count: 3, number: '1', legend: 'PIT', style: 'stamp' }), {
+  return createF1Preview(createModel({ count: 3, number: '11', legend: 'CHECO', style: 'stamp' }), {
     aspect,
     target: [0, 2.4, 0],
     distance: 52,

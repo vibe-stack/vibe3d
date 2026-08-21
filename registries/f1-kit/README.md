@@ -4,7 +4,9 @@
 box, circuit furniture to instance along a racing line, and a pit building
 whose fascia accepts a number, a legend, a built-in plate, or your own image
 material. Palette and hardware live in `f1-kit-core`. Colours are generic
-defaults — no team liveries, sponsor marks, or driver likenesses.
+defaults — no team liveries or copied sponsor marks. Driver plates default to
+Checo 11 in black and white (`DRIVER`). Interview / LED fascias default to a
+Three.js step-and-repeat of invented names (`sponsorWallTexture`).
 
 Every id is a photographed Circuit Zandvoort / Dutch GP object, or a 1:1 FIA
 Appendix 5 / Grade 1 object used there. Invented marketplace filler is not
@@ -28,8 +30,8 @@ garage bay 7 × 17 × 5 m, pit wall 1.0 m deep / 2.2 m overall, jersey crown
 Garage fascia — stamp a number/legend, pick a built-in plate, or hang an image:
 
 ```ts
-createModel({ count: 3, number: '1', legend: 'PIT' }) // style: 'stamp'
-createModel({ style: 'fia', number: '12' })
+createModel({ count: 3, number: '11', legend: 'CHECO' }) // style: 'stamp'
+createModel({ style: 'fia', number: '11' })
 createModel({ style: 'blank' })
 box.setMaterial('fascia', yourImageMaterial)
 ```
@@ -68,7 +70,9 @@ Weekend extras: `f1-cone` · `f1-bollard` · `f1-weighbridge` · `f1-parc-ferme`
 FIA Appendix 5 podium ceremony. Winner's cup is the measured Studio Piet Boon /
 Royal Delft Zandvoort silhouette (0.60 m, Appendix 5 winner band) — not a
 generic two-handle stand-in and not a championship trophy. P2 / P3 /
-constructors use the same cup with different paint — one id.
+constructors use the same cup with different paint — one id. Magnum is
+Moët-green glass with gold foil; no house name. Interview backdrop is a
+step-and-repeat of invented marks.
 
 `f1-trophy-cup` · `f1-champagne` · `f1-ice-bucket` · `f1-trophy-table` ·
 `f1-interview-backdrop` · `f1-cooldown-board`
@@ -76,16 +80,18 @@ constructors use the same cup with different paint — one id.
 ## Displays
 
 Zandvoort main-straight LED cabinet, trackside sector-time board, and a
-pit-wall driver plate. Fascia faces take `setMaterial` for a host image.
+pit-wall driver plate (Checo 11 by default). Fascia faces take `setMaterial`
+for a host image.
 
 `f1-led-ribbon` · `f1-sector-board` · `f1-nameboard`
 
 ## Paddock
 
-`f1-service-truck` (EU 96/53 cab-over rigid — assemble `kind` / wheelbase /
-boxLength / axles, hang a wrap with `setMaterial('livery', …)`). Unbranded;
-do not invent a Zandvoort livery.
+`f1-service-truck` (DAF XG+ high-roof cab-over + box trailer, EU 96/53 artic
+≤ 16.50 m — assemble `kind` / wheelbase / boxLength / axles, hang a wrap with
+`setMaterial('livery', …)`). Unbranded black cab and black-to-white trailer
+swoop; no DAF or team wordmark.
 
 Paddock millimetres live in `f1-kit-core/paddock.ts` (truck envelope) and
-`ceremony.ts` (cup, magnum, bucket, table, LED ribbon). No real team,
+`ceremony.ts` (cup, magnum, bucket, table, LED ribbon). No copied team,
 sponsor, or trophy IP.

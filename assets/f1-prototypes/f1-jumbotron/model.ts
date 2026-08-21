@@ -58,7 +58,7 @@ export interface F1JumbotronInstance {
 }
 
 const DEFAULT_ENTRIES: readonly F1JumbotronEntry[] = [
-  { p: 1, code: 'A1', lap: 14, time: '1:22.4' },
+  { p: 1, code: '11', lap: 14, time: '1:22.4' },
   { p: 2, code: 'B2', lap: 14, time: '1:22.7' },
   { p: 3, code: 'C3', lap: 14, time: '1:23.1' },
   { p: 4, code: 'D4', lap: 13, time: '1:23.4' },

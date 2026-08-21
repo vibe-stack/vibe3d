@@ -1,17 +1,15 @@
-// f1-champagne — unbranded 1.5 L magnum (punt, foil, muselet). Dark glass,
-// not a teal toy bottle. No house mark.
+// f1-champagne — unbranded 1.5 L magnum (punt, foil, muselet).
+// Moët-green glass and gold foil — no house mark.
 
-import { BufferGeometry, Group, Mesh, MeshStandardMaterial, Vector3, type Material } from 'three/webgpu'
+import { BufferGeometry, Group, Mesh, MeshPhysicalMaterial, Vector3, type Material } from 'three/webgpu'
 
 import {
   CHAMPAGNE,
-  TOKEN,
   acquireF1Materials,
   createF1Preview,
   disposeF1Materials,
   mergeParts,
   revolve,
-  shade,
   taperedTube,
 } from '../f1-kit-core/index.ts'
 
@@ -37,23 +35,41 @@ export interface F1ChampagneInstance {
 }
 
 const defaults: F1ChampagneConfig = { height: CHAMPAGNE.height }
+const GOLD = 0xC5A028
+const GREEN = 0x1C2E20
+const CREAM = 0xE8D9B0
 
 export function createModel(options: F1ChampagneOptions = {}): F1ChampagneInstance {
   const config: F1ChampagneConfig = {
     height: Math.max(0.22, options.height ?? defaults.height),
   }
   const bundle = acquireF1Materials()
-  const kit = bundle.materials
-  const glassMat = new MeshStandardMaterial({
+  const glassMat = new MeshPhysicalMaterial({
     name: 'f1-kit / magnum glass',
-    color: shade(TOKEN.INK_950, 0.18),
-    roughness: 0.22,
-    metalness: 0.08,
+    color: GREEN,
+    roughness: 0.18,
+    metalness: 0.04,
+    clearcoat: 0.55,
+    clearcoatRoughness: 0.12,
   })
-  const extras: Material[] = [glassMat]
+  const goldMat = new MeshPhysicalMaterial({
+    name: 'f1-kit / magnum gold',
+    color: GOLD,
+    roughness: 0.28,
+    metalness: 0.85,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.18,
+  })
+  const creamMat = new MeshPhysicalMaterial({
+    name: 'f1-kit / magnum label',
+    color: CREAM,
+    roughness: 0.55,
+    metalness: 0.04,
+  })
+  const extras: Material[] = [glassMat, goldMat, creamMat]
   const materialSlots: Record<Slot, Material> = {
     glass: options.materials?.glass ?? glassMat,
-    cage: options.materials?.cage ?? kit.steel,
+    cage: options.materials?.cage ?? goldMat,
   }
   const root = new Group(); root.name = 'f1-champagne'
   const glass = new Group(); glass.name = 'glass'
@@ -67,9 +83,9 @@ export function createModel(options: F1ChampagneOptions = {}): F1ChampagneInstan
     generated.length = 0
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -105,14 +121,22 @@ export function createModel(options: F1ChampagneOptions = {}): F1ChampagneInstan
       ],
       { yBot: 0.003 * k, yTop: puntH, scaleW: 1, segments: 16 },
     ), glass, 'punt')
-    emit('glass', revolve(
+    emit('cage', revolve(
       [
         [0.00, neckR * 1.35],
         [0.55, neckR * 1.45],
         [1.00, neckR * 0.70],
       ],
       { yBot: h - foilH, yTop: h + 0.006 * k, scaleW: 1, segments: 20 },
-    ), glass, 'foil')
+    ), cage, 'foil')
+    const band = revolve(
+      [
+        [0.00, bodyR * 1.01],
+        [1.00, bodyR * 1.01],
+      ],
+      { yBot: h * 0.42, yTop: h * 0.58, scaleW: 1, segments: 20 },
+    )
+    emit('glass', band, glass, 'label', creamMat)
     const wires: BufferGeometry[] = []
     const cageY = h - foilH * 0.35
     const cageR = neckR * 1.55

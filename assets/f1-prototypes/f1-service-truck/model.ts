@@ -1,7 +1,7 @@
-// f1-service-truck — unbranded electric tractor+box. Cab grammar is the Tesla
-// Semi day cab (Dimensions.com millimetres); cargo fills the EU 96/53 12 m rigid.
+// f1-service-truck — DAF XG+ high-roof cab-over + aero box trailer.
+// EU 96/53 artic ≤ 16.50 m. Unbranded: no DAF / Cadillac / Tesla marks.
 // Wheels live on axle hubs (configure({ wheelRpm }) + update). Lamps are a slot
-// (configure({ lamps }) / setMaterial('lamps', shader)). No Tesla wordmark.
+// (configure({ lamps }) / setMaterial('lamps', shader)).
 
 import { LoftGeometry } from 'three/examples/jsm/geometries/LoftGeometry.js'
 import {
@@ -20,6 +20,7 @@ import {
 } from 'three/webgpu'
 
 import {
+  DRIVER,
   LAYER_CLEARANCE,
   TRUCK,
   acquireF1Materials,
@@ -27,12 +28,12 @@ import {
   createF1Preview,
   createLampMaterial,
   disposeF1Materials,
-  fasciaTexture,
   isFasciaStyle,
   isTruckKind,
   loftRoundedBox,
   member,
   mergeParts,
+  truckLiveryTexture,
   type FasciaStyle,
   type TruckKind,
 } from '../f1-kit-core/index.ts'
@@ -72,6 +73,7 @@ export interface F1ServiceTruckInstance {
 }
 
 const TRACTOR = TRUCK.tractor
+const CAB_LEN = TRUCK.cab
 const WIDTH = TRUCK.width
 const HEIGHT = TRUCK.height
 const TYRE = TRUCK.tyreOd
@@ -88,40 +90,29 @@ const defaults: F1ServiceTruckConfig = {
   wheelRpm: 0,
 }
 
-/**
- * Tapered rounded section in YZ at X — wide at the belt, narrower at the roof
- * (Semi teardrop). `botW` / `topW` are full widths.
- */
-function aeroRing(
+/** Rounded-rect ring in YZ at X — same width at belt and roof (not a Semi teardrop). */
+function boxRing(
   x: number,
   yBot: number,
   yTop: number,
-  botW: number,
-  topW: number,
+  width: number,
   radius: number,
 ): Vector3[] {
   const h = yTop - yBot
-  const br = Math.min(radius, botW / 2 - 1e-4, h * 0.28)
-  const tr = Math.min(radius, topW / 2 - 1e-4, h * 0.28)
-  const bz = botW / 2
-  const tz = topW / 2
-  const seg = 8
+  const r = Math.min(radius, width / 2 - 1e-4, h * 0.18)
+  const hz = width / 2
+  const seg = 6
   const pts: Vector3[] = []
-  const corner = (
-    cx: number,
-    cy: number,
-    a0: number,
-    r: number,
-  ): void => {
+  const corner = (cz: number, cy: number, a0: number, rad: number): void => {
     for (let j = 0; j <= seg; j++) {
       const a = a0 + (j / seg) * (Math.PI / 2)
-      pts.push(new Vector3(x, cy + r * Math.sin(a), cx + r * Math.cos(a)))
+      pts.push(new Vector3(x, cy + rad * Math.sin(a), cz + rad * Math.cos(a)))
     }
   }
-  corner(bz - br, yBot + br, -Math.PI / 2, br)
-  corner(tz - tr, yTop - tr, 0, tr)
-  corner(-(tz - tr), yTop - tr, Math.PI / 2, tr)
-  corner(-(bz - br), yBot + br, Math.PI, br)
+  corner(hz - r, yBot + r, -Math.PI / 2, r)
+  corner(hz - r, yTop - r, 0, r)
+  corner(-(hz - r), yTop - r, Math.PI / 2, r)
+  corner(-(hz - r), yBot + r, Math.PI, r)
   pts.reverse()
   return pts
 }
@@ -130,9 +121,8 @@ function clampConfig(config: F1ServiceTruckConfig): void {
   config.kind = isTruckKind(config.kind) ? config.kind : 'box'
   config.axles = config.axles >= 3 ? 3 : 2
   const maxBox = MAX_LEN - TRACTOR - GAP
-  config.boxLength = Math.min(maxBox, Math.max(4.0, config.boxLength))
-  const maxWb = Math.max(3.5, TRACTOR - 1.4)
-  config.wheelbase = Math.min(maxWb, Math.max(3.5, config.wheelbase))
+  config.boxLength = Math.min(maxBox, Math.max(6.0, config.boxLength))
+  config.wheelbase = Math.min(4.2, Math.max(3.2, config.wheelbase))
   config.livery = isFasciaStyle(config.livery) ? config.livery : 'stamp'
   config.lamps = Boolean(config.lamps)
   config.wheelRpm = Math.max(0, config.wheelRpm)
@@ -158,12 +148,12 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
   let ownsLivery = options.materials?.livery === undefined
   const ownsCab = options.materials?.cab === undefined
   const cabPaint = options.materials?.cab ?? new MeshPhysicalMaterial({
-    name: 'f1-kit / cab metal',
-    color: 0xc5cdd4,
-    metalness: 0.86,
-    roughness: 0.1,
+    name: 'f1-kit / cab paint',
+    color: 0x0a0a0c,
+    metalness: 0.35,
+    roughness: 0.18,
     clearcoat: 1,
-    clearcoatRoughness: 0.05,
+    clearcoatRoughness: 0.06,
     side: FrontSide,
   })
   if (ownsCab) owned.push(cabPaint)
@@ -177,6 +167,16 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
     side: FrontSide,
   })
   if (options.materials?.glass === undefined) owned.push(glassMat)
+  const chrome = new MeshPhysicalMaterial({
+    name: 'f1-kit / cab chrome',
+    color: 0xb8c0c8,
+    metalness: 0.92,
+    roughness: 0.16,
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.08,
+    side: FrontSide,
+  })
+  owned.push(chrome)
   const lampOn = options.materials?.lamps ?? createLampMaterial({
     on: true,
     color: 0xe8f0ff,
@@ -190,13 +190,12 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
   })
   if (options.materials?.lamps === undefined) owned.push(lampOn)
   owned.push(lampOff)
-
   const materialSlots: Record<Slot, Material> = {
     cab: cabPaint,
     glass: glassMat,
     lamps: lampOn,
     chassis: options.materials?.chassis ?? kit.graphite,
-    cargo: options.materials?.cargo ?? kit.slate,
+    cargo: options.materials?.cargo ?? cabPaint,
     wheels: options.materials?.wheels ?? kit.ink,
     livery: options.materials?.livery ?? kit.shell,
   }
@@ -256,124 +255,130 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
     releaseGenerated()
     const boxLen = config.boxLength
     const overall = TRACTOR + GAP + boxLen
-    const cabX = -overall / 2 + TRACTOR / 2
-    const boxX = -overall / 2 + TRACTOR + GAP + boxLen / 2
-    const half = TRACTOR / 2
+    const nose = -overall / 2
+    const cabX0 = nose
+    const cabX1 = nose + CAB_LEN
+    const fifth = nose + TRACTOR
+    const boxX0 = fifth + GAP
+    const boxX = boxX0 + boxLen / 2
     const tyreR = TYRE / 2
-    const bot = WIDTH - 0.04
-    const top = WIDTH * 0.78
-    const frontX = -overall / 2 + 1.35
-    const driveX = frontX + config.wheelbase
-    const axleXs = [frontX, driveX]
-    if (config.axles === 3) axleXs.push(overall / 2 - 1.15)
+    const steerX = nose + 1.45
+    const driveX = steerX + config.wheelbase
+    const trailerAxles = config.axles
+    const bogie0 = overall / 2 - 1.05 - (trailerAxles - 1) * 1.32
+    const axleXs = [steerX, driveX]
+    for (let i = 0; i < trailerAxles; i++) axleXs.push(bogie0 + i * 1.32)
 
     const cabBody = new LoftGeometry(
       [
-        aeroRing(-half, 0.38, 1.55, bot - 0.46, top - 0.48, 0.44),
-        aeroRing(-half + 0.42, 0.36, 2.28, bot - 0.24, top - 0.28, 0.32),
-        aeroRing(-half + 0.95, 0.34, 3.15, bot - 0.08, top - 0.08, 0.24),
-        aeroRing(-half + 1.70, 0.34, HEIGHT, bot, top + 0.04, 0.18),
-        aeroRing(-half + 2.70, 0.34, HEIGHT, bot, top + 0.06, 0.16),
-        aeroRing(-half + 3.70, 0.34, HEIGHT - 0.08, bot, top + 0.04, 0.14),
-        aeroRing(half, 0.38, HEIGHT - 0.28, bot - 0.08, top - 0.02, 0.12),
+        boxRing(cabX0 + 0.02, 0.50, 2.18, WIDTH - 0.12, 0.05),
+        boxRing(cabX0 + 0.12, 0.46, 2.42, WIDTH - 0.02, 0.06),
+        boxRing(cabX0 + 0.24, 0.46, HEIGHT - 0.08, WIDTH, 0.08),
+        boxRing(cabX0 + 0.48, 0.46, HEIGHT, WIDTH, 0.09),
+        boxRing(cabX1 - 0.10, 0.48, HEIGHT, WIDTH, 0.08),
+        boxRing(cabX1, 0.52, HEIGHT - 0.02, WIDTH - 0.04, 0.07),
       ],
       { closed: true, capStart: true, capEnd: true },
     )
-    cabBody.translate(cabX, 0, 0)
     emit('cab', cabBody, cab, 'body')
 
-    const glass = new LoftGeometry(
-      [
-        aeroRing(-half + 0.28, 0.72, 2.05, bot - 0.22, top - 0.22, 0.26),
-        aeroRing(-half + 1.15, 0.90, HEIGHT - 0.05, bot + 0.02, top + 0.10, 0.16),
-        aeroRing(-half + 2.20, 1.05, HEIGHT - 0.07, bot, top + 0.08, 0.12),
-        aeroRing(-half + 3.60, 1.22, HEIGHT - 0.14, bot - 0.08, top, 0.10),
-      ],
-      { closed: true, capStart: true, capEnd: true },
-    )
-    glass.translate(cabX, 0, 0)
-    emit('glass', glass, cab, 'glass')
+    const bumper = bevelBox(0.28, 0.38, WIDTH - 0.12, 0.04)
+    bumper.translate(cabX0 + 0.16, 0.62, 0)
+    emit('cab', bumper, cab, 'bumper')
+
+    const visor = bevelBox(0.22, 0.10, WIDTH - 0.18, 0.02)
+    visor.translate(cabX0 + 0.55, HEIGHT - 0.08, 0)
+    emit('cab', visor, cab, 'visor')
+
+    const slats: BufferGeometry[] = []
+    for (let i = 0; i < 12; i++) {
+      const slat = bevelBox(0.05, 0.07, WIDTH - 0.42, 0.008)
+      slat.translate(cabX0 + 0.06, 0.88 + i * 0.10, 0)
+      slats.push(slat)
+    }
+    emit('cab', mergeParts(slats, 'grille'), cab, 'grille', kit.graphite)
+
+    const screen = bevelBox(0.05, 1.28, WIDTH - 0.22, 0.02)
+    screen.translate(cabX0 + 0.22, 3.18, 0)
+    emit('glass', screen, cab, 'windshield')
 
     for (const sz of [-1, 1] as const) {
-      const blade = bevelBox(0.10, 0.56, 0.14, 0.02)
-      blade.translate(cabX - half + 0.22, 1.08, sz * (bot / 2 - 0.10))
-      emit('lamps', blade, lamps, `lamp-${sz}`)
-      const pillarX = cabX - half + 2.15
-      const pillarY = 2.42
-      const rootZ = sz * (bot / 2 - 0.04)
-      const tipZ = sz * (bot / 2 + 0.38)
-      emit(
-        'cab',
-        member(
-          new Vector3(pillarX, pillarY, rootZ),
-          new Vector3(pillarX - 0.06, pillarY - 0.02, tipZ),
-          0.032,
-          8,
-        ),
-        cab,
-        `wing-arm-${sz}`,
-        kit.ink,
+      const sideGlass = bevelBox(1.85, 0.72, 0.04, 0.01)
+      sideGlass.translate(cabX0 + 1.55, 2.05, sz * (WIDTH / 2 + 0.01))
+      emit('glass', sideGlass, cab, `side-glass-${sz}`)
+      const trim = bevelBox(1.92, 0.06, 0.03, 0.008)
+      trim.translate(cabX0 + 1.55, 1.66, sz * (WIDTH / 2 - 0.03))
+      emit('cab', trim, cab, `chrome-${sz}`, chrome)
+      const lamp = bevelBox(0.16, 0.14, 0.42, 0.03)
+      lamp.translate(cabX0 + 0.12, 0.92, sz * (WIDTH / 2 - 0.38))
+      emit('lamps', lamp, lamps, `lamp-${sz}`)
+      const drl = bevelBox(0.05, 0.04, 0.72, 0.01)
+      drl.translate(cabX0 + 0.14, 1.08, sz * (WIDTH / 2 - 0.42))
+      emit('lamps', drl, lamps, `drl-${sz}`)
+      const arm = member(
+        new Vector3(cabX0 + 1.15, 2.22, sz * (WIDTH / 2 - 0.04)),
+        new Vector3(cabX0 + 1.05, 2.18, sz * (WIDTH / 2 + 0.42)),
+        0.028,
+        8,
       )
-      const pod = loftRoundedBox(0.36, 0.18, 0.16, 0.045)
-      pod.translate(pillarX - 0.06, pillarY - 0.02, tipZ)
-      emit('cab', pod, cab, `wing-${sz}`, kit.ink)
+      emit('cab', arm, cab, `mirror-arm-${sz}`, kit.ink)
+      const mirror = loftRoundedBox(0.08, 0.32, 0.18, 0.02)
+      mirror.translate(cabX0 + 1.05, 2.18, sz * (WIDTH / 2 + 0.42))
+      emit('cab', mirror, cab, `mirror-${sz}`, kit.ink)
     }
 
-    const board = bevelBox(overall - 0.55, 0.16, WIDTH - 1.15, 0.02)
-    board.translate(0, 0.34, 0)
-    emit('chassis', board, chassis, 'skateboard')
+    const board = bevelBox(TRACTOR - 0.4, 0.18, WIDTH - 1.05, 0.02)
+    board.translate(nose + TRACTOR / 2, 0.42, 0)
+    emit('chassis', board, chassis, 'frame')
 
-    const archHalf = tyreR + 0.28
-    const zSkirt = WIDTH / 2 - 0.01
-    const emitSkirt = (name: string, x0: number, x1: number, height: number, y: number, sz: -1 | 1): void => {
-      const len = x1 - x0
-      if (len < 0.18) return
-      const slab = bevelBox(len, height, 0.07, 0.012)
-      slab.translate((x0 + x1) / 2, y, sz * zSkirt)
-      emit('chassis', slab, chassis, name)
-    }
-    for (const sz of [-1, 1] as const) {
-      const nose = -overall / 2 + 0.05
-      const tail = overall / 2 - 0.22
-      emitSkirt(`valence-${sz}`, nose, frontX - archHalf, 0.26, 0.48, sz)
-      emitSkirt(`mid-fairing-${sz}`, frontX + archHalf, driveX - archHalf, 0.92, 0.82, sz)
-      const afterDrive = driveX + archHalf
-      if (config.axles === 3) {
-        const tag = axleXs[2]!
-        emitSkirt(`drive-fairing-${sz}`, afterDrive, tag - archHalf, 0.92, 0.82, sz)
-        emitSkirt(`tail-fairing-${sz}`, tag + archHalf, tail, 0.92, 0.82, sz)
-      } else {
-        emitSkirt(`tail-fairing-${sz}`, afterDrive, tail, 0.92, 0.82, sz)
-      }
-    }
+    const kingpin = bevelBox(0.55, 0.12, 0.70, 0.02)
+    kingpin.translate(fifth - 0.1, 1.05, 0)
+    emit('chassis', kingpin, chassis, 'fifth-wheel')
 
-    const lift = bevelBox(0.62, 0.07, WIDTH - 0.45, 0.008)
-    lift.translate(overall / 2 - 0.32, 0.70, 0)
-    emit('chassis', lift, chassis, 'tail-lift')
-
-    const boxH = HEIGHT - 0.42
-    const cargoH = config.kind === 'reefer' ? boxH : boxH - 0.04
-    const cargoBox = loftRoundedBox(boxLen, cargoH, WIDTH - 0.02, 0.06)
-    cargoBox.translate(boxX, 0.42 + cargoH / 2, 0)
+    const boxH = HEIGHT - 0.48
+    const cargoH = config.kind === 'reefer' ? boxH : boxH - 0.02
+    const cargoBox = loftRoundedBox(boxLen, cargoH, WIDTH - 0.04, 0.10)
+    cargoBox.translate(boxX, 0.48 + cargoH / 2, 0)
     emit('cargo', cargoBox, cargo, 'box')
+
+    const noseCap = loftRoundedBox(0.55, cargoH - 0.12, WIDTH - 0.18, 0.12)
+    noseCap.translate(boxX0 + 0.22, 0.48 + cargoH / 2, 0)
+    emit('cargo', noseCap, cargo, 'nose', cabPaint)
+
+    for (const sz of [-1, 1] as const) {
+      const wins: BufferGeometry[] = []
+      for (let i = 0; i < 5; i++) {
+        const win = bevelBox(0.55, 0.38, 0.04, 0.01)
+        win.translate(boxX0 + 1.6 + i * 1.35, 0.48 + cargoH - 0.42, sz * (WIDTH / 2 + 0.01))
+        wins.push(win)
+      }
+      emit('glass', mergeParts(wins, `trailer-glass-${sz}`), cargo, `trailer-glass-${sz}`)
+    }
 
     if (config.kind === 'curtainside') {
       const ribs: BufferGeometry[] = []
-      const count = Math.max(4, Math.round(boxLen / 1.1))
+      const count = Math.max(4, Math.round(boxLen / 1.2))
       for (let i = 0; i < count; i++) {
-        const x = boxX - boxLen / 2 + (i + 0.5) * (boxLen / count)
+        const x = boxX0 + (i + 0.5) * (boxLen / count)
         for (const sz of [-1, 1] as const) {
           const rib = bevelBox(0.05, cargoH - 0.22, 0.04, 0.004)
-          rib.translate(x, 0.42 + cargoH / 2, sz * (WIDTH / 2 - 0.02))
+          rib.translate(x, 0.48 + cargoH / 2, sz * (WIDTH / 2 - 0.02))
           ribs.push(rib)
         }
       }
       emit('cargo', mergeParts(ribs, 'ribs'), cargo, 'ribs')
     }
     if (config.kind === 'reefer') {
-      const unit = loftRoundedBox(1.2, 0.40, 0.80, 0.05)
-      unit.translate(boxX - boxLen / 2 + 0.75, HEIGHT + 0.06, 0)
+      const unit = loftRoundedBox(0.80, 0.40, 1.2, 0.05)
+      unit.translate(boxX0 + 0.85, HEIGHT + 0.06, 0)
       emit('cargo', unit, cargo, 'reefer-unit')
+    }
+
+    const zSkirt = WIDTH / 2 - 0.02
+    for (const sz of [-1, 1] as const) {
+      const skirt = bevelBox(boxLen - 0.4, 0.55, 0.06, 0.012)
+      skirt.translate(boxX, 0.78, sz * zSkirt)
+      emit('chassis', skirt, chassis, `trailer-skirt-${sz}`)
     }
 
     for (let a = 0; a < axleXs.length; a++) {
@@ -397,23 +402,22 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
       }
     }
 
-    const side = new PlaneGeometry(boxLen - 0.30, cargoH - 0.40)
-    side.translate(boxX, 0.42 + cargoH / 2, WIDTH / 2 + LAYER_CLEARANCE * 3)
-    const rear = new PlaneGeometry(WIDTH - 0.30, cargoH - 0.40)
+    const side = new PlaneGeometry(boxLen - 0.35, cargoH - 0.35)
+    side.translate(boxX, 0.48 + cargoH / 2, WIDTH / 2 + LAYER_CLEARANCE * 3)
+    const rear = new PlaneGeometry(WIDTH - 0.28, cargoH - 0.35)
     rear.rotateY(Math.PI / 2)
-    rear.translate(overall / 2 + LAYER_CLEARANCE * 3, 0.42 + cargoH / 2, 0)
+    rear.translate(overall / 2 + LAYER_CLEARANCE * 3, 0.48 + cargoH / 2, 0)
     if (ownsLivery) {
-      const tex = fasciaTexture({
-        number: '12',
-        legend: 'HAUL',
-        style: config.livery,
+      const tex = truckLiveryTexture({
+        number: DRIVER.number,
+        legend: config.livery === 'blank' ? '' : 'TEAM',
       })
       textures.push(tex)
       const mat = new MeshStandardMaterial({
         name: 'f1-kit / truck livery',
         map: tex,
-        roughness: 0.55,
-        metalness: 0.05,
+        roughness: 0.42,
+        metalness: 0.08,
       })
       extras.push(mat)
       emit('livery', side, fascia, 'side', mat)
@@ -476,10 +480,10 @@ export function createModel(options: F1ServiceTruckOptions = {}): F1ServiceTruck
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  const preview = createF1Preview(createModel({ kind: 'box', axles: 2, lamps: true }), {
+  const preview = createF1Preview(createModel({ kind: 'box', axles: 3, lamps: true }), {
     aspect,
-    target: [0, 1.7, 0],
-    distance: 28,
+    target: [0, 1.8, 0],
+    distance: 36,
     fov: 28,
     yaw: -0.95,
     pitch: 0.08,
@@ -488,7 +492,7 @@ export function createPreview({ aspect }: { aspect: number; time?: number }) {
   cabLight.name = 'f1-kit / cab light'
   cabLight.userData.excludeFromExport = true
   cabLight.position.set(-8, 10, 6)
-  cabLight.target.position.set(0, 1.7, 0)
+  cabLight.target.position.set(0, 1.8, 0)
   cabLight.target.userData.excludeFromExport = true
   cabLight.visible = false
   preview.scene.add(cabLight, cabLight.target)

@@ -55,7 +55,7 @@ const defaults: F1PitBoardConfig = {
   rowCount: 4,
   cardsPerRow: 3,
   labels: [
-    ['FIA'],
+    ['11'],
     ['L2', 'P2'],
     ['36.7'],
     ['36.0'],

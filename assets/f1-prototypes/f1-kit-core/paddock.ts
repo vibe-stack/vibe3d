@@ -1,9 +1,9 @@
 /**
  * Shared 1:1 paddock / logistics datums.
  *
- * The rigid envelope is still EU 96/53 (overall ≤ 12.00 m). The cab grammar is
- * the Tesla Semi day-cab / tractor mass from Dimensions.com — unbranded, no
- * Tesla wordmark. Cargo fills whatever is left inside 12 m.
+ * Cab grammar is a DAF XG+ Super Space Cab (high-roof cab-over), unbranded —
+ * no DAF or team wordmark. Tractor + box trailer sit inside the EU 96/53
+ * articulated envelope (overall ≤ 16.50 m).
  */
 
 export const TRUCK_KINDS = ['box', 'curtainside', 'reefer'] as const
@@ -14,20 +14,20 @@ export function isTruckKind(value: string): value is TruckKind {
 }
 
 /**
- * Electric tractor + box, still a paddock rigid.
- * Width 102 in / 2.59 m, height 13 ft / 3.96 m, tractor 20 ft 9 in / 6.32 m,
- * wheelbase 13 ft / 3.95 m — Dimensions.com Tesla Semi.
- * Overall length ≤ 12.00 m — EU 96/53. Tyre: 315/80R22.5 OD ≈ 1.08 m.
+ * DAF XG+ high-roof artic. Width 2.55 m (EU max), roof ~3.95 m.
+ * Tractor bumper-to-fifth-wheel 6.20 m, Super Space Cab body 3.70 m,
+ * hitch gap 0.45 m, trailer fills the rest of 16.50 m.
+ * Trailer bogie defaults to 3 axles. Tyre: 315/80R22.5 OD ≈ 1.08 m.
  */
 export const TRUCK = {
-  width: 2.59,
-  height: 3.96,
-  length: 12.0,
-  tractor: 6.32,
-  cab: 6.32,
-  gap: 0.02,
-  wheelbase: 3.95,
-  boxLength: 5.66,
+  width: 2.55,
+  height: 3.95,
+  length: 16.5,
+  tractor: 6.2,
+  cab: 3.7,
+  gap: 0.45,
+  wheelbase: 3.8,
+  boxLength: 9.70,
   tyreOd: 1.08,
-  axles: 2,
+  axles: 3,
 } as const

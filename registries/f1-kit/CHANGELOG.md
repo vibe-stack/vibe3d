@@ -1,5 +1,14 @@
 # @f1-kit/registry
 
+## 0.0.8
+
+DAF XG+ high-roof artic replaces the Tesla Semi cab. `f1-service-truck` is an
+unbranded tractor + box trailer inside the EU 96/53 16.50 m envelope (black
+cab, black-to-white trailer swoop, TEAM disc — no Cadillac / DAF marks).
+Magnum is Moët-green glass with gold foil; no house name. Ceremony fascias
+default to a Three.js step-and-repeat of invented marks (`sponsorWallTexture`).
+Driver plates default to Checo 11 in black and white (`DRIVER`).
+
 ## 0.0.7
 
 Wave E cull. Dropped 15 invented, duplicate, or catalog-stub props: trophy

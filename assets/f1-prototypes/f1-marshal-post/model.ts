@@ -77,7 +77,7 @@ const FLAG_COLOR: Record<F1MarshalFlag, number> = {
 
 function sanitizeNumber(value: string): string {
   const next = value.replace(/[^0-9A-Za-z]/g, '').slice(0, 3).toUpperCase()
-  return next || '12'
+  return next || '11'
 }
 
 function uvPlanar(geometry: BufferGeometry): BufferGeometry {
@@ -94,7 +94,7 @@ function uvPlanar(geometry: BufferGeometry): BufferGeometry {
 
 export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostInstance {
   const config: F1MarshalPostConfig = {
-    number: sanitizeNumber(options.number ?? '12'),
+    number: sanitizeNumber(options.number ?? '11'),
     flag: options.flag ?? 'yellow',
   }
   const bundle = acquireF1Materials()

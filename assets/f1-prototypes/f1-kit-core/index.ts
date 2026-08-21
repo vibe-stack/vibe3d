@@ -42,7 +42,11 @@ export {
   daisNumberTexture,
   fasciaTexture,
   circuitSignTexture,
+  sponsorWallTexture,
+  truckLiveryTexture,
+  driverPlateTexture,
   FASCIA_STYLES,
+  SPONSOR_MARKS,
   isFasciaStyle,
   stampLedModuleGrid,
   oranjeSmokeTexture,
@@ -87,6 +91,7 @@ export {
   isTruckKind,
 } from './paddock.ts'
 export type { TruckKind } from './paddock.ts'
+export { DRIVER } from './driver.ts'
 export {
   CHAMPAGNE,
   COOLDOWN_BOARD,
@@ -98,4 +103,3 @@ export {
   TROPHY_CUP,
   TROPHY_TABLE,
 } from './ceremony.ts'
-

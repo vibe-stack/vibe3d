@@ -1,10 +1,12 @@
-// f1-interview-backdrop — FOM cooldown wall: truss frame, blank fascia.
-// Host hangs an image with setMaterial('fascia', …). No P1 PRESS stamp.
+// f1-interview-backdrop — FOM cooldown wall: truss frame + step-and-repeat
+// invented sponsor grid. Host hangs an image with setMaterial('fascia', …).
 
 import {
   BufferGeometry,
+  DataTexture,
   Group,
   Mesh,
+  MeshStandardMaterial,
   PlaneGeometry,
   type Material,
 } from 'three/webgpu'
@@ -17,6 +19,7 @@ import {
   createF1Preview,
   disposeF1Materials,
   mergeParts,
+  sponsorWallTexture,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'wall' | 'fascia'
@@ -48,6 +51,9 @@ export function createModel(options: F1InterviewBackdropOptions = {}): F1Intervi
   }
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  const extras: Material[] = []
+  const textures: DataTexture[] = []
+  let ownsFascia = options.materials?.fascia === undefined
   const materialSlots: Record<Slot, Material> = {
     wall: options.materials?.wall ?? kit.graphite,
     fascia: options.materials?.fascia ?? kit.shell,
@@ -58,15 +64,22 @@ export function createModel(options: F1InterviewBackdropOptions = {}): F1Intervi
   root.add(wall, fascia)
   const generated: BufferGeometry[] = []
   const meshesBySlot: Record<Slot, Mesh[]> = { wall: [], fascia: [] }
+  const releaseOwned = (): void => {
+    for (const texture of textures) texture.dispose()
+    textures.length = 0
+    for (const material of extras) material.dispose()
+    extras.length = 0
+  }
   const releaseGenerated = (): void => {
     wall.clear(); fascia.clear()
     for (const geometry of generated) geometry.dispose()
     generated.length = 0
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
+    if (ownsFascia) releaseOwned()
   }
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -99,7 +112,20 @@ export function createModel(options: F1InterviewBackdropOptions = {}): F1Intervi
     emit('wall', mergeParts(trussParts, 'truss'), wall, 'truss')
     const face = new PlaneGeometry(w - t * 2.4, h - t * 2.4)
     face.translate(0, h / 2, d * 0.22 + LAYER_CLEARANCE * 3)
-    emit('fascia', face, fascia, 'face')
+    if (ownsFascia) {
+      const tex = sponsorWallTexture({ width: 1024, height: 512, columns: 6, rows: 4 })
+      textures.push(tex)
+      const mat = new MeshStandardMaterial({
+        name: 'f1-kit / interview fascia',
+        map: tex,
+        roughness: 0.48,
+        metalness: 0.04,
+      })
+      extras.push(mat)
+      emit('fascia', face, fascia, 'face', mat)
+    } else {
+      emit('fascia', face, fascia, 'face')
+    }
   }
   rebuild()
   return {
@@ -112,6 +138,10 @@ export function createModel(options: F1InterviewBackdropOptions = {}): F1Intervi
       rebuild()
     },
     setMaterial(slot, material) {
+      if (slot === 'fascia' && ownsFascia) {
+        releaseOwned()
+        ownsFascia = false
+      }
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) mesh.material = material
     },

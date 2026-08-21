@@ -354,6 +354,18 @@ describe('applied-layer clearance (rule 8)', () => {
 })
 
 describe('procedural knobs', () => {
+  test('Checo 11 is the default driver stamp', async () => {
+    const { DRIVER } = await import('./f1-kit-core/driver.ts')
+    expect(DRIVER).toEqual({ number: '11', name: 'CHECO' })
+    const board = createNameboard()
+    expect(board.getConfig()).toEqual({ label: '11', name: 'CHECO' })
+    board.dispose()
+    const cool = createCooldownBoard()
+    expect(cool.getConfig().kind).toBe('11')
+    expect(cool.getConfig().name).toBe('CHECO')
+    cool.dispose()
+  })
+
   test('glyph atlas covers 0-9 and timing-sheet letters', async () => {
     const { GLYPH_3X5 } = await import('./f1-kit-core/glyphs.ts')
     for (const ch of '0123456789PLATIME') {
@@ -709,14 +721,14 @@ describe('FIA 1:1 datums', () => {
     sf.dispose()
   })
 
-  test('service truck stays inside the EU 96/53 12 m box (Semi width 2.59 m)', () => {
+  test('service truck stays inside the EU 96/53 16.50 m artic box (DAF XG width 2.55 m)', () => {
     const model = createServiceTruck()
     model.root.updateMatrixWorld(true)
     const { box, size } = sizeOf(model.root)
-    expect(size.x).toBeGreaterThan(11.5)
-    expect(size.x).toBeLessThanOrEqual(12.05)
-    expect(size.z).toBeGreaterThan(2.55)
-    expect(size.z).toBeLessThan(3.6)
+    expect(size.x).toBeGreaterThan(15.8)
+    expect(size.x).toBeLessThanOrEqual(16.55)
+    expect(size.z).toBeGreaterThan(2.50)
+    expect(size.z).toBeLessThan(3.8)
     expect(box.max.y).toBeGreaterThan(3.6)
     expect(box.max.y).toBeLessThanOrEqual(4.15)
     model.dispose()

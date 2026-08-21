@@ -456,3 +456,134 @@ export function oranjeSmokeTexture(size = 128): DataTexture {
   tex.needsUpdate = true
   return tex
 }
+
+/** Invented step-and-repeat marks — not Rolex / Pirelli / DHL / Heineken. */
+export const SPONSOR_MARKS = [
+  'NORD', 'APEX', 'VOLT', 'GRID', 'STEEL', 'ARC', 'LUMEN', 'RIDGE', 'HALO', 'DRIFT',
+] as const
+
+const SPONSOR_PAPER: ReadonlyArray<readonly [number, number, number]> = [
+  [18, 28, 48],
+  [242, 244, 246],
+  [164, 28, 34],
+  [12, 12, 14],
+  [232, 196, 48],
+  [28, 72, 128],
+]
+
+function finishStamp(data: Uint8Array, w: number, h: number): DataTexture {
+  const tex = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType)
+  tex.colorSpace = SRGBColorSpace
+  tex.magFilter = LinearFilter
+  tex.minFilter = LinearFilter
+  tex.flipY = true
+  tex.needsUpdate = true
+  return tex
+}
+
+/**
+ * FOM cooldown / LED grammar: a grid of invented wordmarks. Hosts may still
+ * replace the material with `setMaterial('fascia'|'face', yours)`.
+ */
+export function sponsorWallTexture(options: {
+  readonly width?: number
+  readonly height?: number
+  readonly columns?: number
+  readonly rows?: number
+} = {}): DataTexture {
+  const w = options.width ?? 1024
+  const h = options.height ?? 512
+  const cols = Math.max(2, options.columns ?? 6)
+  const rows = Math.max(2, options.rows ?? 4)
+  const data = new Uint8Array(w * h * 4)
+  fillGlyphRect(data, w, 0, 0, w, h, [16, 18, 22])
+  const cellW = Math.floor(w / cols)
+  const cellH = Math.floor(h / rows)
+  const pad = Math.max(4, Math.round(Math.min(cellW, cellH) * 0.08))
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const i = row * cols + col
+      const paper = SPONSOR_PAPER[i % SPONSOR_PAPER.length]!
+      const word = SPONSOR_MARKS[i % SPONSOR_MARKS.length]!
+      const x0 = col * cellW + pad
+      const y0 = row * cellH + pad
+      const rw = cellW - pad * 2
+      const rh = cellH - pad * 2
+      fillGlyphRect(data, w, x0, y0, rw, rh, paper)
+      const ink: [number, number, number] = paper[0] + paper[1] + paper[2] > 360
+        ? [16, 16, 18]
+        : [248, 248, 250]
+      const cell = word.length > 4 ? 5 : 7
+      const wordW = word.length * glyphAdvance(cell) - Math.max(4, Math.round(cell * 0.4))
+      writeGlyphWord(
+        data, w,
+        x0 + Math.max(4, Math.round((rw - wordW) / 2)),
+        y0 + Math.max(4, Math.round((rh - 5 * cell) / 2)),
+        word, ink, cell,
+      )
+    }
+  }
+  return finishStamp(data, w, h)
+}
+
+/** Black-to-white trailer swoop with an unbranded TEAM disc. No Cadillac / DAF marks. */
+export function truckLiveryTexture(options: {
+  readonly width?: number
+  readonly height?: number
+  readonly number?: string
+  readonly legend?: string
+} = {}): DataTexture {
+  const w = options.width ?? 1024
+  const h = options.height ?? 256
+  const data = new Uint8Array(w * h * 4)
+  const black: [number, number, number] = [12, 12, 14]
+  const white: [number, number, number] = [242, 244, 246]
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const u = x / w
+      const v = y / h
+      const split = 0.42 + (v - 0.5) * 0.22
+      const rgb = u > split ? white : black
+      put(data, w, x, y, rgb[0], rgb[1], rgb[2])
+    }
+  }
+  const cx = Math.round(w * 0.28)
+  const cy = Math.round(h * 0.42)
+  const outer = Math.round(h * 0.28)
+  const inner = Math.round(h * 0.22)
+  for (let y = cy - outer; y <= cy + outer; y++) {
+    for (let x = cx - outer; x <= cx + outer; x++) {
+      const d = Math.hypot(x - cx, y - cy)
+      if (d <= outer && d >= inner) put(data, w, x, y, 248, 248, 250)
+    }
+  }
+  const number = (options.number ?? '11').replace(/[^0-9A-Za-z]/g, '').slice(0, 3).toUpperCase() || '11'
+  const legend = (options.legend ?? 'TEAM').replace(/[^0-9A-Za-z ]/g, '').slice(0, 8).toUpperCase()
+  const nCell = 12
+  const nW = number.length * glyphAdvance(nCell) - Math.max(4, Math.round(nCell * 0.4))
+  writeGlyphWord(data, w, Math.max(8, cx - Math.round(nW / 2)), cy - Math.round(5 * nCell / 2), number, [248, 248, 250], nCell)
+  if (legend) {
+    const lCell = 5
+    writeGlyphWord(data, w, Math.round(w * 0.62), Math.round(h * 0.38), legend, [16, 16, 18], lCell)
+  }
+  return finishStamp(data, w, h)
+}
+
+/** Black field, white driver number + name. */
+export function driverPlateTexture(options: {
+  readonly number?: string
+  readonly name?: string
+  readonly width?: number
+  readonly height?: number
+} = {}): DataTexture {
+  return fasciaTexture({
+    number: options.number ?? '11',
+    legend: options.name ?? 'CHECO',
+    style: 'stamp',
+    paper: [16, 16, 18],
+    ink: [248, 248, 250],
+    accent: [16, 16, 18],
+    width: options.width ?? 256,
+    height: options.height ?? 128,
+  })
+}
