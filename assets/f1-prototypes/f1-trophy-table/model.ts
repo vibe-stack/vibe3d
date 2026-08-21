@@ -1,4 +1,4 @@
-// f1-trophy-table — draped table to the side of the podium (FIA Appendix 5).
+// f1-trophy-table — draped side table (FIA Appendix 5: trophies not on the dais).
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
@@ -72,17 +72,30 @@ export function createModel(options: F1TrophyTableOptions = {}): F1TrophyTableIn
     const w = config.width
     const d = TROPHY_TABLE.depth
     const h = TROPHY_TABLE.height
-    const slab = bevelBox(w, 0.05, d, 0.008)
+    const drop = TROPHY_TABLE.clothDrop
+    const slab = bevelBox(w, 0.04, d, 0.006)
     slab.translate(0, h, 0)
     emit('top', slab, top, 'slab')
-    const drape = bevelBox(w + 0.04, h * 0.55, 0.02, 0.004)
-    drape.translate(0, h - h * 0.275, d / 2 + 0.01)
-    emit('cloth', drape, cloth, 'drape')
+    const cover = bevelBox(w + 0.04, 0.012, d + 0.04, 0.004)
+    cover.translate(0, h + 0.01, 0)
+    emit('cloth', cover, cloth, 'cover')
+    const clothParts: BufferGeometry[] = []
+    for (const sz of [-1, 1] as const) {
+      const panel = bevelBox(w + 0.04, drop, 0.016, 0.003)
+      panel.translate(0, h - drop / 2, sz * (d / 2 + 0.02))
+      clothParts.push(panel)
+    }
+    for (const sx of [-1, 1] as const) {
+      const panel = bevelBox(0.016, drop, d + 0.04, 0.003)
+      panel.translate(sx * (w / 2 + 0.02), h - drop / 2, 0)
+      clothParts.push(panel)
+    }
+    emit('cloth', mergeParts(clothParts, 'drape'), cloth, 'drape')
     const legParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
       for (const sz of [-1, 1] as const) {
-        const leg = bevelBox(0.05, h - 0.04, 0.05, 0.004)
-        leg.translate(sx * (w / 2 - 0.08), (h - 0.04) / 2, sz * (d / 2 - 0.08))
+        const leg = bevelBox(0.045, h - 0.03, 0.045, 0.004)
+        leg.translate(sx * (w / 2 - 0.08), (h - 0.03) / 2, sz * (d / 2 - 0.08))
         legParts.push(leg)
       }
     }
@@ -113,6 +126,6 @@ export function createModel(options: F1TrophyTableOptions = {}): F1TrophyTableIn
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
-    aspect, target: [0, 0.4, 0], distance: 4.2, fov: 30, yaw: -0.55, pitch: 0.12,
+    aspect, target: [0, 0.4, 0], distance: 4.2, fov: 30, yaw: -0.55, pitch: 0.16,
   })
 }

@@ -1,4 +1,5 @@
-// f1-cooldown-board — name/position board on a stand. FIA yellow-board class.
+// f1-cooldown-board — cooldown name/position plate on a stand.
+// White plate, not a yellow FIA circuit-sign clone. setMaterial('plate') for a host image.
 
 import {
   BufferGeometry,
@@ -16,9 +17,9 @@ import {
   LAYER_CLEARANCE,
   acquireF1Materials,
   bevelBox,
-  circuitSignTexture,
   createF1Preview,
   disposeF1Materials,
+  fasciaTexture,
   tubeSection,
 } from '../f1-kit-core/index.ts'
 
@@ -56,7 +57,7 @@ export function createModel(options: F1CooldownBoardOptions = {}): F1CooldownBoa
   let ownsPlate = options.materials?.plate === undefined
   const materialSlots: Record<Slot, Material> = {
     post: options.materials?.post ?? kit.graphite,
-    plate: options.materials?.plate ?? kit.amber,
+    plate: options.materials?.plate ?? kit.shell,
   }
   const root = new Group(); root.name = 'f1-cooldown-board'
   const post = new Group(); post.name = 'post'
@@ -88,14 +89,19 @@ export function createModel(options: F1CooldownBoardOptions = {}): F1CooldownBoa
   }
   const rebuild = (): void => {
     releaseGenerated()
-    emit('post', tubeSection(0.035, 1.6, [0, 0.8, 0], AXIS_Y, 10), post, 'post')
-    const back = bevelBox(COOLDOWN_BOARD.width + 0.06, COOLDOWN_BOARD.height + 0.08, 0.04, 0.005)
-    back.translate(0, 1.55, 0)
+    const poleH = COOLDOWN_BOARD.poleH
+    const plateY = poleH + COOLDOWN_BOARD.height * 0.35
+    emit('post', tubeSection(0.018, poleH, [0, poleH / 2, 0], AXIS_Y, 10), post, 'post')
+    const foot = bevelBox(0.22, 0.02, 0.16, 0.003)
+    foot.translate(0, 0.01, 0)
+    emit('post', foot, post, 'foot')
+    const back = bevelBox(COOLDOWN_BOARD.width + 0.04, COOLDOWN_BOARD.height + 0.04, 0.03, 0.004)
+    back.translate(0, plateY, 0)
     emit('post', back, post, 'back')
     const face = new PlaneGeometry(COOLDOWN_BOARD.width, COOLDOWN_BOARD.height)
-    face.translate(0, 1.55, 0.02 + LAYER_CLEARANCE * 3)
+    face.translate(0, plateY, 0.018 + LAYER_CLEARANCE * 3)
     if (ownsPlate) {
-      const tex = circuitSignTexture({ kind: config.kind })
+      const tex = fasciaTexture({ number: config.kind, legend: '', style: 'blank' })
       textures.push(tex)
       const mat = new MeshStandardMaterial({
         name: 'f1-kit / cooldown board',
@@ -138,6 +144,6 @@ export function createModel(options: F1CooldownBoardOptions = {}): F1CooldownBoa
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ kind: 'P1' }), {
-    aspect, target: [0, 1.1, 0], distance: 3.6, fov: 28, yaw: -0.4, pitch: 0.08,
+    aspect, target: [0, 1.0, 0], distance: 3.2, fov: 28, yaw: -0.4, pitch: 0.08,
   })
 }

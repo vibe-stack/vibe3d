@@ -1,71 +1,50 @@
 /**
- * Shared 1:1 ceremony / display / hospitality datums. Display sizes follow
- * common Grade 1 LED installs and the existing FIA yellow-board plate.
+ * Shared 1:1 ceremony / display datums. Sizes follow FIA Appendix 5, Grade 1
+ * LED installs, and photographed Dutch GP / Zandvoort objects — not invented
+ * hospitality filler.
  */
 
 import { CIRCUIT_SIGN_PLATE } from './track.ts'
 
 /**
  * Winner's cup: Studio Piet Boon / Royal Delft Zandvoort silhouette (1939 cup
- * redesigned 2021–, photographed on the 2024 Dutch GP podium). Height sits in
- * FIA Appendix 5 winner/constructor band (0.50–0.65 m). Not a generic two-handle
- * stand-in and not a championship trophy logo.
+ * redesigned 2021–, photographed on the 2024–2025 Dutch GP podium). Height sits
+ * in FIA Appendix 5 winner band (0.50–0.65 m). P2 / P3 / constructors use the
+ * same ceramic silhouette with different paint — one id, not three trophies.
+ * Unbranded cobalt disc only; no floral / lion / artist IP.
  */
 export const TROPHY_CUP = { height: 0.60, bowlR: 0.13, footR: 0.09 } as const
 
-/** Retired generic bowl — not a GP trophy. Kept for existing ids. */
-export const TROPHY_BOWL = { height: 0.45 } as const
+/** 1.5 L magnum. Typical glass + punt + muselet ~0.35 m (standard magnum envelope). */
+export const CHAMPAGNE = { height: 0.35, bodyR: 0.048, neckR: 0.014, foilH: 0.08 } as const
 
-/** Retired presentation cube — not a GP trophy. Kept for existing ids. */
-export const TROPHY_PLINTH = { width: 0.90, height: 0.90, depth: 0.90 } as const
-
-/** 1.5 L magnum bottle. */
-export const CHAMPAGNE = { height: 0.35 } as const
-
-/** Presentation ice bucket. */
-export const ICE_BUCKET = { height: 0.40, diameter: 0.32 } as const
+/**
+ * Stainless presentation bucket on the trophy table. Magnum ice buckets are
+ * ~300 mm rim, ~380 mm overall with rolled lip.
+ */
+export const ICE_BUCKET = { height: 0.38, rimR: 0.15, baseR: 0.11, lip: 0.012 } as const
 
 /** Draped table to the side of the podium (Appendix 5: trophies not on the dais). */
-export const TROPHY_TABLE = { width: 2.0, depth: 0.8, height: 0.75 } as const
+export const TROPHY_TABLE = { width: 2.0, depth: 0.8, height: 0.75, clothDrop: 0.18 } as const
 
-/** Cooldown / press interview wall. */
-export const INTERVIEW_BACKDROP = { width: 4.0, height: 2.4, depth: 0.12 } as const
+/** FOM cooldown / press wall. Truss-framed step-and-repeat, fascia via setMaterial. */
+export const INTERVIEW_BACKDROP = { width: 4.0, height: 2.4, depth: 0.18, truss: 0.06 } as const
 
-/** Press platform riser — same 180 mm as kit stairs. */
-export const PRESS_RISER = { width: 3.0, rise: 0.18, steps: 3, tread: 0.28 } as const
-
-/** Name/position board — same FIA yellow-board class as circuit signs. */
+/** Cooldown name/position plate — FIA yellow-board class, handheld / stand. */
 export const COOLDOWN_BOARD = {
   width: CIRCUIT_SIGN_PLATE.width,
   height: CIRCUIT_SIGN_PLATE.height,
+  poleH: 1.15,
 } as const
 
-/** Trackside LED advertising wall. Common 8 × 1.2 m module. */
-export const LED_RIBBON = { length: 8.0, height: 1.2, depth: 0.12 } as const
+/**
+ * Trackside LED advertising cabinet. Common Grade 1 ribbon: 1.20 m face,
+ * 8.0 m module, shallow cabinet on feet — not a glowing slab.
+ */
+export const LED_RIBBON = { length: 8.0, height: 1.2, depth: 0.22, footH: 0.12, louver: 0.04 } as const
 
-/** Vertical pit-lane information totem. */
-export const PIT_TOTEM = { height: 3.5, width: 0.9, depth: 0.35 } as const
+/** Trackside sector-time cabinet — same Grade 1 language as the MYLAPS panel. */
+export const SECTOR_BOARD = { width: 1.2, height: 0.8, depth: 0.18 } as const
 
-/** Trackside sector-time cabinet. */
-export const SECTOR_BOARD = { width: 1.2, height: 0.8, depth: 0.14 } as const
-
-/** Fan-zone LED wall (flat, not the jumbotron hood). */
-export const FAN_SCREEN = { width: 4.0, height: 2.5, depth: 0.18 } as const
-
-/** Grid countdown clock face. */
-export const START_CLOCK = { size: 1.0, depth: 0.12 } as const
-
-/** Walkway branding gantry. 3.0 m deck — below catch-fence, above a person. */
-export const BANNER_BRIDGE = { deckHeight: 3.0, width: 2.0 } as const
-
-/** Sandwich board. */
-export const A_FRAME = { height: 1.2, width: 0.7 } as const
-
-/** 3 × 3 m hospitality gazebo. */
-export const GAZEBO = { span: 3.0, height: 2.6 } as const
-
-/** Cooler-bank module. */
-export const DRINK_WALL = { width: 1.3, height: 2.0, depth: 0.75 } as const
-
-/** Sail / feather flag. */
-export const FEATHER_FLAG = { height: 4.5 } as const
+/** Pit-wall driver name plate. Width tiles on GARAGE_BAY_PITCH. */
+export const NAMEBOARD = { width: 1.8, height: 0.42, depth: 0.06 } as const

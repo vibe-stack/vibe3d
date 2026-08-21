@@ -1,14 +1,17 @@
-// f1-champagne — 1.5 L magnum with a wire cage. Unbranded glass.
+// f1-champagne — unbranded 1.5 L magnum (punt, foil, muselet). Dark glass,
+// not a teal toy bottle. No house mark.
 
-import { BufferGeometry, Group, Mesh, Vector3, type Material } from 'three/webgpu'
+import { BufferGeometry, Group, Mesh, MeshStandardMaterial, Vector3, type Material } from 'three/webgpu'
 
 import {
   CHAMPAGNE,
+  TOKEN,
   acquireF1Materials,
   createF1Preview,
   disposeF1Materials,
   mergeParts,
   revolve,
+  shade,
   taperedTube,
 } from '../f1-kit-core/index.ts'
 
@@ -41,8 +44,15 @@ export function createModel(options: F1ChampagneOptions = {}): F1ChampagneInstan
   }
   const bundle = acquireF1Materials()
   const kit = bundle.materials
+  const glassMat = new MeshStandardMaterial({
+    name: 'f1-kit / magnum glass',
+    color: shade(TOKEN.INK_950, 0.18),
+    roughness: 0.22,
+    metalness: 0.08,
+  })
+  const extras: Material[] = [glassMat]
   const materialSlots: Record<Slot, Material> = {
-    glass: options.materials?.glass ?? kit.cyan,
+    glass: options.materials?.glass ?? glassMat,
     cage: options.materials?.cage ?? kit.steel,
   }
   const root = new Group(); root.name = 'f1-champagne'
@@ -69,20 +79,59 @@ export function createModel(options: F1ChampagneOptions = {}): F1ChampagneInstan
   const rebuild = (): void => {
     releaseGenerated()
     const h = config.height
-    const bottle = revolve(
-      [[0, 0.18], [0.08, 0.22], [0.55, 0.24], [0.72, 0.12], [0.9, 0.07], [1, 0.06]],
-      { yBot: 0, yTop: h, scaleW: h, segments: 24 },
-    )
-    emit('glass', bottle, glass, 'bottle')
+    const k = h / CHAMPAGNE.height
+    const bodyR = CHAMPAGNE.bodyR * k
+    const neckR = CHAMPAGNE.neckR * k
+    const foilH = CHAMPAGNE.foilH * k
+    const puntH = 0.028 * k
+    emit('glass', revolve(
+      [
+        [0.00, bodyR * 0.38],
+        [0.06, bodyR * 0.55],
+        [0.14, bodyR],
+        [0.52, bodyR],
+        [0.64, bodyR * 0.55],
+        [0.74, neckR],
+        [0.88, neckR],
+        [0.94, neckR * 1.15],
+        [1.00, neckR * 0.55],
+      ],
+      { yBot: 0, yTop: h, scaleW: 1, segments: 24 },
+    ), glass, 'bottle')
+    emit('glass', revolve(
+      [
+        [0.00, bodyR * 0.36],
+        [1.00, 0.001],
+      ],
+      { yBot: 0.003 * k, yTop: puntH, scaleW: 1, segments: 16 },
+    ), glass, 'punt')
+    emit('glass', revolve(
+      [
+        [0.00, neckR * 1.35],
+        [0.55, neckR * 1.45],
+        [1.00, neckR * 0.70],
+      ],
+      { yBot: h - foilH, yTop: h + 0.006 * k, scaleW: 1, segments: 20 },
+    ), glass, 'foil')
     const wires: BufferGeometry[] = []
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI * 2
-      const r = h * 0.08
+    const cageY = h - foilH * 0.35
+    const cageR = neckR * 1.55
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2
       wires.push(taperedTube([
-        new Vector3(Math.cos(a) * r, h * 0.88, Math.sin(a) * r),
-        new Vector3(Math.cos(a) * r * 0.6, h * 0.98, Math.sin(a) * r * 0.6),
-      ], 0.003, 6))
+        new Vector3(Math.cos(a) * cageR, cageY, Math.sin(a) * cageR),
+        new Vector3(Math.cos(a) * neckR * 0.9, h + 0.004 * k, Math.sin(a) * neckR * 0.9),
+      ], 0.0016 * k, 6))
     }
+    const hoop = taperedTube(
+      Array.from({ length: 13 }, (_, i) => {
+        const a = (i / 12) * Math.PI * 2
+        return new Vector3(Math.cos(a) * cageR, cageY, Math.sin(a) * cageR)
+      }),
+      0.0014 * k,
+      6,
+    )
+    wires.push(hoop)
     emit('cage', mergeParts(wires, 'cage'), cage, 'cage')
   }
   rebuild()
@@ -102,6 +151,8 @@ export function createModel(options: F1ChampagneOptions = {}): F1ChampagneInstan
     update: () => {},
     dispose() {
       releaseGenerated()
+      for (const material of extras) material.dispose()
+      extras.length = 0
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -110,6 +161,6 @@ export function createModel(options: F1ChampagneOptions = {}): F1ChampagneInstan
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
-    aspect, target: [0, 0.18, 0], distance: 1.05, fov: 28, yaw: -0.4, pitch: 0.08,
+    aspect, target: [0, 0.18, 0], distance: 0.95, fov: 28, yaw: -0.4, pitch: 0.08,
   })
 }

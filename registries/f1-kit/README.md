@@ -1,10 +1,14 @@
 # F1 Kit
 
-85 procedural Formula 1 props for real-time Three.js (`three/webgpu`): a pit
+70 procedural Formula 1 props for real-time Three.js (`three/webgpu`): a pit
 box, circuit furniture to instance along a racing line, and a pit building
 whose fascia accepts a number, a legend, a built-in plate, or your own image
 material. Palette and hardware live in `f1-kit-core`. Colours are generic
 defaults — no team liveries, sponsor marks, or driver likenesses.
+
+Every id is a photographed Circuit Zandvoort / Dutch GP object, or a 1:1 FIA
+Appendix 5 / Grade 1 object used there. Invented marketplace filler is not
+kept as a catalog stub — the folder is deleted.
 
 ```sh
 bunx vibe3d add @f1-kit
@@ -63,30 +67,25 @@ Weekend extras: `f1-cone` · `f1-bollard` · `f1-weighbridge` · `f1-parc-ferme`
 
 FIA Appendix 5 podium ceremony. Winner's cup is the measured Studio Piet Boon /
 Royal Delft Zandvoort silhouette (0.60 m, Appendix 5 winner band) — not a
-generic two-handle stand-in and not a championship trophy.
+generic two-handle stand-in and not a championship trophy. P2 / P3 /
+constructors use the same cup with different paint — one id.
 
 `f1-trophy-cup` · `f1-champagne` · `f1-ice-bucket` · `f1-trophy-table` ·
-`f1-interview-backdrop` · `f1-press-riser` · `f1-cooldown-board`
-
-`f1-trophy-bowl` and `f1-trophy-plinth` remain catalog ids only (retired
-generic shapes, not GP trophies).
+`f1-interview-backdrop` · `f1-cooldown-board`
 
 ## Displays
 
-`f1-led-ribbon` · `f1-pit-totem` · `f1-sector-board` · `f1-fan-screen` ·
-`f1-start-clock` · `f1-nameboard`
+Zandvoort main-straight LED cabinet, trackside sector-time board, and a
+pit-wall driver plate. Fascia faces take `setMaterial` for a host image.
 
-## Hospitality
-
-`f1-banner-bridge` · `f1-a-frame` · `f1-barrier-sleeve` · `f1-gazebo` ·
-`f1-drink-wall` · `f1-feather-flag`
+`f1-led-ribbon` · `f1-sector-board` · `f1-nameboard`
 
 ## Paddock
 
 `f1-service-truck` (EU 96/53 cab-over rigid — assemble `kind` / wheelbase /
-boxLength / axles, hang a wrap with `setMaterial('livery', …)`) ·
-`f1-stillage` · `f1-hand-trolley` · `f1-cable-ramp`
+boxLength / axles, hang a wrap with `setMaterial('livery', …)`). Unbranded;
+do not invent a Zandvoort livery.
 
-Paddock millimetres live in `f1-kit-core/paddock.ts` (truck envelope, EUR
-stillage) and `ceremony.ts` (cups, LED ribbon, 3 m gazebo). No real team,
+Paddock millimetres live in `f1-kit-core/paddock.ts` (truck envelope) and
+`ceremony.ts` (cup, magnum, bucket, table, LED ribbon). No real team,
 sponsor, or trophy IP.

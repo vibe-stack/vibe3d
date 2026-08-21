@@ -31,12 +31,3 @@ export const TRUCK = {
   tyreOd: 1.08,
   axles: 2,
 } as const
-
-/** EUR pallet footprint (ISO 6780 / EUR 1). */
-export const STILLAGE = { width: 1.20, depth: 0.80, height: 1.00 } as const
-
-/** Sack truck overall height, standing. */
-export const HAND_TROLLEY = { height: 1.15 } as const
-
-/** Hose/cable protector across a paddock road. */
-export const CABLE_RAMP = { width: 0.90, height: 0.055 } as const

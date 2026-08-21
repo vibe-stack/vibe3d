@@ -109,22 +109,24 @@ export function createModel(options: F1TrophyCupOptions = {}): F1TrophyCupInstan
       { yBot: 0, yTop: h, scaleW: 1, segments: 8 },
     )
     emit('cup', body, cup, 'body')
-    const disc = bevelDisc(bowlR * 0.22, 0.012 * k, 0.002, 24)
-    disc.translate(0, h * 0.66, bowlR * 0.98)
+    const disc = bevelDisc(bowlR * 0.28, 0.014 * k, 0.002, 24)
+    disc.translate(0, h * 0.70, bowlR * 0.94)
     generated.push(disc)
     const discMesh = new Mesh(disc, kit.cobalt)
     discMesh.name = 'medallion'
     discMesh.castShadow = true
     cup.add(discMesh)
-    const handleR = 0.022 * k
+    const handleR = 0.020 * k
     for (const sx of [-1, 1] as const) {
       const path = [
-        new Vector3(sx * bowlR * 0.88, h * 0.54, 0),
-        new Vector3(sx * (bowlR + 0.068 * k), h * 0.50, 0),
-        new Vector3(sx * (bowlR + 0.068 * k), h * 0.88, 0),
-        new Vector3(sx * bowlR * 0.84, h * 0.93, 0),
+        new Vector3(sx * bowlR * 0.90, h * 0.58, 0),
+        new Vector3(sx * (bowlR + 0.018 * k), h * 0.57, 0),
+        new Vector3(sx * (bowlR + 0.070 * k), h * 0.64, 0),
+        new Vector3(sx * (bowlR + 0.070 * k), h * 0.86, 0),
+        new Vector3(sx * (bowlR + 0.018 * k), h * 0.91, 0),
+        new Vector3(sx * bowlR * 0.86, h * 0.92, 0),
       ]
-      emit('handles', taperedTube(path, handleR, 4), handles, `handle-${sx}`)
+      emit('handles', taperedTube(path, handleR, 6), handles, `handle-${sx}`)
     }
   }
   rebuild()

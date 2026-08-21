@@ -1,4 +1,5 @@
-// f1-led-ribbon — trackside LED advertising wall. 8 × 1.2 m module.
+// f1-led-ribbon — Zandvoort main-straight LED cabinet: 8 × 1.2 m face,
+// shallow housing on feet, louver, setMaterial('face') for a host image.
 
 import {
   BufferGeometry,
@@ -14,8 +15,8 @@ import {
   acquireF1Materials,
   bevelBox,
   createF1Preview,
-  createLampMaterial,
   disposeF1Materials,
+  mergeParts,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'frame' | 'face'
@@ -47,15 +48,9 @@ export function createModel(options: F1LedRibbonOptions = {}): F1LedRibbonInstan
   }
   const bundle = acquireF1Materials()
   const kit = bundle.materials
-  const extras: Material[] = []
-  const ownsFace = options.materials?.face === undefined
-  const faceMat = options.materials?.face ?? createLampMaterial({
-    on: true, color: 0x3e6cff, name: 'f1-kit / led ribbon',
-  })
-  if (ownsFace) extras.push(faceMat)
   const materialSlots: Record<Slot, Material> = {
     frame: options.materials?.frame ?? kit.graphite,
-    face: faceMat,
+    face: options.materials?.face ?? kit.ink,
   }
   const root = new Group(); root.name = 'f1-led-ribbon'
   const frame = new Group(); frame.name = 'frame'
@@ -69,9 +64,9 @@ export function createModel(options: F1LedRibbonOptions = {}): F1LedRibbonInstan
     generated.length = 0
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
+    const mesh = new Mesh(geometry, materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -83,11 +78,25 @@ export function createModel(options: F1LedRibbonOptions = {}): F1LedRibbonInstan
     const L = config.length
     const h = LED_RIBBON.height
     const d = LED_RIBBON.depth
-    const body = bevelBox(L, h, d, 0.01)
-    body.translate(0, h / 2, 0)
+    const footH = LED_RIBBON.footH
+    const louver = LED_RIBBON.louver
+    // Cabinet sits on the feet with a real gap — a flush y-plane is a rule-8 plate.
+    const bodyY = footH + LAYER_CLEARANCE
+    const body = bevelBox(L, h, d, 0.012)
+    body.translate(0, bodyY + h / 2, 0)
     emit('frame', body, frame, 'body')
-    const screen = new PlaneGeometry(L - 0.08, h - 0.08)
-    screen.translate(0, h / 2, d / 2 + LAYER_CLEARANCE * 3)
+    const hood = bevelBox(L + 0.02, louver, d - 0.02, 0.006)
+    hood.translate(0, bodyY + h - louver / 2, 0.008)
+    emit('frame', hood, frame, 'louver')
+    const feet: BufferGeometry[] = []
+    for (const sx of [-1, 1] as const) {
+      const foot = bevelBox(0.16, footH, d - 0.04, 0.008)
+      foot.translate(sx * (L / 2 - 0.28), footH / 2, 0)
+      feet.push(foot)
+    }
+    emit('frame', mergeParts(feet, 'feet'), frame, 'feet')
+    const screen = new PlaneGeometry(L - 0.08, h - louver - 0.06)
+    screen.translate(0, bodyY + (h - louver) / 2, d / 2 + LAYER_CLEARANCE)
     emit('face', screen, face, 'face')
   }
   rebuild()
@@ -107,7 +116,6 @@ export function createModel(options: F1LedRibbonOptions = {}): F1LedRibbonInstan
     update: () => {},
     dispose() {
       releaseGenerated()
-      for (const material of extras) material.dispose()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -116,6 +124,6 @@ export function createModel(options: F1LedRibbonOptions = {}): F1LedRibbonInstan
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
-    aspect, target: [0, 0.6, 0], distance: 14, fov: 30, yaw: -0.2, pitch: 0.08, bloom: true,
+    aspect, target: [0, 0.7, 0], distance: 14, fov: 30, yaw: -0.2, pitch: 0.08,
   })
 }

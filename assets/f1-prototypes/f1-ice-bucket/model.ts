@@ -1,4 +1,4 @@
-// f1-ice-bucket — presentation bucket for the magnum.
+// f1-ice-bucket — stainless magnum presentation bucket with a rolled rim.
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
@@ -53,21 +53,39 @@ export function createModel(options: F1IceBucketOptions = {}): F1IceBucketInstan
     generated.length = 0
     meshesBySlot.bucket.length = 0
   }
-  const rebuild = (): void => {
-    releaseGenerated()
-    const h = config.height
-    const scaleW = ICE_BUCKET.diameter / 2
-    const geo = revolve(
-      [[0, 0.72], [0.08, 0.78], [0.85, 1], [1, 1]],
-      { yBot: 0, yTop: h, scaleW, segments: 24 },
-    )
-    generated.push(geo)
-    const mesh = new Mesh(geo, materialSlots.bucket)
-    mesh.name = 'bucket'
+  const emit = (geometry: BufferGeometry, name: string): void => {
+    generated.push(geometry)
+    const mesh = new Mesh(geometry, materialSlots.bucket)
+    mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot.bucket.push(mesh)
     bucket.add(mesh)
+  }
+  const rebuild = (): void => {
+    releaseGenerated()
+    const h = config.height
+    const k = h / ICE_BUCKET.height
+    const rimR = ICE_BUCKET.rimR * k
+    const baseR = ICE_BUCKET.baseR * k
+    const lip = ICE_BUCKET.lip * k
+    emit(revolve(
+      [
+        [0.00, 0.004],
+        [0.04, baseR],
+        [0.88, rimR],
+        [1.00, rimR],
+      ],
+      { yBot: 0, yTop: h - lip, scaleW: 1, segments: 28 },
+    ), 'body')
+    emit(revolve(
+      [
+        [0.00, rimR * 0.96],
+        [0.45, rimR + lip],
+        [1.00, rimR * 0.98],
+      ],
+      { yBot: h - lip, yTop: h, scaleW: 1, segments: 28 },
+    ), 'lip')
   }
   rebuild()
   return {
@@ -94,6 +112,6 @@ export function createModel(options: F1IceBucketOptions = {}): F1IceBucketInstan
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
-    aspect, target: [0, 0.2, 0], distance: 1.2, fov: 28, yaw: -0.5, pitch: 0.12,
+    aspect, target: [0, 0.19, 0], distance: 1.15, fov: 28, yaw: -0.5, pitch: 0.14,
   })
 }

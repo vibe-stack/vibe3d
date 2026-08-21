@@ -1,23 +1,21 @@
-// f1-nameboard — pit-wall driver board, tiles on GARAGE_BAY_PITCH.
+// f1-nameboard — pit-wall driver plate. Width from NAMEBOARD (~1.8 m),
+// not a full garage-bay billboard. setMaterial('face') for a host image.
 
 import {
   BufferGeometry,
-  DataTexture,
   Group,
   Mesh,
-  MeshStandardMaterial,
   PlaneGeometry,
   type Material,
 } from 'three/webgpu'
 
 import {
-  GARAGE_BAY_PITCH,
   LAYER_CLEARANCE,
+  NAMEBOARD,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
   disposeF1Materials,
-  fasciaTexture,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'board' | 'face'
@@ -49,9 +47,6 @@ export function createModel(options: F1NameboardOptions = {}): F1NameboardInstan
   }
   const bundle = acquireF1Materials()
   const kit = bundle.materials
-  const extras: Material[] = []
-  const textures: DataTexture[] = []
-  let ownsFace = options.materials?.face === undefined
   const materialSlots: Record<Slot, Material> = {
     board: options.materials?.board ?? kit.graphite,
     face: options.materials?.face ?? kit.shell,
@@ -62,22 +57,15 @@ export function createModel(options: F1NameboardOptions = {}): F1NameboardInstan
   root.add(board, face)
   const generated: BufferGeometry[] = []
   const meshesBySlot: Record<Slot, Mesh[]> = { board: [], face: [] }
-  const releaseOwned = (): void => {
-    for (const texture of textures) texture.dispose()
-    textures.length = 0
-    for (const material of extras) material.dispose()
-    extras.length = 0
-  }
   const releaseGenerated = (): void => {
     board.clear(); face.clear()
     for (const geometry of generated) geometry.dispose()
     generated.length = 0
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
-    if (ownsFace) releaseOwned()
   }
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
+    const mesh = new Mesh(geometry, materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -86,31 +74,18 @@ export function createModel(options: F1NameboardOptions = {}): F1NameboardInstan
   }
   const rebuild = (): void => {
     releaseGenerated()
-    const w = GARAGE_BAY_PITCH - 0.4
-    const h = 0.55
-    const d = 0.06
-    const body = bevelBox(w, h, d, 0.008)
-    body.translate(0, 1.35, 0)
+    const w = NAMEBOARD.width
+    const h = NAMEBOARD.height
+    const d = NAMEBOARD.depth
+    const body = bevelBox(w, h, d, 0.006)
+    body.translate(0, 1.15, 0)
     emit('board', body, board, 'body')
-    const post = bevelBox(0.05, 1.1, 0.05, 0.004)
-    post.translate(0, 0.55, 0)
-    emit('board', post, board, 'post')
-    const screen = new PlaneGeometry(w - 0.08, h - 0.08)
-    screen.translate(0, 1.35, d / 2 + LAYER_CLEARANCE * 3)
-    if (ownsFace) {
-      const tex = fasciaTexture({ number: config.label, legend: 'CAR', style: 'stamp' })
-      textures.push(tex)
-      const mat = new MeshStandardMaterial({
-        name: 'f1-kit / nameboard',
-        map: tex,
-        roughness: 0.5,
-        metalness: 0.05,
-      })
-      extras.push(mat)
-      emit('face', screen, face, 'face', mat)
-    } else {
-      emit('face', screen, face, 'face')
-    }
+    const bracket = bevelBox(0.08, 0.12, 0.04, 0.003)
+    bracket.translate(0, 1.15 - h / 2 - 0.04, 0)
+    emit('board', bracket, board, 'bracket')
+    const screen = new PlaneGeometry(w - 0.06, h - 0.06)
+    screen.translate(0, 1.15, d / 2 + LAYER_CLEARANCE * 3)
+    emit('face', screen, face, 'face')
   }
   rebuild()
   return {
@@ -123,10 +98,6 @@ export function createModel(options: F1NameboardOptions = {}): F1NameboardInstan
       rebuild()
     },
     setMaterial(slot, material) {
-      if (slot === 'face' && ownsFace) {
-        releaseOwned()
-        ownsFace = false
-      }
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) mesh.material = material
     },
@@ -141,6 +112,6 @@ export function createModel(options: F1NameboardOptions = {}): F1NameboardInstan
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ label: '44' }), {
-    aspect, target: [0, 1.1, 0], distance: 8.5, fov: 28, yaw: -0.3, pitch: 0.08,
+    aspect, target: [0, 1.15, 0], distance: 4.2, fov: 28, yaw: -0.3, pitch: 0.08,
   })
 }
