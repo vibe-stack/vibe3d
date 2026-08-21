@@ -92,7 +92,7 @@ for a host image.
 `f1-service-truck` (DAF XG+ high-roof cab-over + box trailer, EU 96/53 artic
 ≤ 16.50 m — assemble `kind` / wheelbase / boxLength / axles, hang a wrap with
 `setMaterial('livery', …)`). Unbranded black cab and black-to-white trailer
-swoop; no DAF or team wordmark. Preview uses kit bloom on DRL / headlamps / roof markers.
+swoop; no DAF or team wordmark. Preview uses kit bloom on DRL / headlamps / roof markers, drives at 8 m/s with raycast hubs, and lights the cabin through tinted glass.
 
 Paddock millimetres live in `f1-kit-core/paddock.ts` (truck envelope) and
 `ceremony.ts` (cup, magnum, bucket, table, LED ribbon). No copied team,

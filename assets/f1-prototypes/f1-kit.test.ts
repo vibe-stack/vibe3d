@@ -5,7 +5,7 @@
 // covered here by construction rather than by inspection.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { BufferGeometry, Material, Mesh, MeshStandardMaterial, Box3, Vector3 } from 'three/webgpu'
+import { BufferGeometry, Material, Mesh, MeshStandardMaterial, Box3, PlaneGeometry, Vector3 } from 'three/webgpu'
 import { SPECTATOR_BRIDGE, STAIRS } from './f1-kit-core/index.ts'
 
 import { createModel as createTyre } from './f1-tyre/model.ts'
@@ -77,7 +77,7 @@ import { createModel as createCooldownBoard } from './f1-cooldown-board/model.ts
 import { createModel as createLedRibbon } from './f1-led-ribbon/model.ts'
 import { createModel as createSectorBoard } from './f1-sector-board/model.ts'
 import { createModel as createNameboard } from './f1-nameboard/model.ts'
-import { createModel as createServiceTruck, createPreview as createServiceTruckPreview } from './f1-service-truck/model.ts'
+import { createModel as createServiceTruck, createPreview as createServiceTruckPreview, createWheelPreview } from './f1-service-truck/model.ts'
 
 // --- dispose instrumentation -------------------------------------------------------------------------
 
@@ -796,18 +796,59 @@ describe('FIA 1:1 datums', () => {
     model.dispose()
   })
 
-  test('service truck preview keeps the kit env, lamps on, and cab light off', () => {
+  test('service truck hubs each carry a named tyre mesh', () => {
+    const model = createServiceTruck()
+    const hubs = model.parts.wheels.children
+    expect(hubs.length).toBeGreaterThanOrEqual(8)
+    for (const hub of hubs) {
+      const tyre = hub.children.find((child) => child.name.startsWith('tyre-'))
+      expect(tyre).toBeDefined()
+    }
+    model.dispose()
+  })
+
+  test('service truck wheels follow a ground plane via raycast', () => {
+    const model = createServiceTruck()
+    const ground = new Mesh(new PlaneGeometry(40, 40))
+    ground.rotation.x = -Math.PI / 2
+    ground.position.y = 0
+    ground.updateMatrixWorld(true)
+    model.setGround(ground)
+    model.update(0)
+    const tyreR = 1.08 / 2
+    const hub = model.parts.wheels.children[0]
+    expect(hub).toBeDefined()
+    expect(hub!.position.y).toBeCloseTo(tyreR, 1)
+    ground.position.y = 0.30
+    ground.updateMatrixWorld(true)
+    model.update(0)
+    expect(hub!.position.y).toBeCloseTo(0.30 + tyreR, 1)
+    ground.geometry.dispose()
+    model.dispose()
+  })
+
+  test('service truck preview keeps the kit env, lamps on, and cab light on', () => {
     const preview = createServiceTruckPreview({ aspect: 1 })
     expect(preview.bloom).toBe(true)
     expect(preview.scene.environment).toBeNull()
     expect(preview.root.getObjectByName('lamps')?.children.length).toBeGreaterThan(0)
-    expect(preview.isCabLightOn()).toBe(false)
-    const cabLight = preview.scene.getObjectByName('f1-kit / cab light')
-    expect(cabLight?.visible).toBe(false)
-    expect(preview.toggleCabLight()).toBe(true)
     expect(preview.isCabLightOn()).toBe(true)
+    const cabLight = preview.scene.getObjectByName('f1-kit / cab light')
     expect(cabLight?.visible).toBe(true)
+    expect(preview.toggleCabLight()).toBe(false)
+    expect(preview.isCabLightOn()).toBe(false)
+    expect(cabLight?.visible).toBe(false)
     expect(preview.scene.environment).toBeNull()
+    const x0 = preview.root.position.x
+    preview.update(0.4)
+    expect(preview.root.position.x).not.toBeCloseTo(x0, 5)
+    preview.dispose()
+  })
+
+  test('service truck wheel preview frames a steer hub', () => {
+    const preview = createWheelPreview({ aspect: 1 })
+    expect(preview.bloom).toBe(true)
+    expect(preview.root.getObjectByName('hub-0-1')).toBeTruthy()
     preview.dispose()
   })
 

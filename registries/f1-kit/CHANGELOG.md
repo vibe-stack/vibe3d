@@ -1,5 +1,9 @@
 # @f1-kit/registry
 
+## 0.0.11
+
+`f1-service-truck` highway 315/80R22.5 wheels on spinning hubs, raycast onto the preview ground, and a see-through Super Space Cab with seats / dash. Demo drives (`wheelRpm` from 8 m/s) with bloom and interior light on. No DAF marks.
+
 ## 0.0.10
 
 `f1-stairs` is a galvanized FIA 180/280 flight (open grating, channel
