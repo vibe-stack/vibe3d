@@ -68,6 +68,34 @@ export const PIT_WALL = {
 export const SPECTATOR_BRIDGE = { deckHeight: 5.5, width: 2.4 } as const
 
 /**
+ * Circuit access stairs (FIA / EN 1090 galvanized flight).
+ * Rise 180 mm / going 280 mm — 2R+G = 640 mm, inside the 550–700 mm band.
+ * Deck height for an overpass defaults to SPECTATOR_BRIDGE.deckHeight so a
+ * host can span the catch fence without a second height.
+ */
+export const STAIR_KINDS = ['flight', 'overpass'] as const
+export type StairKind = (typeof STAIR_KINDS)[number]
+
+export function isStairKind(value: string): value is StairKind {
+  return (STAIR_KINDS as readonly string[]).includes(value)
+}
+
+export const STAIRS = {
+  rise: 0.18,
+  run: 0.28,
+  nosing: 0.028,
+  treadT: 0.04,
+  stringer: 0.22,
+  stringerT: 0.06,
+  railH: 1.10,
+  midH: 0.55,
+  toe: 0.12,
+  post: 0.048,
+  landing: 1.20,
+  grating: 8,
+} as const
+
+/**
  * FIA Appendix 5 podium (Sporting Regulations) + the 2026 F1-supplied dais
  * photographed at Albert Park (Wikimedia 028A8788 / 028A8821): camera-facing
  * P2 | P1 | P3, large numerals on the front face, glass retaining rail.

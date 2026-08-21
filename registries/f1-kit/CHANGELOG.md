@@ -1,5 +1,12 @@
 # @f1-kit/registry
 
+## 0.0.10
+
+`f1-stairs` is a galvanized FIA 180/280 flight (open grating, channel
+stringers, raked rails, toe boards) that composes into `kind: 'overpass'`
+— a warren-truss overhang pass whose deck clears the 5.5 m catch fence.
+Hosts instance flights or span the circuit with one configure call.
+
 ## 0.0.9
 
 DAF XG+ critic pass on `f1-service-truck`. Cab is a pinched Super Space Cab

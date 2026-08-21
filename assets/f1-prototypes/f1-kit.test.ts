@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { BufferGeometry, Material, Mesh, MeshStandardMaterial, Box3, Vector3 } from 'three/webgpu'
+import { SPECTATOR_BRIDGE, STAIRS } from './f1-kit-core/index.ts'
 
 import { createModel as createTyre } from './f1-tyre/model.ts'
 import { createModel as createStack } from './f1-tyre-stack/model.ts'
@@ -42,7 +43,7 @@ import { createModel as createGravelTrap } from './f1-gravel-trap/model.ts'
 import { createModel as createCrowdFence } from './f1-crowd-fence/model.ts'
 import { createModel as createMarkerPost } from './f1-marker-post/model.ts'
 import { createModel as createSlotDrain } from './f1-slot-drain/model.ts'
-import { createModel as createStairs } from './f1-stairs/model.ts'
+import { createModel as createStairs, createPreview as createStairsPreview } from './f1-stairs/model.ts'
 import { createModel as createCircuitSign } from './f1-circuit-sign/model.ts'
 import { createModel as createGridBox } from './f1-grid-box/model.ts'
 import { createModel as createStartFinishLine } from './f1-start-finish-line/model.ts'
@@ -699,6 +700,45 @@ describe('FIA 1:1 datums', () => {
     const { box } = sizeOf(model.root)
     expect(box.max.y).toBeCloseTo(1.0, 1)
     model.dispose()
+  })
+
+
+  test('circuit stairs are 180 mm rise / 280 mm going', () => {
+    const model = createStairs({ kind: 'flight', steps: 10, landing: false })
+    expect(STAIRS.rise).toBeCloseTo(0.18, 5)
+    expect(STAIRS.run).toBeCloseTo(0.28, 5)
+    model.root.updateMatrixWorld(true)
+    const { box, size } = sizeOf(model.root)
+    expect(size.z).toBeGreaterThan(10 * STAIRS.run - 0.2)
+    expect(size.z).toBeLessThan(10 * STAIRS.run + 0.6)
+    expect(box.max.y).toBeGreaterThan(10 * STAIRS.rise)
+    expect(box.max.y).toBeLessThan(10 * STAIRS.rise + STAIRS.railH + 0.2)
+    expect(model.parts.treads.children.length).toBe(1)
+    expect(model.parts.rails.children.length).toBe(1)
+    expect(model.parts.structure.children.length).toBe(1)
+    model.dispose()
+  })
+
+  test('overpass deck clears the 5.5 m catch-fence envelope', () => {
+    const model = createStairs({ kind: 'overpass', span: 12 })
+    expect(model.getConfig().kind).toBe('overpass')
+    expect(model.getConfig().steps).toBeGreaterThanOrEqual(Math.round(SPECTATOR_BRIDGE.deckHeight / STAIRS.rise))
+    model.root.updateMatrixWorld(true)
+    const { box } = sizeOf(model.root)
+    expect(box.max.y).toBeGreaterThanOrEqual(SPECTATOR_BRIDGE.deckHeight)
+    expect(model.parts.deck.children.length).toBe(1)
+    const id = model.parts.treads.uuid
+    model.configure({ span: 14 })
+    expect(model.parts.treads.uuid).toBe(id)
+    expect(model.getConfig().span).toBe(14)
+    model.dispose()
+  })
+
+  test('stairs preview is the overhang pass, not a lone flight', () => {
+    const preview = createStairsPreview({ aspect: 1 })
+    expect(preview.root.name).toBe('f1-stairs')
+    expect(preview.root.getObjectByName('deck')?.children.length).toBeGreaterThan(0)
+    preview.dispose()
   })
 
   test('spectator bridge deck clears the 5 m catch fence', () => {

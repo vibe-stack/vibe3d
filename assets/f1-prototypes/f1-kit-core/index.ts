@@ -78,13 +78,16 @@ export {
   RACE_CONTROL,
   SAUSAGE_KERB,
   SPECTATOR_BRIDGE,
+  STAIRS,
+  STAIR_KINDS,
   START_FINISH,
   WALL_END,
   WALL_FITS,
   isCircuitSignKind,
+  isStairKind,
   isWallFit,
 } from './track.ts'
-export type { CircuitSignKind, WallEnd, WallFit } from './track.ts'
+export type { CircuitSignKind, StairKind, WallEnd, WallFit } from './track.ts'
 export {
   TRUCK,
   TRUCK_KINDS,

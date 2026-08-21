@@ -25,7 +25,8 @@ and the pit wall share a 7 m bay pitch. Wall gates and crash cushions share
 and the pit wall cannot drift: FIA Type 4 sausage (0.80 × 0.12 m), artificial
 grass 2.0 m, grid stall 2.7 × 8 m, MYLAPS Grade 1 light cabinet 970 mm,
 garage bay 7 × 17 × 5 m, pit wall 1.0 m deep / 2.2 m overall, jersey crown
-1.0 m, spectator-bridge deck 5.5 m.
+1.0 m, spectator-bridge deck 5.5 m, circuit stairs 180/280 going
+(overpass deck matches the 5.5 m fence clearance).
 
 Garage fascia — stamp a number/legend, pick a built-in plate, or hang an image:
 
@@ -47,6 +48,7 @@ box.setMaterial('fascia', yourImageMaterial)
 Walls and runoff: `f1-concrete-wall` · `f1-jersey-barrier` · `f1-sausage-kerb` ·
 `f1-astroturf-strip` · `f1-gravel-trap` · `f1-access-gate` · `f1-crash-cushion` ·
 `f1-crowd-fence` · `f1-marker-post` · `f1-slot-drain` · `f1-stairs`
+(`createModel({ kind: 'overpass', span: 12 })` spans the circuit)
 
 Signage and services: `f1-circuit-sign` · `f1-grid-box` · `f1-start-finish-line` ·
 `f1-fia-light-panel` · `f1-chevron-board` · `f1-camera-tower` · `f1-foam-monitor` ·
