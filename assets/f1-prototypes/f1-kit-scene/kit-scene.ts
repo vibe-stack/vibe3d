@@ -1,14 +1,14 @@
 /**
  * Compound F1 kit evaluation scene — a pit-straight diorama, not a GP.
  *
- * Purpose is to show how the kit composes: 7 m garage pitch, WALL_FITS gates,
- * kerb/turf/gravel modules along a line. Every kit id appears at least once.
- * Repeating furniture uses short `modules` so the scene stays test-fast.
+ * Overhead (looking down, +Z is the far end of the road):
  *
- * Cross section (looking along +Z): grandstands (−X-facing) | fence | ribbon |
- * pit wall | tools against garage doors | garage | paddock.
- * Stairs live on the span *edges* (stand fascia / stand end), never in the
- * racing line or the spectator plaza.
+ *   END   tunnel · stairs/bridge · armco/jersey/pit-wall (barriers live here)
+ *   MID   empty asphalt + kerb/fence the full length · sector gantry only
+ *   START grid / SF / lights · grandstands | ribbon | clear pit apron | garages
+ *
+ * Stairs and runoff barriers are at the far end. The pit apron in front of
+ * the garage doors stays clear. Every kit id appears at least once.
  */
 
 import {
@@ -18,6 +18,7 @@ import {
   HemisphereLight,
   Mesh,
   MeshStandardMaterial,
+  OrthographicCamera,
   PerspectiveCamera,
   PlaneGeometry,
   Scene,
@@ -118,11 +119,12 @@ const ALONG = Math.PI / 2
 
 const RIBBON_W = 12
 const RIBBON_HALF = RIBBON_W / 2
-/** Wide pavement so the still reads a road, not a 12 m tape on grey dirt. */
-const ROAD_W = 36
-const RIBBON_LEN = 220
-const RIBBON_Z = 24
-/** Span 22 lands bridge stairs at ±20.12 m — stand fascia / garage edge. */
+/** One pavement from garage doors to the catch fence, start to tunnel. */
+const ROAD_W = 40
+const ROAD_X = -1
+const ROAD_LEN = 220
+const ROAD_Z = 20
+const END_Z = 108
 const SPAN = 22
 const STAND_X = 22
 const STAND_PITCH = 10
@@ -130,9 +132,6 @@ const DOOR_X = -(RIBBON_HALF + 1.2 + 8)
 const GARAGE_X = DOOR_X - GARAGE.depth / 2
 const WALL_X = -(RIBBON_HALF + 0.6 + PIT_WALL.depth / 2)
 const TOOL_X = DOOR_X + 0.55
-const PIT_LANE_W = Math.abs(DOOR_X) - RIBBON_HALF
-const PIT_LANE_X = -(RIBBON_HALF + PIT_LANE_W / 2)
-/** Marshal boards sit on this line, off the racing surface. */
 const EDGE_X = RIBBON_HALF + 2.35
 
 export function createScene(): F1KitScene {
@@ -167,39 +166,23 @@ export function createScene(): F1KitScene {
     },
   })
 
-  const ground = new Mesh(new PlaneGeometry(110, 240), groundMat)
+  const ground = new Mesh(new PlaneGeometry(88, 220), groundMat)
   ground.name = 'scene-ground'
   ground.rotation.x = -Math.PI / 2
-  ground.position.set(0, -0.02, 20)
+  ground.position.set(-8, -0.02, ROAD_Z)
   ground.receiveShadow = true
   root.add(ground)
   extras.push({ dispose: () => { ground.geometry.dispose() } })
 
-  const road = new Mesh(new PlaneGeometry(ROAD_W, RIBBON_LEN), asphaltMat)
+  const road = new Mesh(new PlaneGeometry(ROAD_W, ROAD_LEN), asphaltMat)
   road.name = 'scene-asphalt'
   road.rotation.x = -Math.PI / 2
-  road.position.set(0, 0.001, RIBBON_Z)
+  road.position.set(ROAD_X, 0.012, ROAD_Z)
   road.receiveShadow = true
   root.add(road)
   extras.push({ dispose: () => { road.geometry.dispose() } })
 
-  const pitLane = new Mesh(new PlaneGeometry(PIT_LANE_W, 52), asphaltMat)
-  pitLane.name = 'scene-pit-lane'
-  pitLane.rotation.x = -Math.PI / 2
-  pitLane.position.set(PIT_LANE_X, 0.002, 8)
-  pitLane.receiveShadow = true
-  root.add(pitLane)
-  extras.push({ dispose: () => { pitLane.geometry.dispose() } })
-
-  const hairpin = new Mesh(new PlaneGeometry(48, 72), asphaltMat)
-  hairpin.name = 'scene-hairpin'
-  hairpin.rotation.x = -Math.PI / 2
-  hairpin.position.set(6, 0.002, 100)
-  hairpin.receiveShadow = true
-  root.add(hairpin)
-  extras.push({ dispose: () => { hairpin.geometry.dispose() } })
-
-  // Ribbon — grid, SF, lights, edge runs along the visible straight.
+  // START — grid, SF, lights. Pit apron in front of the garages stays clear.
   add(createGridBox({ index: 1 }), 0, -8)
   add(createGridBox({ index: 2 }), 0, 0)
   add(createGridBox({ index: 3 }), 0, 8)
@@ -207,19 +190,18 @@ export function createScene(): F1KitScene {
   add(createStartGantry({ span: 16, height: 7.2 }), 0, -18)
   add(createStartLights({ lit: 5 }), 0, -18.4, 0, 5.4)
   add(createChequeredFlag({ waving: true, windXZ: [0.9, -0.4] }), RIBBON_HALF + 0.55, -16, -0.35)
-  add(createKerb({ modules: 56 }), RIBBON_HALF - 0.4, 10, ALONG)
-  add(createKerb({ modules: 48 }), RIBBON_HALF - 0.4, 58, ALONG)
-  add(createSausageKerb({ modules: 12 }), RIBBON_HALF + 0.3, 48, ALONG)
-  add(createSlotDrain({ modules: 56 }), -(RIBBON_HALF - 0.35), 10, ALONG)
-  add(createAstroturf({ modules: 40 }), RIBBON_HALF + 1.4, 10, ALONG)
-  add(createAstroturf({ modules: 28 }), RIBBON_HALF + 1.4, 54, ALONG)
-  add(createGravelTrap({ modules: 3 }), 22, 88, ALONG)
+  add(createKerb({ modules: 100 }), RIBBON_HALF - 0.4, 4, ALONG)
+  add(createKerb({ modules: 100 }), RIBBON_HALF - 0.4, 76, ALONG)
+  add(createSausageKerb({ modules: 14 }), RIBBON_HALF + 0.3, 88, ALONG)
+  add(createSlotDrain({ modules: 50 }), -(RIBBON_HALF - 0.35), 0, ALONG)
+  add(createSlotDrain({ modules: 40 }), -(RIBBON_HALF - 0.35), 80, ALONG)
+  add(createAstroturf({ modules: 90 }), RIBBON_HALF + 1.4, 8, ALONG)
+  add(createAstroturf({ modules: 90 }), RIBBON_HALF + 1.4, 84, ALONG)
+  add(createGravelTrap({ modules: 4 }), 20, END_Z - 8, ALONG)
 
-  // Pit (−X): wall, garage, tools stacked on the door wall.
+  // Pit (−X): garage + tools on the door line. No wall/barriers on this apron.
   add(createGarageBox({ count: 3, number: '11', legend: 'CHECO' }), GARAGE_X, 0, FACE_PIT)
-  add(createPitWall({ bays: 3, labels: ['11', '22', '33'] }), WALL_X, 0, FACE_PIT)
-  add(createNameboard(), WALL_X + 0.2, -GARAGE_BAY_PITCH, FACE_PIT)
-  add(createPitGantry({ span: 5, height: 2.5 }), (WALL_X + DOOR_X) / 2, -GARAGE_BAY_PITCH)
+  add(createPitGantry({ span: 5, height: 2.5 }), TOOL_X - 2.2, END_Z)
   add(createLollipop(), TOOL_X - 1.6, -GARAGE_BAY_PITCH + 1.4)
   add(createPitBoard(), TOOL_X - 1.4, -GARAGE_BAY_PITCH + 2.6)
   add(createStack(), TOOL_X, -GARAGE_BAY_PITCH - 1.6)
@@ -231,11 +213,9 @@ export function createScene(): F1KitScene {
   add(createPitJack(), TOOL_X + 0.7, 0.9)
   add(createExtinguisher(), TOOL_X + 0.45, GARAGE_BAY_PITCH + 0.2)
 
-  // Spectator (+X): fence, then a stand wall facing the ribbon. Plaza stays clear.
-  add(createCatchFence({ length: 64, height: 5 }), RIBBON_HALF + 1.15, 12, ALONG)
-  add(createCatchFence({ length: 48, height: 5 }), RIBBON_HALF + 1.15, 68, ALONG)
-  add(createCrowdFence({ length: 64 }), 14.5, 12, ALONG)
-  add(createCrowdFence({ length: 48 }), 14.5, 68, ALONG)
+  // Spectator (+X): fence and stand wall. Fence runs the full asphalt.
+  add(createCatchFence({ length: 200, height: 5 }), RIBBON_HALF + 1.15, ROAD_Z, ALONG)
+  add(createCrowdFence({ length: 200 }), 14.5, ROAD_Z, ALONG)
   add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, -STAND_PITCH, FACE_SPEC)
   add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, 0, FACE_SPEC)
   add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, STAND_PITCH, FACE_SPEC)
@@ -246,37 +226,38 @@ export function createScene(): F1KitScene {
   add(createFlagPole({ height: 6 }), 28, -18)
   add(createCameraPlatform(), 28, -14)
 
-  // Crossing past the garage bays so stairs land on the stand / paddock *edges*.
-  add(createSpectatorBridge({ span: SPAN }), 0, 18)
-  // Kit flight parked on the near-Z *edge* of the stand wall, not in the plaza.
-  add(createStairs({ kind: 'flight', steps: 16, width: 1.4 }), STAND_X, -STAND_PITCH - 6.5)
-  add(createSectorGantry({ span: 18, sector: 2 }), 0, 40)
+  // MID — one gantry over the road, no stairs.
+  add(createSectorGantry({ span: 18, sector: 2 }), 0, 36)
 
-  // Marshalling line along the ribbon edge — one x, spaced in z.
+  // Marshalling line along the ribbon edge.
   add(createFiaLightPanel(), EDGE_X, -24, FACE_SPEC)
   add(createSectorBoard({ sector: 1 }), EDGE_X, -20, FACE_SPEC)
   add(createTimingPylon(), EDGE_X, -12)
   add(createCctvMast(), EDGE_X, -6)
-  add(createCircuitSign({ kind: 'DRS' }), EDGE_X, 18, FACE_SPEC)
-  add(createMarkerPost(), EDGE_X, 40)
-  add(createBrakeMarker({ distance: 100 }), EDGE_X, 52, FACE_SPEC)
-  add(createMarshalPost({ number: '11', flag: 'yellow' }), EDGE_X, 68, FACE_SPEC)
-  add(createOranjeCan({ lit: true }), EDGE_X + 1.6, 68)
+  add(createCircuitSign({ kind: 'DRS' }), EDGE_X, 20, FACE_SPEC)
+  add(createMarkerPost(), EDGE_X, 48)
+  add(createBrakeMarker({ distance: 100 }), EDGE_X, 64, FACE_SPEC)
+  add(createMarshalPost({ number: '11', flag: 'yellow' }), EDGE_X, 84, FACE_SPEC)
+  add(createOranjeCan({ lit: true }), EDGE_X + 1.6, 84)
 
-  // Hairpin / runoff at the +Z end — furniture sits on the *outside* of the road.
-  add(createArmco({ bays: 12 }), RIBBON_HALF + 0.55, 64, ALONG)
-  add(createCrashCushion({ fits: 'armco' }), RIBBON_HALF + 0.55, 54, ALONG)
-  add(createAccessGate({ fits: 'armco', width: 3 }), RIBBON_HALF + 0.55, 78, ALONG)
-  add(createJersey({ modules: 6 }), 24, 96, ALONG)
-  add(createConcreteWall({ bays: 3 }), 26, 108, 0.2)
-  add(createTecpro({ columns: 3, rows: 2 }), 26, 100, 0.2)
-  add(createTyreBarrier({ columns: 4, rows: 3, depth: 1 }), 28, 104, 0.35)
-  add(createChevronBoard(), EDGE_X, 84, 0.2)
-  add(createCameraTower({ height: 8 }), 30, 92)
-  add(createFoamMonitor(), 24, 90, 0.2)
-  add(createCone(), -(RIBBON_HALF + 0.45), -20)
-  add(createBollard(), -(RIBBON_HALF + 0.35), -24)
-  add(createTunnelPortal(), 0, 118, Math.PI)
+  // END of the track — stairs, bridge, pit wall, runoff barriers.
+  add(createSpectatorBridge({ span: SPAN }), 0, END_Z)
+  add(createStairs({ kind: 'flight', steps: 16, width: 1.4 }), STAND_X, END_Z + 8)
+  add(createPitWall({ bays: 3, labels: ['11', '22', '33'] }), WALL_X, END_Z, FACE_PIT)
+  add(createNameboard(), WALL_X + 0.2, END_Z - GARAGE_BAY_PITCH, FACE_PIT)
+  add(createArmco({ bays: 14 }), RIBBON_HALF + 0.55, END_Z - 12, ALONG)
+  add(createCrashCushion({ fits: 'armco' }), RIBBON_HALF + 0.55, END_Z - 24, ALONG)
+  add(createAccessGate({ fits: 'armco', width: 3 }), RIBBON_HALF + 0.55, END_Z + 2, ALONG)
+  add(createJersey({ modules: 8 }), 22, END_Z - 4, ALONG)
+  add(createConcreteWall({ bays: 4 }), 26, END_Z + 6, 0.2)
+  add(createTecpro({ columns: 3, rows: 2 }), 24, END_Z - 2, 0.2)
+  add(createTyreBarrier({ columns: 4, rows: 3, depth: 1 }), 28, END_Z + 2, 0.35)
+  add(createChevronBoard(), EDGE_X, END_Z - 16, 0.2)
+  add(createCameraTower({ height: 8 }), 30, END_Z - 10)
+  add(createFoamMonitor(), 22, END_Z - 14, 0.2)
+  add(createCone(), -(RIBBON_HALF + 0.45), -22)
+  add(createBollard(), -(RIBBON_HALF + 0.35), -26)
+  add(createTunnelPortal(), 0, END_Z + 16, Math.PI)
 
   // Paddock (behind the garage). Cab toward −Z so the still sees cab+box as one artic.
   add(createRaceControl(), GARAGE_X - 8, 18, FACE_PIT)
@@ -313,26 +294,66 @@ export function createScene(): F1KitScene {
   }
 }
 
-export function createPreview({ aspect, time }: { aspect: number; time?: number }) {
-  const kit = createScene()
-  const scene = new Scene()
-  scene.name = 'f1-kit / circuit scene'
-  scene.background = new Color(0x000000)
-  scene.add(kit.root)
-
-  scene.add(new HemisphereLight(0x91a4b0, 0x080b0f, 0.48))
+function lightScene(scene: Scene): void {
+  scene.add(new HemisphereLight(0x91a4b0, 0x080b0f, 0.62))
   const key = new DirectionalLight(0xffeee0, 2.1)
   key.position.set(-40, 55, 30)
   scene.add(key)
   const fill = new DirectionalLight(0x83a8be, 0.5)
   fill.position.set(45, 18, 20)
   scene.add(fill)
+}
+
+export function createPreview({ aspect, time }: { aspect: number; time?: number }) {
+  const kit = createScene()
+  const scene = new Scene()
+  scene.name = 'f1-kit / circuit scene'
+  scene.background = new Color(0x000000)
+  scene.add(kit.root)
+  lightScene(scene)
 
   const camera = new PerspectiveCamera(34, aspect > 0 ? aspect : 1, 0.5, 420)
   camera.name = 'f1-kit / scene camera'
-  camera.position.set(15, 14, -36)
-  const focus = new Vector3(2, 1.2, 12)
+  camera.position.set(16, 20, -40)
+  const focus = new Vector3(0, 1.0, 36)
   camera.lookAt(focus)
+  camera.updateProjectionMatrix()
+  scene.add(camera)
+
+  kit.update(time ?? 0.4)
+
+  return {
+    scene,
+    root: kit.root,
+    camera,
+    update(deltaSeconds: number) {
+      kit.update(deltaSeconds)
+    },
+    dispose() {
+      scene.remove(kit.root)
+      kit.dispose()
+      scene.clear()
+    },
+  }
+}
+
+/** True top-down plan of the diorama. +Z (end of track) is up. */
+export function createOverheadPreview({ aspect, time }: { aspect: number; time?: number }) {
+  const kit = createScene()
+  const scene = new Scene()
+  scene.name = 'f1-kit / circuit overhead'
+  scene.background = new Color(0x000000)
+  scene.add(kit.root)
+  lightScene(scene)
+
+  const ratio = aspect > 0 ? aspect : 16 / 9
+  const halfH = 112
+  const halfW = halfH * ratio
+  const camera = new OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.5, 400)
+  camera.name = 'f1-kit / overhead camera'
+  camera.up.set(0, 0, 1)
+  camera.position.set(ROAD_X, 160, ROAD_Z)
+  camera.lookAt(ROAD_X, 0, ROAD_Z)
   camera.updateProjectionMatrix()
   scene.add(camera)
 

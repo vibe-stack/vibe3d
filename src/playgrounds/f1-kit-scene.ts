@@ -24,9 +24,9 @@ export function createF1KitPlayground(options: PlaygroundOptions): Playground {
 
   const camera = new PerspectiveCamera(34, options.aspect, 0.4, 420)
   camera.name = 'CAMERA / F1 STRAIGHT'
-  camera.position.set(15, 14, -36)
+  camera.position.set(16, 20, -40)
 
-  const focus = new Vector3(2, 1.2, 12)
+  const focus = new Vector3(0, 1.0, 36)
   camera.lookAt(focus)
 
   const world = new Group()
@@ -34,7 +34,7 @@ export function createF1KitPlayground(options: PlaygroundOptions): Playground {
   scene.add(world)
 
   const floor = new Mesh(
-    new PlaneGeometry(120, 250),
+    new PlaneGeometry(120, 230),
     new MeshStandardMaterial({
       color: 0x071018,
       roughness: 0.94,
@@ -43,7 +43,7 @@ export function createF1KitPlayground(options: PlaygroundOptions): Playground {
   )
   floor.name = 'STAGE / FLOOR'
   floor.rotation.x = -Math.PI / 2
-  floor.position.y = -0.04
+  floor.position.set(-8, -0.04, 24)
   floor.receiveShadow = true
   world.add(floor)
 
