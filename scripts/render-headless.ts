@@ -19,6 +19,7 @@ interface CaptureOptions {
   width: number
   height: number
   time: number
+  playground: string
   backend?: string
   adapter?: string
   flipY: boolean
@@ -47,6 +48,7 @@ function readOptions(): CaptureOptions {
       backend: { type: 'string' },
       adapter: { type: 'string' },
       'flip-y': { type: 'boolean', default: false },
+      playground: { type: 'string', default: 'relay' },
       help: { type: 'boolean', default: false },
     },
     strict: true,
@@ -68,6 +70,7 @@ Options:
       --backend <name>   Dawn backend: metal, vulkan, d3d12, opengl, ...
       --adapter <name>   Dawn adapter name override
       --flip-y           Vertically flip readback rows
+      --playground <id>  relay (default) or f1
       --help             Show this message
 `)
     process.exit(0)
@@ -85,6 +88,7 @@ Options:
     backend: values.backend,
     adapter: values.adapter,
     flipY: values['flip-y']!,
+    playground: values.playground === 'f1' ? 'f1' : 'relay',
   }
 }
 
@@ -203,7 +207,9 @@ async function main(): Promise<void> {
     const [three, rendererModule, playgroundModule] = await Promise.all([
       import('three/webgpu'),
       import('../src/core/renderer.ts'),
-      import('../src/playgrounds/active.ts'),
+      options.playground === 'f1'
+        ? import('../src/playgrounds/f1-kit-scene.ts')
+        : import('../src/playgrounds/active.ts'),
     ])
 
     const { RenderTarget, RGBAFormat, REVISION, SRGBColorSpace, UnsignedByteType } = three
@@ -223,9 +229,13 @@ async function main(): Promise<void> {
       pixelRatio: 1,
     })
 
-    const playground = playgroundModule.createActivePlayground({
+    const createPlayground = options.playground === 'f1'
+      ? playgroundModule.createF1KitPlayground
+      : playgroundModule.createActivePlayground
+    const playground = createPlayground({
       aspect: options.width / options.height,
     })
+
     const target = new RenderTarget(options.width, options.height, {
       format: RGBAFormat,
       type: UnsignedByteType,

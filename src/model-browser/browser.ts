@@ -70,6 +70,7 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
         <p data-export-status role="status" aria-live="polite"></p>
         <button type="button" class="action-button action-button--secondary" data-model-action hidden></button>
         <button type="button" class="action-button" data-export-glb>Export GLB</button>
+        <button type="button" class="action-button action-button--secondary" data-cab-light hidden>Light: off</button>
       </section>
 
       <p class="model-stats" data-model-stats>—</p>
@@ -98,19 +99,25 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
   const exportButton = host.querySelector<HTMLButtonElement>('[data-export-glb]')!
   const exportStatus = host.querySelector<HTMLElement>('[data-export-status]')!
   const actionButton = host.querySelector<HTMLButtonElement>('[data-model-action]')!
+  const cabLightButton = host.querySelector<HTMLButtonElement>('[data-cab-light]')!
   const actionHelp = host.querySelector<HTMLElement>('[data-action-help]')!
 
-  if (!navigator.gpu) {
-    loading.classList.add('model-loading--error')
-    loadingText.textContent = 'WebGPU is required. Use a current Chrome, Edge, or Safari release.'
-    return () => undefined
+  // Safari still ships without `navigator.gpu`. Three's WebGPURenderer can
+  // fall back to WebGL 2; TSL bloom cannot, so that path is skipped below.
+  let forceWebGL = !navigator.gpu
+  loadingText.textContent = forceWebGL ? 'Initializing WebGL' : 'Initializing WebGPU'
+
+  const makeRenderer = (webgl: boolean): WebGPURenderer => {
+    const next = new WebGPURenderer({ canvas, antialias: true, forceWebGL: webgl })
+    next.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+    next.outputColorSpace = SRGBColorSpace
+    next.toneMapping = ACESFilmicToneMapping
+    next.toneMappingExposure = 1.08
+    return next
   }
 
-  const renderer = new WebGPURenderer({ canvas, antialias: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
-  renderer.outputColorSpace = SRGBColorSpace
-  renderer.toneMapping = ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.08
+  let renderer = makeRenderer(forceWebGL)
+  let usingWebGPU = !forceWebGL
 
   let viewer: ModelViewer | undefined
   let selected: ModelCatalogEntry | undefined
@@ -167,8 +174,15 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
     actionHelp.textContent = action?.shortcut ? `${action.shortcut}  ${action.label}` : ''
   }
 
+  const updateCabLightUi = () => {
+    const canToggle = typeof viewer?.toggleCabLight === 'function'
+    cabLightButton.hidden = !canToggle
+    cabLightButton.textContent = viewer?.isCabLightOn?.() ? 'Light: on' : 'Light: off'
+  }
+
   const runPrimaryAction = () => {
     const next = viewer?.action?.run()
+    updateActionUi()
     if (!next) return
     focusYGoal = next.focusY
     fovGoal = next.fov
@@ -181,6 +195,7 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
     exportStatus.textContent = ''
     exportButton.disabled = true
     actionButton.disabled = true
+    cabLightButton.disabled = true
     try {
       const next = await entry.create(aspect())
       if (token !== selectionToken || stopped) {
@@ -189,6 +204,7 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
       }
       controls?.dispose()
       pipeline?.dispose()
+      pipeline = undefined
       viewer?.dispose()
       viewer = next
       selected = entry
@@ -209,9 +225,11 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
       controls.maxDistance = MODEL_ORBIT_MAX_DISTANCE
       controls.update()
 
-      const scenePass = pass(next.scene, next.camera)
-      pipeline = new RenderPipeline(renderer)
-      pipeline.outputNode = scenePass.add(bloom(scenePass, 0.5, 0.7, 0.42))
+      if (usingWebGPU) {
+        const scenePass = pass(next.scene, next.camera)
+        pipeline = new RenderPipeline(renderer)
+        pipeline.outputNode = scenePass.add(bloom(scenePass, 0.5, 0.7, 0.42))
+      }
 
       title.textContent = entry.label
       description.textContent = entry.description
@@ -219,8 +237,10 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
       window.history.replaceState(null, '', `?model=${encodeURIComponent(entry.id)}`)
       renderCatalog(search.value)
       updateActionUi()
+      updateCabLightUi()
       exportButton.disabled = false
       actionButton.disabled = false
+      cabLightButton.disabled = false
       loading.classList.add('model-loading--complete')
     } catch (error) {
       console.error(`Unable to load model ${entry.id}`, error)
@@ -231,6 +251,10 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
 
   search.addEventListener('input', () => renderCatalog(search.value))
   actionButton.addEventListener('click', runPrimaryAction)
+  cabLightButton.addEventListener('click', () => {
+    viewer?.toggleCabLight?.()
+    updateCabLightUi()
+  })
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
       event.preventDefault()
@@ -274,12 +298,37 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
   resizeObserver.observe(host)
   resize()
 
-  await renderer.init()
+  try {
+    await renderer.init()
+  } catch (error) {
+    if (forceWebGL) {
+      loading.classList.add('model-loading--error')
+      loadingText.textContent = error instanceof Error ? error.message : 'Unable to initialize renderer'
+      return () => undefined
+    }
+    renderer.dispose()
+    forceWebGL = true
+    usingWebGPU = false
+    loadingText.textContent = 'Initializing WebGL'
+    renderer = makeRenderer(true)
+    try {
+      await renderer.init()
+    } catch (webglError) {
+      loading.classList.add('model-loading--error')
+      loadingText.textContent =
+        webglError instanceof Error ? webglError.message : 'Unable to initialize renderer'
+      return () => undefined
+    }
+  }
+  usingWebGPU = Boolean(
+    (renderer.backend as typeof renderer.backend & { isWebGPUBackend?: boolean }).isWebGPUBackend,
+  )
+
   renderCatalog()
   await selectModel(findCatalogEntry(new URLSearchParams(window.location.search).get('model')))
 
   renderer.setAnimationLoop((time) => {
-    if (stopped || !viewer || !controls || !pipeline) return
+    if (stopped || !viewer || !controls) return
     const deltaSeconds = previousFrameTime === 0 ? 0 : (time - previousFrameTime) / 1000
     previousFrameTime = time
     const smoothing = 1 - Math.exp(-Math.min(Math.max(deltaSeconds, 0), 0.05) * 8)
@@ -299,7 +348,8 @@ export async function startModelBrowser(host: HTMLDivElement): Promise<() => voi
       viewer.camera.updateProjectionMatrix()
     }
     controls.update()
-    pipeline.render()
+    if (pipeline) pipeline.render()
+    else renderer.render(viewer.scene, viewer.camera)
     statsElement.textContent =
       `${modelStats.vertices.toLocaleString()} verts · ${Math.round(modelStats.triangles).toLocaleString()} tris · `
       + `${renderer.info.render.drawCalls} draw calls`

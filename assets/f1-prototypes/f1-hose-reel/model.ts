@@ -1,0 +1,319 @@
+// f1-hose-reel — a pit-garage air-hose reel: a real multi-layer helical coil wound on a drum barrel
+// between two pressed flanges, carried on a tubular stand, with a crank handle on the outboard hub and
+// a lead hose running over a guide roller down to the floor.
+//
+// The coil is the hero. It is one continuous swept tube following a genuine helix — out across the drum,
+// step a layer, wind back — rather than a stack of concentric rings, so it reads as wound hose from any
+// angle. The rolled plate flanges sit only just proud of the outermost wrap, retaining the coil without
+// swallowing its side profile.
+//
+// The amber flanges are a generic hazard-equipment colour, not team branding, and are kept as the default
+// while still exposed as the `accent` material slot.
+
+import {
+  BufferGeometry,
+  CatmullRomCurve3,
+  Group,
+  LatheGeometry,
+  Mesh,
+  MeshStandardMaterial,
+  TubeGeometry,
+  Vector2,
+  Vector3,
+  type Material,
+} from 'three/webgpu'
+import {
+  AXIS_X,
+  AXIS_Y,
+  acquireF1Materials,
+  bevelBox,
+  bolt,
+  createF1Preview,
+  disposeF1Materials,
+  mergeParts,
+  taperedTube,
+  tubeSection,
+} from '../f1-kit-core/index.ts'
+
+type Slot = 'accent' | 'stand' | 'hose' | 'metal'
+
+export interface F1HoseReelConfig {
+  /** Wraps of hose per layer across the drum. */
+  wraps: number
+  /** Layers wound on top of one another. With `wraps`, this is the LOD knob — the coil is the tri budget. */
+  layers: number
+}
+
+export interface F1HoseReelOptions extends Partial<F1HoseReelConfig> {
+  materials?: Partial<Record<Slot, Material>>
+}
+
+export interface F1HoseReelInstance {
+  readonly root: Group
+  readonly parts: { drum: Group; stand: Group; hose: Group }
+  readonly materials: Readonly<Record<Slot, Material>>
+  getConfig(): Readonly<F1HoseReelConfig>
+  configure(patch: Partial<F1HoseReelConfig>): void
+  setMaterial(slot: Slot, material: Material): void
+  update(deltaSeconds: number): void
+  dispose(): void
+}
+
+// 8 wraps across the 0.300 m drum gives a 0.0375 m pitch against a 0.042 m hose OD, so adjacent turns
+// overlap slightly and nest. Anything looser leaves air between wraps and the coil reads as corrugated
+// ducting rather than wound hose.
+const defaults: F1HoseReelConfig = { wraps: 7, layers: 2 }
+
+// --- Drum geometry, world units ---------------------------------------------------------------------
+const AXLE_Y = 0.34        // axle height — low, so the drum's lowest point clears the floor by ~0.06 m
+const HALF_SPAN = 0.115    // narrow hose pack leaves the glossy drum shoulders visible
+const R_BARREL = 0.145     // drum barrel radius
+const HOSE_R = 0.018       // 36 mm OD rubber hose
+const LAYER_PITCH = 0.036  // radial step between wound layers
+const R_FLANGE = 0.255     // restrained pressed flanges, not oversized moulded discs
+const X_FLANGE = 0.180     // flange offset from the drum centre along the axle
+
+// ---------------------------------------------------------------------------------------------------
+// Local geometry helpers, deliberately private to this file rather than shared through f1-kit-core:
+// every `.ts` under f1-kit-core ships to kit consumers as permanent public surface.
+// ---------------------------------------------------------------------------------------------------
+
+/** Thin stamped sheet: rolled outer hem, shallow dish, and a closed inner hub aperture. */
+function flangePlate(): BufferGeometry {
+  const profile = [
+    new Vector2(0.054, 0.007),
+    new Vector2(0.082, 0.008),
+    new Vector2(0.132, 0.004),
+    new Vector2(0.205, -0.003),
+    new Vector2(0.242, -0.001),
+    new Vector2(0.252, 0.004),
+    new Vector2(0.255, 0.000),
+    new Vector2(0.252, -0.007),
+    new Vector2(0.242, -0.010),
+    new Vector2(0.205, -0.011),
+    new Vector2(0.132, -0.004),
+    new Vector2(0.082, 0.003),
+    new Vector2(0.054, 0.002),
+    new Vector2(0.054, 0.007),
+  ]
+  const flange = new LatheGeometry(profile, 64)
+  flange.rotateZ(-Math.PI / 2)
+  return flange
+}
+
+/**
+ * The wound coil: one continuous helix swept as a single tube. It winds out across the drum, steps up a
+ * layer, then winds back, so successive layers run in opposite directions exactly as hand-wound hose does.
+ */
+function coilGeometry(wraps: number, layers: number): BufferGeometry {
+  const points: Vector3[] = []
+  const perWrap = 28
+  for (let layer = 0; layer < layers; layer++) {
+    const radius = R_BARREL + HOSE_R + layer * LAYER_PITCH
+    const outward = layer % 2 === 0
+    const steps = wraps * perWrap
+    for (let step = 0; step <= steps; step++) {
+      const t = step / steps
+      // Offset each layer's start so the wrap seams do not stack into a visible column.
+      const angle = t * wraps * Math.PI * 2 + layer * 1.1
+      const across = outward ? -HALF_SPAN + t * 2 * HALF_SPAN : HALF_SPAN - t * 2 * HALF_SPAN
+      points.push(new Vector3(across, Math.sin(angle) * radius, Math.cos(angle) * radius))
+    }
+  }
+  const curve = new CatmullRomCurve3(points, false, 'centripetal')
+  return new TubeGeometry(curve, points.length * 2, HOSE_R, 12, false)
+}
+
+export function createModel(options: F1HoseReelOptions = {}): F1HoseReelInstance {
+  const config: F1HoseReelConfig = {
+    wraps: Math.max(2, Math.round(options.wraps ?? defaults.wraps)),
+    layers: Math.max(1, Math.round(options.layers ?? defaults.layers)),
+  }
+
+  const bundle = acquireF1Materials()
+  const kit = bundle.materials
+  kit.cobalt.roughness = 0.20
+  kit.cobalt.metalness = 0.62
+  const materialSlots: Record<Slot, Material> = {
+    accent: options.materials?.accent ?? kit.cobalt,
+    stand: options.materials?.stand ?? kit.cobalt,
+    hose: options.materials?.hose ?? kit.tread,
+    metal: options.materials?.metal ?? kit.steel,
+  }
+  const brass = new MeshStandardMaterial({
+    name: 'f1-kit / hose-reel brass',
+    color: 0xc89b3c,
+    roughness: 0.24,
+    metalness: 0.88,
+  })
+
+  // Runtime anchors: created once, never replaced, so consumer attachments survive a rebuild (rules 10, 14).
+  const root = new Group()
+  root.name = 'f1-hose-reel'
+  const drum = new Group(); drum.name = 'drum'
+  const standGroup = new Group(); standGroup.name = 'stand'
+  const hoseGroup = new Group(); hoseGroup.name = 'hose'
+  root.add(drum, standGroup, hoseGroup)
+
+  // Per-rebuild geometry ownership. Materials live for the model's whole lifetime in `bag`; geometry is
+  // regenerated by configure() and so is tracked separately and released at the top of every rebuild.
+  const generated: BufferGeometry[] = []
+  const meshesBySlot: Record<Slot, Mesh[]> = { accent: [], stand: [], hose: [], metal: [] }
+
+  const releaseGenerated = (): void => {
+    for (const group of [drum, standGroup, hoseGroup]) group.clear()
+    for (const geometry of generated) geometry.dispose()
+    generated.length = 0
+    for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
+  }
+
+  /** One merged geometry per material slot, so there is exactly one mesh per slot and one draw call. */
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+    generated.push(geometry)
+    const mesh = new Mesh(geometry, materialSlots[slot])
+    mesh.name = name
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    meshesBySlot[slot].push(mesh)
+    group.add(mesh)
+  }
+
+  const rebuild = (): void => {
+    releaseGenerated()
+    const { wraps, layers } = config
+    // --- Flanges: rolled plates standing just proud of the outermost wrap ----------------------------
+    const flanges: BufferGeometry[] = []
+    for (const sx of [-1, 1] as const) {
+      const disc = flangePlate()
+      disc.translate(sx * X_FLANGE, AXLE_Y, 0)
+      flanges.push(disc)
+    }
+    emit('accent', mergeParts(flanges, 'flanges'), drum, 'flanges')
+
+    // --- Wound hose, the hero mass -----------------------------------------------------------------
+    const coil = coilGeometry(wraps, layers)
+    coil.translate(0, AXLE_Y, 0)
+    const hoseParts: BufferGeometry[] = [coil]
+
+    // The reference is neatly wound: omit a dangling lead so the barrel shoulders and frame remain legible.
+    emit('hose', mergeParts(hoseParts, 'hose'), hoseGroup, 'hose')
+
+    // --- Drum barrel, hubs, crank and stand ---------------------------------------------------------
+    const standParts: BufferGeometry[] = []
+    const metalParts: BufferGeometry[] = []
+
+    standParts.push(tubeSection(R_BARREL, X_FLANGE * 2 - 0.014, [0, AXLE_Y, 0], AXIS_X, 32))
+
+    for (const sx of [-1, 1] as const) {
+      standParts.push(tubeSection(0.052, 0.026, [sx * (X_FLANGE + 0.013), AXLE_Y, 0], AXIS_X, 20))
+      const hubPlate = bevelBox(0.012, 0.112, 0.112, 0.008)
+      hubPlate.translate(sx * (X_FLANGE + 0.025), AXLE_Y, 0)
+      metalParts.push(hubPlate)
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+        metalParts.push(bolt(
+          [sx * (X_FLANGE + 0.034), AXLE_Y + Math.sin(a) * 0.041, Math.cos(a) * 0.041],
+          0.009, 0.010, AXIS_X,
+        ))
+      }
+    }
+
+    // Long offset right crank: curved metal throw, outboard journal, and a free black rotating grip.
+    const crankX = 0.310
+    const throwY = 0.180
+    metalParts.push(taperedTube([
+      new Vector3(crankX, AXLE_Y, 0),
+      new Vector3(crankX, AXLE_Y + 0.085, 0.045),
+      new Vector3(crankX, AXLE_Y + throwY, 0.065),
+    ], 0.014, 12))
+    metalParts.push(tubeSection(0.020, 0.115, [crankX - 0.055, AXLE_Y, 0], AXIS_X, 16))
+    emit('hose', tubeSection(
+      0.024, 0.255, [crankX + 0.137, AXLE_Y + throwY, 0.065], AXIS_X, 18,
+    ), standGroup, 'crank-grip')
+
+    // Prominent left cylindrical brass swivel with gland, hex coupling, collar, and upright outlet.
+    const brassParts: BufferGeometry[] = []
+    brassParts.push(tubeSection(0.038, 0.075, [-0.273, AXLE_Y, 0], AXIS_X, 20))
+    brassParts.push(tubeSection(0.052, 0.072, [-0.334, AXLE_Y, 0], AXIS_X, 6))
+    brassParts.push(tubeSection(0.041, 0.025, [-0.382, AXLE_Y, 0], AXIS_X, 20))
+    brassParts.push(tubeSection(0.028, 0.092, [-0.345, AXLE_Y + 0.067, 0], AXIS_Y, 16))
+    const brassGeometry = mergeParts(brassParts, 'brass-swivel')
+    generated.push(brassGeometry)
+    const brassMesh = new Mesh(brassGeometry, brass)
+    brassMesh.name = 'brass-swivel'
+    brassMesh.castShadow = true
+    standGroup.add(brassMesh)
+
+    const clip = bevelBox(0.018, 0.028, 0.012, 0.003)
+    clip.translate(X_FLANGE + 0.010, AXLE_Y + R_FLANGE * 0.72, 0.02)
+    metalParts.push(clip)
+
+    // Each side is one continuous bent sled from front foot, around the drum, to rear foot.
+    const upright = 0.278
+    for (const sx of [-1, 1] as const) {
+      standParts.push(taperedTube([
+        new Vector3(sx * upright, 0.023, 0.13),
+        new Vector3(sx * upright, 0.023, 0.27),
+        new Vector3(sx * upright, 0.035, 0.33),
+        new Vector3(sx * upright, 0.105, 0.27),
+        new Vector3(sx * upright, AXLE_Y, 0.12),
+        new Vector3(sx * upright, AXLE_Y + R_FLANGE + 0.055, 0.04),
+        new Vector3(sx * upright, AXLE_Y + R_FLANGE + 0.065, -0.13),
+        new Vector3(sx * upright, AXLE_Y, -0.18),
+        new Vector3(sx * upright, 0.105, -0.28),
+        new Vector3(sx * upright, 0.035, -0.34),
+        new Vector3(sx * upright, 0.023, -0.27),
+        new Vector3(sx * upright, 0.023, -0.13),
+      ], 0.017, 14))
+
+      standParts.push(tubeSection(0.032, 0.034, [sx * upright, AXLE_Y, 0], AXIS_X, 18))
+      standParts.push(tubeSection(
+        0.019, upright - X_FLANGE,
+        [sx * (X_FLANGE + (upright - X_FLANGE) / 2), AXLE_Y, 0],
+        AXIS_X, 14,
+      ))
+      for (const sxHub of [sx] as const) {
+        standParts.push(tubeSection(0.028, 0.018, [sxHub * (X_FLANGE + 0.020), AXLE_Y, 0], AXIS_X, 16))
+      }
+    }
+    standParts.push(taperedTube([
+      new Vector3(-upright, AXLE_Y + R_FLANGE + 0.062, -0.13),
+      new Vector3(0, AXLE_Y + R_FLANGE + 0.075, -0.13),
+      new Vector3(upright, AXLE_Y + R_FLANGE + 0.062, -0.13),
+    ], 0.017, 12))
+
+    emit('stand', mergeParts(standParts, 'stand'), standGroup, 'frame')
+    emit('metal', mergeParts(metalParts, 'metal'), standGroup, 'fittings')
+  }
+  rebuild()
+
+  return {
+    root,
+    parts: { drum, stand: standGroup, hose: hoseGroup },
+    materials: materialSlots,
+    getConfig: () => ({ ...config }),
+    configure(patch) {
+      if (patch.wraps !== undefined) config.wraps = Math.max(2, Math.round(patch.wraps))
+      if (patch.layers !== undefined) config.layers = Math.max(1, Math.round(patch.layers))
+      rebuild()
+    },
+    setMaterial(slot, material) {
+      // One mesh per slot, so this is a direct reassignment with no rebuild.
+      materialSlots[slot] = material
+      for (const mesh of meshesBySlot[slot]) mesh.material = material
+    },
+    update: () => {},
+    dispose() {
+      releaseGenerated()
+      brass.dispose()
+      disposeF1Materials(bundle)
+      root.removeFromParent()
+    },
+  }
+}
+
+export function createPreview({ aspect }: { aspect: number; time?: number }) {
+  return createF1Preview(createModel(), {
+    aspect, target: [0.04, 0.34, 0], distance: 1.68, yaw: 0.72, pitch: 0.22,
+  })
+}
