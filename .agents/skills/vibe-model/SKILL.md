@@ -54,6 +54,19 @@ during migration. Prefer `vibe:model` in new documentation and automation.
 Keep the camera deterministic. Change yaw, pitch, width, height, or the preview
 factory only when the reference requires it.
 
+## Check
+
+Before each critique:
+
+```sh
+node --import tsx scripts/coplanar-check.ts <model-id>
+```
+
+It fails on visible faces sharing a plane and facing the same way. That
+z-fights, and neither a still nor a critic will name it. Coincidence buried
+inside another solid is not reported. Fix per rule 9 in
+[modeling-rules.md](references/modeling-rules.md).
+
 ## Critique
 
 Give a fresh critic only the brief, reference, and current beauty image. Ask
@@ -67,6 +80,16 @@ Apply the highest-impact correction and capture again.
 Stop at a score of 85 or higher, after two plateauing scores, or after ten
 iterations. Treat a plateau as evidence to change the representation or obtain
 better reference evidence.
+
+A score is not an acceptance. The critique measures resemblance to the
+reference and is blind to everything else: parts seated on the wrong plane,
+geometry left floating in front of a face, coincident faces tearing, extents
+carried over from an earlier revision. Ask the critic to list modelling
+errors separately from resemblance gaps, with a location for each; unprompted
+it scores only likeness. Register the model in the browser registry and put the render and the
+live URL in front of the requester before calling it done, and say what you
+approximated. Their look is the acceptance; the score only decides when to stop
+iterating.
 
 ## Deliver
 
