@@ -149,7 +149,7 @@ export function createScene(): F1KitScene {
 
   const asphaltMat = new MeshStandardMaterial({
     name: 'f1-kit / scene asphalt',
-    color: shade(TOKEN.INK_950, 0.42),
+    color: shade(TOKEN.INK_950, 0.22),
     roughness: 0.92,
     metalness: 0,
   })
@@ -174,10 +174,12 @@ export function createScene(): F1KitScene {
   root.add(ground)
   extras.push({ dispose: () => { ground.geometry.dispose() } })
 
+  // Keep this *under* grid-box pads (top 6 mm) and SF chequer (top 8 mm).
+  // At y=0.012 those tiles were buried and only the numbers poked through.
   const road = new Mesh(new PlaneGeometry(ROAD_W, ROAD_LEN), asphaltMat)
   road.name = 'scene-asphalt'
   road.rotation.x = -Math.PI / 2
-  road.position.set(ROAD_X, 0.012, ROAD_Z)
+  road.position.set(ROAD_X, 0.001, ROAD_Z)
   road.receiveShadow = true
   root.add(road)
   extras.push({ dispose: () => { road.geometry.dispose() } })
@@ -195,9 +197,11 @@ export function createScene(): F1KitScene {
   add(createSausageKerb({ modules: 14 }), RIBBON_HALF + 0.3, 88, ALONG)
   add(createSlotDrain({ modules: 50 }), -(RIBBON_HALF - 0.35), 0, ALONG)
   add(createSlotDrain({ modules: 40 }), -(RIBBON_HALF - 0.35), 80, ALONG)
-  add(createAstroturf({ modules: 90 }), RIBBON_HALF + 1.4, 8, ALONG)
-  add(createAstroturf({ modules: 90 }), RIBBON_HALF + 1.4, 84, ALONG)
-  add(createGravelTrap({ modules: 4 }), 20, END_Z - 8, ALONG)
+  add(createAstroturf({ modules: 90 }), RIBBON_HALF + 1.5, 8, ALONG)
+  add(createAstroturf({ modules: 90 }), RIBBON_HALF + 1.5, 84, ALONG)
+  add(createAstroturf({ modules: 70 }), -(RIBBON_HALF + 1.5), 12, ALONG)
+  add(createGravelTrap({ modules: 8 }), 16, 18, ALONG)
+  add(createGravelTrap({ modules: 8 }), 16, END_Z - 10, ALONG)
 
   // Pit (−X): garage + tools on the door line. No wall/barriers on this apron.
   add(createGarageBox({ count: 3, number: '11', legend: 'CHECO' }), GARAGE_X, 0, FACE_PIT)
@@ -214,8 +218,8 @@ export function createScene(): F1KitScene {
   add(createExtinguisher(), TOOL_X + 0.45, GARAGE_BAY_PITCH + 0.2)
 
   // Spectator (+X): fence and stand wall. Fence runs the full asphalt.
-  add(createCatchFence({ length: 200, height: 5 }), RIBBON_HALF + 1.15, ROAD_Z, ALONG)
-  add(createCrowdFence({ length: 200 }), 14.5, ROAD_Z, ALONG)
+  add(createCatchFence({ length: 200, height: 5 }), RIBBON_HALF + 3.4, ROAD_Z, ALONG)
+  add(createCrowdFence({ length: 200 }), 18, ROAD_Z, ALONG)
   add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, -STAND_PITCH, FACE_SPEC)
   add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, 0, FACE_SPEC)
   add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, STAND_PITCH, FACE_SPEC)
