@@ -119,9 +119,9 @@ const ALONG = Math.PI / 2
 
 const RIBBON_W = 12
 const RIBBON_HALF = RIBBON_W / 2
-/** One pavement from garage doors to the catch fence, start to tunnel. */
-const ROAD_W = 40
-const ROAD_X = -1
+/** Dark racing ribbon is kerb-to-kerb (12 m). Pit apron is a lighter pad to the doors. */
+const ROAD_W = 12
+const ROAD_X = 0
 const ROAD_LEN = 220
 const ROAD_Z = 20
 const END_Z = 108
@@ -129,6 +129,8 @@ const SPAN = 22
 const STAND_X = 22
 const STAND_PITCH = 10
 const DOOR_X = -(RIBBON_HALF + 1.2 + 8)
+const APRON_W = Math.abs(DOOR_X) - ROAD_W / 2
+const APRON_X = -(ROAD_W / 2 + APRON_W / 2)
 const GARAGE_X = DOOR_X - GARAGE.depth / 2
 const WALL_X = -(RIBBON_HALF + 0.6 + PIT_WALL.depth / 2)
 const TOOL_X = DOOR_X + 0.55
@@ -149,8 +151,14 @@ export function createScene(): F1KitScene {
 
   const asphaltMat = new MeshStandardMaterial({
     name: 'f1-kit / scene asphalt',
-    color: shade(TOKEN.INK_950, 0.22),
+    color: shade(TOKEN.INK_950, -0.12),
     roughness: 0.92,
+    metalness: 0,
+  })
+  const apronMat = new MeshStandardMaterial({
+    name: 'f1-kit / scene apron',
+    color: shade(TOKEN.INK_950, 0.28),
+    roughness: 0.94,
     metalness: 0,
   })
   const groundMat = new MeshStandardMaterial({
@@ -162,6 +170,7 @@ export function createScene(): F1KitScene {
   extras.push({
     dispose: () => {
       asphaltMat.dispose()
+      apronMat.dispose()
       groundMat.dispose()
     },
   })
@@ -183,6 +192,14 @@ export function createScene(): F1KitScene {
   road.receiveShadow = true
   root.add(road)
   extras.push({ dispose: () => { road.geometry.dispose() } })
+
+  const apron = new Mesh(new PlaneGeometry(APRON_W, ROAD_LEN), apronMat)
+  apron.name = 'scene-pit-apron'
+  apron.rotation.x = -Math.PI / 2
+  apron.position.set(APRON_X, 0.001, ROAD_Z)
+  apron.receiveShadow = true
+  root.add(apron)
+  extras.push({ dispose: () => { apron.geometry.dispose() } })
 
   // START — grid, SF, lights. Pit apron in front of the garages stays clear.
   add(createGridBox({ index: 1 }), 0, -8)
