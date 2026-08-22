@@ -20,13 +20,13 @@ export function createF1KitPlayground(options: PlaygroundOptions): Playground {
   const scene = new Scene()
   scene.name = 'PLAYGROUND / F1 KIT SCENE'
   scene.background = new Color(0x04070b)
-  scene.fog = new Fog(0x04070b, 80, 180)
+  scene.fog = new Fog(0x04070b, 140, 280)
 
-  const camera = new PerspectiveCamera(38, options.aspect, 0.4, 280)
+  const camera = new PerspectiveCamera(34, options.aspect, 0.4, 420)
   camera.name = 'CAMERA / F1 STRAIGHT'
-  camera.position.set(14, 24, -44)
+  camera.position.set(15, 14, -36)
 
-  const focus = new Vector3(2, 2.5, 4)
+  const focus = new Vector3(2, 1.2, 12)
   camera.lookAt(focus)
 
   const world = new Group()
@@ -34,7 +34,7 @@ export function createF1KitPlayground(options: PlaygroundOptions): Playground {
   scene.add(world)
 
   const floor = new Mesh(
-    new PlaneGeometry(160, 140),
+    new PlaneGeometry(120, 250),
     new MeshStandardMaterial({
       color: 0x071018,
       roughness: 0.94,
