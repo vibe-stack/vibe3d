@@ -264,7 +264,7 @@ export function createScene(): F1KitScene {
   add(createTunnelPortal(), 0, END_Z + 16, Math.PI)
 
   // Paddock (behind the garage). Cab toward −Z so the still sees cab+box as one artic.
-  add(createRaceControl(), GARAGE_X - 18, 28, FACE_PIT)
+  add(createRaceControl(), GARAGE_X - 18, 40, FACE_PIT)
   const truck = createServiceTruck({ kind: 'box', lamps: true, wheelRpm: 0 })
   truck.setGround(ground)
   add(truck, GARAGE_X - 12, -22, FACE_PIT)
