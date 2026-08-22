@@ -2463,6 +2463,18 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
       }
     },
   },
+  {
+    id: 'f1-chequered-flag',
+    label: 'F1 Chequered Flag',
+    category: 'Vehicles / Motorsport',
+    description: 'Handheld FIA finish flag. Grip at the origin; cloth waves in update().',
+    tags: ['prop', 'vehicles', 'motorsport', 'trackside', 'animated'],
+    exportName: 'f1-chequered-flag.glb',
+    async create(aspect) {
+      const { createPreview } = await import('../../assets/f1-prototypes/f1-chequered-flag/model.ts')
+      return adaptStaticPreview(createPreview({ aspect, time: 0.38 }), 0.7)
+    },
+  },
 ]
 
 function createGaugePreview(

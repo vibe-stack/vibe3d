@@ -1,6 +1,6 @@
 # F1 Kit
 
-70 procedural Formula 1 props for real-time Three.js (`three/webgpu`): a pit
+71 procedural Formula 1 props for real-time Three.js (`three/webgpu`): a pit
 box, circuit furniture to instance along a racing line, and a pit building
 whose fascia accepts a number, a legend, a built-in plate, or your own image
 material. Palette and hardware live in `f1-kit-core`. Colours are generic
@@ -65,7 +65,8 @@ numbered faces, solid backdrop)
 
 Weekend extras: `f1-cone` · `f1-bollard` · `f1-weighbridge` · `f1-parc-ferme` ·
 `f1-medical-post` · `f1-generator-cabin` · `f1-flag-pole` ·
-`f1-camera-platform` · `f1-tunnel-portal` · `f1-sector-gantry`
+`f1-camera-platform` · `f1-tunnel-portal` · `f1-sector-gantry` ·
+`f1-chequered-flag`
 
 ## Ceremony
 

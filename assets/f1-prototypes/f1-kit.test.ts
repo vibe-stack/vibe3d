@@ -78,6 +78,8 @@ import { createModel as createLedRibbon } from './f1-led-ribbon/model.ts'
 import { createModel as createSectorBoard } from './f1-sector-board/model.ts'
 import { createModel as createNameboard } from './f1-nameboard/model.ts'
 import { createModel as createServiceTruck, createPreview as createServiceTruckPreview, createWheelPreview } from './f1-service-truck/model.ts'
+import { createModel as createChequeredFlag } from './f1-chequered-flag/model.ts'
+import { createScene as createKitScene } from './f1-kit-scene/kit-scene.ts'
 
 // --- dispose instrumentation -------------------------------------------------------------------------
 
@@ -196,6 +198,7 @@ const factories = {
   'f1-sector-board': () => createSectorBoard(),
   'f1-nameboard': () => createNameboard(),
   'f1-service-truck': () => createServiceTruck(),
+  'f1-chequered-flag': () => createChequeredFlag({ waving: true }),
 } as const
 
 describe.each(Object.keys(factories) as Array<keyof typeof factories>)('%s ownership', (id) => {
@@ -812,6 +815,37 @@ describe('FIA 1:1 datums', () => {
     expect(size.y).toBeLessThan(0.12)
     model.dispose()
   })
+
+  test('chequered flag grips at the origin and waves', () => {
+    const model = createChequeredFlag({ waving: true })
+    model.root.updateMatrixWorld(true)
+    const { box } = sizeOf(model.root)
+    expect(box.min.y).toBeCloseTo(0, 1)
+    expect(model.root.getObjectByName('cloth')).toBeDefined()
+    expect(model.root.getObjectByName('shaft')).toBeDefined()
+    let clothMesh: Mesh | undefined
+    model.root.traverse((object) => {
+      const mesh = object as Mesh
+      if (mesh.isMesh && mesh.name === 'cloth') clothMesh = mesh
+    })
+    expect(clothMesh).toBeDefined()
+    const attr = clothMesh!.geometry.getAttribute('position')
+    const z0 = attr.getZ(attr.count - 1)
+    model.update(0.4)
+    expect(attr.getZ(attr.count - 1)).not.toBe(z0)
+    model.dispose()
+  })
+
+  test('kit scene places every kit id', () => {
+    const scene = createKitScene()
+    const names = new Set<string>()
+    scene.root.traverse((object) => {
+      if (object.name.startsWith('f1-')) names.add(object.name)
+    })
+    const missing = Object.keys(factories).filter((id) => !names.has(id))
+    expect(missing).toEqual([])
+    scene.dispose()
+  }, 180_000)
 
   test('jersey barrier crown is 1.0 m', () => {
     const model = createJersey({ modules: 1 })

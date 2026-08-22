@@ -2,6 +2,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RENDER_SETTINGS } from '../core/config.ts'
 import { createRenderer, setRendererViewport } from '../core/renderer.ts'
 import { createActivePlayground } from '../playgrounds/active.ts'
+import { createF1KitPlayground } from '../playgrounds/f1-kit-scene.ts'
 
 function browserPixelRatio(): number {
   return Math.min(window.devicePixelRatio || 1, RENDER_SETTINGS.maxBrowserPixelRatio)
@@ -68,7 +69,10 @@ export async function startBrowserPlayground(host: HTMLDivElement): Promise<() =
   const telemetry = host.querySelector<HTMLElement>('[data-telemetry]')!
   const bootScreen = host.querySelector<HTMLElement>('[data-boot-screen]')!
 
-  const playground = createActivePlayground({ aspect: 1 })
+  const playgroundId = new URLSearchParams(window.location.search).get('playground')
+  const playground = playgroundId === 'f1'
+    ? createF1KitPlayground({ aspect: 1 })
+    : createActivePlayground({ aspect: 1 })
   const renderer = createRenderer({ canvas })
   const controls = new OrbitControls(playground.camera, canvas)
   let stopped = false
@@ -77,8 +81,9 @@ export async function startBrowserPlayground(host: HTMLDivElement): Promise<() =
   controls.target.copy(playground.focus)
   controls.enableDamping = true
   controls.dampingFactor = 0.055
-  controls.minDistance = 5.5
-  controls.maxDistance = 24
+  const wide = playground.id === 'f1-kit-scene'
+  controls.minDistance = wide ? 12 : 5.5
+  controls.maxDistance = wide ? 140 : 24
   controls.maxPolarAngle = Math.PI * 0.49
   controls.update()
 

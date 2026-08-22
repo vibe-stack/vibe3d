@@ -1,5 +1,12 @@
 # @f1-kit/registry
 
+## 0.0.19
+
+Handheld chequered finish flag and a pit-straight evaluation scene. The flag
+grips at the origin so a host character can parent it; cloth and stick wave in
+`update`. The scene places every kit id along a short straight (7 m garage
+pitch, WALL_FITS gates, short turf/gravel modules). Kit is 71.
+
 ## 0.0.18
 
 Astroturf and gravel strips. The verge is a dark soil bed under a two-tone

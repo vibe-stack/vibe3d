@@ -104,6 +104,7 @@ const modules: Record<string, () => Promise<ModelModule>> = {
   ...import.meta.glob<ModelModule>('../../../assets/terrain/*/model.ts'),
   // Compound evaluation scenes live beside their asset and are browsable too.
   ...import.meta.glob<ModelModule>('../../../assets/terrain/*/*-scene.ts'),
+  ...import.meta.glob<ModelModule>('../../../assets/f1-prototypes/**/*-scene.ts'),
 }
 
 const animatedIds = new Set([
@@ -206,6 +207,7 @@ const animatedIds = new Set([
   'storage-rack',
   'warehouse-shelf',
   'weapon-crate',
+  'f1-kit-scene',
 ])
 
 const title = (id: string): string => id
@@ -214,6 +216,7 @@ const title = (id: string): string => id
   .join(' ')
 
 function categoryFor(id: string): string {
+  if (id.startsWith('f1-')) return 'Motorsport'
   if (/granite|boulder|terrain|sandstone|canyon|cliff/.test(id)) return 'Terrain'
   if (id.startsWith('medical-') || id.includes('microscope')) return 'Medical'
   if (id.startsWith('military-') || id.includes('checkpoint')) return 'Military'
@@ -227,7 +230,10 @@ const introducedAt = timeline as Record<string, string | null>
 export const catalog: CatalogItem[] = Object.entries(modules)
   .map(([path, load]) => {
     const scene = path.match(/terrain\/([^/]+)\/([^/]+)-scene\.ts$/)
-    const id = scene
+    const f1Scene = path.match(/f1-prototypes\/([^/]+)\/[^/]+-scene\.ts$/)
+    const id = f1Scene
+      ? f1Scene[1]
+      : scene
       ? `${scene[1]}-${scene[2]}-scene`
       : path.match(/(?:prototypes|terrain)\/([^/]+)\/model\.ts$/)?.[1]
     if (!id) throw new Error(`Unable to identify model at ${path}`)
