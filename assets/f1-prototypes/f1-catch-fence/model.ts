@@ -1,6 +1,6 @@
 // f1-catch-fence — a straight run of ~5 m debris catch-fencing: steel posts with base plates,
-// top + mid rails, stay cables, and layered chain-link. Mesh is a DataTexture (headless preview
-// has no document / canvas).
+// top + mid rails, stay cables, and layered chain-link. Mesh is a coarse DataTexture (headless
+// preview has no document / canvas; a fine 16 px diamond greys out at catalogue 320 px).
 
 import {
   BufferGeometry,
@@ -53,18 +53,20 @@ export interface F1CatchFenceInstance {
 const defaults: F1CatchFenceConfig = { length: 12, height: 5 }
 
 function chainLinkTexture(): DataTexture {
-  const n = 64
+  const n = 32
+  const period = 8
   const data = new Uint8Array(n * n * 4)
+  const half = period / 2
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
       const i = (y * n + x) * 4
-      const d1 = Math.abs(((x + y) % 16) - 8)
-      const d2 = Math.abs(((x - y + n * 4) % 16) - 8)
-      const on = d1 < 0.7 || d2 < 0.7
-      data[i] = on ? 205 : 0
-      data[i + 1] = on ? 210 : 0
-      data[i + 2] = on ? 214 : 0
-      data[i + 3] = on ? 150 : 0
+      const d1 = Math.abs(((x + y) % period) - half)
+      const d2 = Math.abs(((x - y + n * 8) % period) - half)
+      const on = d1 < 0.72 || d2 < 0.72
+      data[i] = on ? 148 : 0
+      data[i + 1] = on ? 152 : 0
+      data[i + 2] = on ? 156 : 0
+      data[i + 3] = on ? 210 : 0
     }
   }
   const tex = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType)
@@ -97,11 +99,11 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
     name: 'f1-kit / catch-fence mesh',
     map: tex,
     transparent: true,
-    opacity: 0.58,
-    alphaTest: 0.24,
+    opacity: 0.92,
+    alphaTest: 0.12,
     depthWrite: false,
-    roughness: 0.68,
-    metalness: 0.62,
+    roughness: 0.55,
+    metalness: 0.72,
     side: DoubleSide,
   }))
 
@@ -194,6 +196,15 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
         0.01,
         6,
       ))
+      if (i < count - 1) {
+        const x1 = -half + ((i + 1) / (count - 1)) * length
+        railParts.push(member(
+          new Vector3(x, 0.45, 0.02),
+          new Vector3(x1, verticalTop * 0.82, 0.02),
+          0.012,
+          6,
+        ))
+      }
     }
     for (const y of railHeights) {
       const rail = bevelBox(length + 0.1, y === verticalTop ? 0.045 : 0.032, 0.045, 0.005)
@@ -204,8 +215,8 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
     emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
     emit('rail', mergeParts(railParts, 'rails'), posts, 'rails')
 
-    const repeats = Math.max(1, length / 0.58)
-    tex.repeat.set(repeats, verticalTop / 0.58)
+    const tile = 0.85
+    tex.repeat.set(Math.max(1, length / tile), Math.max(1, verticalTop / tile))
     tex.needsUpdate = true
     const front = new PlaneGeometry(length, verticalTop - 0.12, 1, 1)
     front.translate(0, verticalTop / 2 + 0.06, 0.03)
@@ -245,10 +256,10 @@ export function createModel(options: F1CatchFenceOptions = {}): F1CatchFenceInst
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ length: 9, height: 4.2 }), {
     aspect,
-    target: [0, 2.1, -0.15],
-    distance: 11,
+    target: [0, 2.0, 0.1],
+    distance: 9.2,
     fov: 30,
-    yaw: -0.85,
-    pitch: 0.18,
+    yaw: -0.72,
+    pitch: 0.14,
   })
 }

@@ -5,8 +5,8 @@
 // covered here by construction rather than by inspection.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { BufferGeometry, Material, Mesh, MeshStandardMaterial, Box3, PlaneGeometry, Vector3 } from 'three/webgpu'
-import { SPECTATOR_BRIDGE, STAIRS } from './f1-kit-core/index.ts'
+import { BufferGeometry, InstancedMesh, Material, Mesh, MeshStandardMaterial, Box3, PlaneGeometry, Vector3 } from 'three/webgpu'
+import { SPECTATOR_BRIDGE, STAIRS, TOKEN } from './f1-kit-core/index.ts'
 
 import { createModel as createTyre } from './f1-tyre/model.ts'
 import { createModel as createStack } from './f1-tyre-stack/model.ts'
@@ -701,6 +701,69 @@ describe('FIA 1:1 datums', () => {
     expect(box.max.y).toBeCloseTo(1.0, 1)
     model.dispose()
   })
+  test('jersey barrier punches a through-drain per module', () => {
+    const model = createJersey({ modules: 2 })
+    model.root.updateMatrixWorld(true)
+    expect(model.root.getObjectByName('drains')).toBeDefined()
+    expect(model.root.getObjectByName('jersey')).toBeDefined()
+    const { box } = sizeOf(model.root)
+    expect(box.max.y).toBeCloseTo(1.0, 1)
+    model.dispose()
+  })
+
+  test('TecPro wrap is amber polyethylene, not grey', () => {
+    const model = createTecpro({ columns: 2, rows: 2 })
+    const wrap = model.root.getObjectByName('wrap') as Mesh
+    expect(wrap).toBeDefined()
+    expect((wrap.material as MeshStandardMaterial).color.getHex()).toBe(TOKEN.AMBER_400)
+    expect(model.root.getObjectByName('straps')).toBeDefined()
+    expect(model.root.getObjectByName('handles')).toBeDefined()
+    model.dispose()
+  })
+
+  test('Armco carries red/white block reflectors on galvanized W-beam', () => {
+    const model = createArmco({ bays: 3 })
+    expect(model.root.getObjectByName('reflectors-red')).toBeDefined()
+    expect(model.root.getObjectByName('reflectors-white')).toBeDefined()
+    expect(model.root.getObjectByName('rails')).toBeDefined()
+    model.dispose()
+  })
+
+  test('catch fence chain-link is a transparent mapped plane, not a card', () => {
+    const model = createCatchFence({ length: 6, height: 3 })
+    const mesh = model.root.getObjectByName('chain-link') as Mesh
+    expect(mesh).toBeDefined()
+    const mat = mesh.material as MeshStandardMaterial
+    expect(mat.map).toBeTruthy()
+    expect(mat.transparent).toBe(true)
+    expect(model.root.getObjectByName('trackward-overhang')).toBeDefined()
+    model.dispose()
+  })
+
+  test('start lights glow with emissive lamps, not SpotLights', () => {
+    const model = createStartLights({ lit: 5 })
+    let spots = 0
+    model.root.traverse((object) => {
+      if ((object as { isSpotLight?: boolean }).isSpotLight) spots += 1
+    })
+    expect(spots).toBe(0)
+    expect(model.root.getObjectByName('lamps-on')).toBeDefined()
+    expect(model.root.getObjectByName('housings')).toBeDefined()
+    model.dispose()
+  })
+
+  test('grandstand seats are instanced with an aisle and fascia board', () => {
+    const model = createGrandstandBay({ rows: 4, width: 5 })
+    const seats = model.root.getObjectByName('seats') as InstancedMesh
+    expect(seats).toBeDefined()
+    expect(seats.isInstancedMesh).toBe(true)
+    expect(seats.count).toBeGreaterThan(8)
+    expect(model.root.getObjectByName('nosings')).toBeDefined()
+    expect(model.root.getObjectByName('fascia-board')).toBeDefined()
+    expect(model.root.getObjectByName('central-gangway')).toBeDefined()
+    model.dispose()
+  })
+
 
 
   test('circuit stairs are 180 mm rise / 280 mm going', () => {

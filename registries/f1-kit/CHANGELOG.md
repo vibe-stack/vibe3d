@@ -1,5 +1,9 @@
 # @f1-kit/registry
 
+## 0.0.14
+
+Trackside identity pass. Jersey modules punch a through-drain at the NJ kink. TecPro is stacked amber PE with teeth, handles, and straps. Armco is galvanized W-beam with red/white reflectors. Catch fence uses a coarse chain-link DataTexture plus a trackward overhang. Start lights are five emissive columns (no SpotLights). Grandstand bay keeps InstancedMesh seats and adds amber nosings plus a red fascia board. No new ids; kit stays 70.
+
 ## 0.0.13
 
 `f1-service-truck` Super Space Cab floor sits at the window belt with two

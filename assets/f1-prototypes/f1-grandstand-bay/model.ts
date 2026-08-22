@@ -2,7 +2,8 @@
 // cantilever roof. configure({ rows, width }).
 //
 // Datums from a typical F1 grandstand bay: 0.42 m rise, 0.85 m tread, cantilever roof dropping 0.6 m
-// toward the track. Seat backs 0.42 m wide, instanced along the bay.
+// toward the track. Seat backs 0.42 m wide, instanced along the bay. Amber nosings and a red fascia
+// board are the catalogue tells — not a grey shed.
 
 import {
   BufferGeometry,
@@ -81,9 +82,15 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (
+    slot: Slot,
+    geometry: BufferGeometry,
+    group: Group,
+    name: string,
+    material?: Material,
+  ): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -120,17 +127,17 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     fascia.translate(0, FASCIA * 0.45, halfD + 0.1)
     emit('structure', fascia, bowl, 'fascia')
 
-    const back = bevelBox(0.32, 0.36, 0.05, 0.008)
-    back.translate(0, 0.06, -0.11)
-    const pan = bevelBox(0.32, 0.045, 0.29, 0.006)
-    pan.translate(0, -0.14, 0.04)
+    const back = bevelBox(0.36, 0.48, 0.05, 0.008)
+    back.translate(0, 0.12, -0.12)
+    const pan = bevelBox(0.36, 0.05, 0.32, 0.006)
+    pan.translate(0, -0.14, 0.05)
     const seatGeo = mergeParts([back, pan], 'seat')
     generated.push(seatGeo)
 
-    const seatsAcross = Math.max(8, Math.floor(width / 0.40))
+    const seatsAcross = Math.max(8, Math.floor(width / 0.42))
     const seatPositions: Vector3[] = []
     for (let r = 0; r < rows; r++) {
-      const y = FASCIA + r * RISE + 0.25
+      const y = FASCIA + r * RISE + 0.28
       const z = halfD - (r + 0.55) * TREAD
       for (let s = 0; s < seatsAcross; s++) {
         const x = -width / 2 + (s + 0.5) * (width / seatsAcross)
@@ -152,10 +159,14 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     bowl.add(seats)
 
     const accessParts: BufferGeometry[] = []
+    const nosings: BufferGeometry[] = []
     for (let r = 0; r < rows; r++) {
       const tread = bevelBox(1.0, 0.025, TREAD * 0.88, 0.006)
       tread.translate(0, FASCIA + r * RISE + 0.015, halfD - (r + 0.5) * TREAD)
       accessParts.push(tread)
+      const nose = bevelBox(1.0, 0.03, 0.06, 0.006)
+      nose.translate(0, FASCIA + r * RISE + 0.028, halfD - r * TREAD - 0.04)
+      nosings.push(nose)
       if (r % 2 === 0) {
         for (const sx of [-1, 1] as const) {
           accessParts.push(member(
@@ -176,6 +187,7 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
       ))
     }
     emit('structure', mergeParts(accessParts, 'central-gangway'), bowl, 'central-gangway')
+    emit('structure', mergeParts(nosings, 'nosings'), bowl, 'nosings', kit.amber)
 
     const safetyParts: BufferGeometry[] = []
     const fenceZ = halfD + 0.18
@@ -222,6 +234,8 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     const lip = bevelBox(width + 1.2, 0.08, 0.12, 0.015)
     lip.translate(0, yFront - 0.05, zFront)
     roofParts.push(lip)
+    const banner = bevelBox(width * 0.88, 0.62, 0.07, 0.012)
+    banner.translate(0, yFront - 0.42, zFront + 0.05)
     const frameCount = Math.max(4, Math.ceil(width / 2.4))
     for (let frame = 0; frame < frameCount; frame++) {
       const x = -width / 2 + (frame / (frameCount - 1)) * width
@@ -266,6 +280,7 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
     }
     emit('roof', mergeParts(roofParts, 'roof'), roof, 'roof')
     emit('structure', mergeParts(frameParts, 'roof-frames'), roof, 'roof-frames')
+    emit('roof', banner, roof, 'fascia-board', kit.red)
   }
   rebuild()
 
@@ -295,10 +310,10 @@ export function createModel(options: F1GrandstandBayOptions = {}): F1GrandstandB
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ rows: 6, width: 8 }), {
     aspect,
-    target: [0, 2.0, 0.2],
-    distance: 14,
-    fov: 32,
-    yaw: -0.95,
-    pitch: 0.28,
+    target: [0, 1.85, 0.4],
+    distance: 12.2,
+    fov: 30,
+    yaw: -0.82,
+    pitch: 0.22,
   })
 }

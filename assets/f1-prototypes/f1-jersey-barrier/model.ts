@@ -1,5 +1,6 @@
 // f1-jersey-barrier — interlocking New Jersey profile scaled so the crown sits at FIA Grade 1 (1.0 m).
-// Identity is the NJ kink (toe + two slopes), drain slots, and module joints — not a smooth wedge.
+// Identity is the NJ kink (toe + two slopes) and a through-drain per module — not a smooth wedge
+// and not a painted-on slot.
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
@@ -39,32 +40,44 @@ const defaults: F1JerseyBarrierConfig = { modules: 3 }
 const PITCH = WALL_END.jersey.pitch
 const H = WALL_END.jersey.height
 const GAP = 0.06
-const SLOT_Y0 = 0.12
-const SLOT_Y1 = 0.24
+/** Bottom of the through-drain, top of the vertical toe. */
+const SLOT_Y0 = 0.14
+/** Top of the through-drain, at the NJ kink. 0.22 m tall so it punches at 320 px. */
+const SLOT_Y1 = 0.42
+const SLOT_W = 0.82
 
 /**
  * US NJ 32 in outline, scaled so crown = 1.0 m.
  * Tall vertical toe, 55° lower slope, 84° upper face — the kink has to read at catalogue distance.
  */
-function jerseyLower(): Array<readonly [number, number]> {
+function jerseyProfile(): Array<readonly [number, number]> {
   return [
     [-0.375, 0.00],
-    [-0.375, 0.14],
-    [-0.365, SLOT_Y0],
-    [0.365, SLOT_Y0],
-    [0.375, 0.14],
+    [-0.375, SLOT_Y0],
+    [-0.22, SLOT_Y1],
+    [-0.09, H],
+    [0.09, H],
+    [0.22, SLOT_Y1],
+    [0.375, SLOT_Y0],
     [0.375, 0.00],
   ]
 }
 
-function jerseyUpper(): Array<readonly [number, number]> {
+function jerseySill(): Array<readonly [number, number]> {
   return [
-    [-0.28, SLOT_Y1],
-    [-0.20, 0.38],
+    [-0.375, 0.00],
+    [-0.375, SLOT_Y0],
+    [0.375, SLOT_Y0],
+    [0.375, 0.00],
+  ]
+}
+
+function jerseyLintel(): Array<readonly [number, number]> {
+  return [
+    [-0.22, SLOT_Y1],
     [-0.09, H],
     [0.09, H],
-    [0.20, 0.38],
-    [0.28, SLOT_Y1],
+    [0.22, SLOT_Y1],
   ]
 }
 
@@ -107,29 +120,47 @@ export function createModel(options: F1JerseyBarrierOptions = {}): F1JerseyBarri
   const rebuild = (): void => {
     releaseGenerated()
     const body: BufferGeometry[] = []
-    const voids: BufferGeometry[] = []
+    const drains: BufferGeometry[] = []
     const length = config.modules * PITCH
     const half = length / 2
     const bay = PITCH - GAP
-    const lower = jerseyLower()
-    const upper = jerseyUpper()
+    const profile = jerseyProfile()
+    const sill = jerseySill()
+    const lintel = jerseyLintel()
 
     for (let i = 0; i < config.modules; i++) {
       const x = -half + i * PITCH + PITCH / 2
-      const foot = creased(loftAlongX(lower, bay, { closed: true, stations: 3 }), 28)
-      foot.translate(x, 0, 0)
-      body.push(foot)
-      const top = creased(loftAlongX(upper, bay, { closed: true, stations: 4 }), 28)
-      top.translate(x, 0, 0)
-      body.push(top)
+      const moduleStart = x - bay / 2
+      const moduleEnd = x + bay / 2
+      const slotX = x + ((i % 2) === 0 ? -0.22 : 0.22)
+      const slotStart = slotX - SLOT_W / 2
+      const slotEnd = slotX + SLOT_W / 2
+      const leftW = slotStart - moduleStart
+      const rightW = moduleEnd - slotEnd
+      const leftX = (moduleStart + slotStart) / 2
+      const rightX = (slotEnd + moduleEnd) / 2
 
-      const slotW = 0.28
-      const slotX = x + ((i % 2) === 0 ? -0.45 : 0.45)
-      for (const z of [-1, 1] as const) {
-        const plate = bevelBox(slotW, SLOT_Y1 - SLOT_Y0, 0.03, 0.004)
-        plate.translate(slotX, (SLOT_Y0 + SLOT_Y1) / 2, z * 0.30)
-        voids.push(plate)
+      const left = creased(loftAlongX(profile, leftW, { closed: true, stations: 3 }), 28)
+      left.translate(leftX, 0, 0)
+      const right = creased(loftAlongX(profile, rightW, { closed: true, stations: 3 }), 28)
+      right.translate(rightX, 0, 0)
+      const foot = creased(loftAlongX(sill, SLOT_W, { closed: true, stations: 2 }), 28)
+      foot.translate(slotX, 0, 0)
+      const top = creased(loftAlongX(lintel, SLOT_W, { closed: true, stations: 4 }), 28)
+      top.translate(slotX, 0, 0)
+      body.push(left, right, foot, top)
+
+      const slotH = SLOT_Y1 - SLOT_Y0
+      for (const side of [-1, 1] as const) {
+        const jamb = bevelBox(0.028, slotH, 0.72, 0.004)
+        jamb.translate(slotX + side * (SLOT_W / 2 - 0.012), (SLOT_Y0 + SLOT_Y1) / 2, 0)
+        drains.push(jamb)
       }
+      const soffit = bevelBox(SLOT_W - 0.04, 0.018, 0.42, 0.003)
+      soffit.translate(slotX, SLOT_Y1 - 0.008, 0)
+      const threshold = bevelBox(SLOT_W - 0.04, 0.016, 0.72, 0.003)
+      threshold.translate(slotX, SLOT_Y0 + 0.008, 0)
+      drains.push(soffit, threshold)
 
       const lipL = bevelBox(bay - 0.08, 0.022, 0.032, 0.003)
       lipL.translate(x, H - 0.012, -0.05)
@@ -138,9 +169,6 @@ export function createModel(options: F1JerseyBarrierOptions = {}): F1JerseyBarri
       body.push(lipL, lipR)
 
       if (i < config.modules - 1) {
-        const joint = bevelBox(GAP - 0.01, 0.78, 0.28, 0.004)
-        joint.translate(x + bay / 2 + GAP / 2, 0.4, 0)
-        voids.push(joint)
         const tongue = bevelBox(0.09, 0.34, 0.13, 0.008)
         tongue.translate(x + bay / 2 + GAP / 2, 0.5, 0)
         body.push(tongue)
@@ -148,7 +176,7 @@ export function createModel(options: F1JerseyBarrierOptions = {}): F1JerseyBarri
     }
 
     emit(mergeParts(body, 'jersey'), materialSlots.barrier, 'jersey')
-    emit(mergeParts(voids, 'jersey-voids'), kit.ink, 'voids')
+    emit(mergeParts(drains, 'jersey-drains'), kit.ink, 'drains')
   }
   rebuild()
 
@@ -179,10 +207,10 @@ export function createModel(options: F1JerseyBarrierOptions = {}): F1JerseyBarri
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ modules: 2 }), {
     aspect,
-    target: [0, 0.46, 0],
-    distance: 5.4,
-    fov: 30,
-    yaw: -0.38,
-    pitch: 0.2,
+    target: [0, 0.42, 0],
+    distance: 4.6,
+    fov: 28,
+    yaw: -0.22,
+    pitch: 0.22,
   })
 }

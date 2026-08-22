@@ -1,5 +1,5 @@
 // f1-armco — a straight W-beam guardrail: lofted AASHTO W-section (~380 mm tall, 140 mm corrugation)
-// on C-channel posts at 2.0 m centres, alternating red / shell bays.
+// on C-channel posts at 2.0 m centres. Galvanized rails, graphite posts, red / shell block reflectors.
 
 import {
   BufferGeometry,
@@ -16,7 +16,6 @@ import {
   disposeF1Materials,
   loftAlongX,
   mergeParts,
-  AXIS_Y,
   AXIS_Z,
 } from '../f1-kit-core/index.ts'
 
@@ -65,8 +64,8 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
   const bundle = acquireF1Materials()
   const kit = bundle.materials
   const materialSlots: Record<Slot, Material> = {
-    post: options.materials?.post ?? kit.shell,
-    rail: options.materials?.rail ?? kit.shell,
+    post: options.materials?.post ?? kit.graphite,
+    rail: options.materials?.rail ?? kit.steel,
     stripe: options.materials?.stripe ?? kit.red,
   }
 
@@ -86,9 +85,9 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -102,7 +101,8 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
     const length = bays * PITCH
     const half = length / 2
     const postParts: BufferGeometry[] = []
-    const accentParts: BufferGeometry[] = []
+    const redMarks: BufferGeometry[] = []
+    const whiteMarks: BufferGeometry[] = []
     const profile = wBeamProfile()
     const levels = [0.12, 0.42, 0.72]
 
@@ -120,34 +120,46 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
       const socket = bevelBox(0.12, 0.10, 0.12, 0.008)
       socket.translate(x, 0.02, -0.11)
       postParts.push(socket)
+      const cap = bevelBox(0.09, 0.04, 0.09, 0.006)
+      cap.translate(x, 1.26, -0.11)
+      postParts.push(cap)
       for (const y of levels) {
         const bracket = bevelBox(0.16, 0.16, 0.22, 0.012)
         bracket.translate(x, y + W_H / 2, -0.01)
         postParts.push(bracket)
       }
     }
-    emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
-
+    const railParts: BufferGeometry[] = []
     for (let level = 0; level < levels.length; level++) {
       const beam = loftAlongX(profile, length + 0.20, { closed: true, stations: 8 })
       beam.translate(0, levels[level]!, 0)
-      emit('rail', beam, rail, `continuous-rail-${level}`)
+      railParts.push(beam)
       for (let joint = 1; joint < bays; joint++) {
         const x = -half + joint * PITCH
         const y = levels[level]! + W_H / 2
         const lap = loftAlongX(profile, 0.28, { closed: true, stations: 4 })
         lap.translate(x, levels[level]!, 0.006)
-        emit('rail', lap, rail, `lap-${level}-${joint}`)
+        railParts.push(lap)
         for (const dx of [-0.06, 0.06] as const) {
           for (const dy of [-0.075, 0.075] as const) {
-            const fastener = bolt([x + dx, y + dy, W_D + 0.018], 0.013, 0.018, AXIS_Z)
-            emit('post', fastener, posts, `lap-bolt-${level}-${joint}-${dx}-${dy}`)
+            postParts.push(bolt([x + dx, y + dy, W_D + 0.018], 0.013, 0.018, AXIS_Z))
           }
         }
-
       }
     }
-    if (accentParts.length) emit('stripe', mergeParts(accentParts, 'inspection-marks'), rail, 'inspection-marks')
+    emit('post', mergeParts(postParts, 'posts'), posts, 'posts')
+    emit('rail', mergeParts(railParts, 'rails'), rail, 'rails')
+
+    const midY = levels[1]! + W_H / 2
+    for (let bay = 0; bay < bays; bay++) {
+      const x = -half + (bay + 0.5) * PITCH
+      const block = bevelBox(0.22, 0.13, 0.045, 0.006)
+      block.translate(x, midY, W_D + 0.052)
+      if (bay % 2 === 0) redMarks.push(block)
+      else whiteMarks.push(block)
+    }
+    if (redMarks.length) emit('stripe', mergeParts(redMarks, 'reflectors-red'), rail, 'reflectors-red')
+    if (whiteMarks.length) emit('rail', mergeParts(whiteMarks, 'reflectors-white'), rail, 'reflectors-white', kit.shell)
   }
   rebuild()
 
@@ -176,10 +188,10 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ bays: 3 }), {
     aspect,
-    target: [0, 0.42, 0.08],
-    distance: 6.2,
+    target: [0, 0.55, 0.08],
+    distance: 5.6,
     fov: 28,
-    yaw: -1.15,
-    pitch: 0.22,
+    yaw: -0.95,
+    pitch: 0.18,
   })
 }
