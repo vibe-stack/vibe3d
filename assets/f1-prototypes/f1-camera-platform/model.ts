@@ -1,4 +1,5 @@
-// f1-camera-platform — low scaffold deck for trackside cameras.
+// f1-camera-platform — scaffold deck with kick plates, ladder, and a broadcast camera
+// (hood + lens). Preview frames the head, not empty legs.
 
 import {
   BufferGeometry,
@@ -11,10 +12,14 @@ import {
 import {
   acquireF1Materials,
   bevelBox,
+  bevelDisc,
   createF1Preview,
   disposeF1Materials,
+  loftRoundedBox,
   member,
   mergeParts,
+  tubeSection,
+  AXIS_Z,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'scaffold' | 'deck'
@@ -67,9 +72,9 @@ export function createModel(options: F1CameraPlatformOptions = {}): F1CameraPlat
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -82,27 +87,75 @@ export function createModel(options: F1CameraPlatformOptions = {}): F1CameraPlat
     const h = config.height
     const w = 2.4
     const d = 1.8
+    const corners: Array<readonly [number, number]> = [
+      [-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2],
+    ]
     const legParts: BufferGeometry[] = []
-    for (const [x, z] of [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]] as const) {
-      legParts.push(member(new Vector3(x, 0.06, z), new Vector3(x, h, z), 0.028, 8))
+    for (const [x, z] of corners) {
+      legParts.push(member(new Vector3(x, 0.06, z), new Vector3(x, h, z), 0.03, 8))
     }
-    for (const sx of [-1, 1] as const) {
-      legParts.push(member(new Vector3(-w / 2, h * 0.45, sx * d / 2), new Vector3(w / 2, h * 0.45, sx * d / 2), 0.02, 6))
-      legParts.push(member(new Vector3(-w / 2, h * 0.75, sx * d / 2), new Vector3(w / 2, h * 0.75, sx * d / 2), 0.02, 6))
+    for (const y of [h * 0.35, h * 0.7] as const) {
+      for (const sz of [-1, 1] as const) {
+        legParts.push(member(new Vector3(-w / 2, y, sz * d / 2), new Vector3(w / 2, y, sz * d / 2), 0.02, 6))
+      }
+      for (const sx of [-1, 1] as const) {
+        legParts.push(member(new Vector3(sx * w / 2, y, -d / 2), new Vector3(sx * w / 2, y, d / 2), 0.02, 6))
+      }
+    }
+    for (const sz of [-1, 1] as const) {
+      legParts.push(member(new Vector3(-w / 2, h * 0.35, sz * d / 2), new Vector3(w / 2, h * 0.7, sz * d / 2), 0.016, 6))
     }
     emit('scaffold', mergeParts(legParts, 'legs'), scaffold, 'legs')
-    const platform = bevelBox(w, 0.05, d, 0.006)
-    platform.translate(0, h, 0)
-    emit('deck', platform, deck, 'platform')
-    const railParts: BufferGeometry[] = []
-    for (const sx of [-1, 1] as const) {
-      railParts.push(bevelBox(w, 0.04, 0.04, 0.004).translate(0, h + 0.55, sx * (d / 2 + 0.02)))
-      railParts.push(bevelBox(0.04, 0.55, d + 0.04, 0.004).translate(sx * (w / 2 + 0.02), h + 0.55, 0))
+
+    const rungs: BufferGeometry[] = []
+    const steps = Math.max(5, Math.round(h / 0.32))
+    for (let i = 0; i < steps; i++) {
+      const y = 0.18 + (i / Math.max(1, steps - 1)) * (h - 0.25)
+      rungs.push(member(new Vector3(-0.18, y, -d / 2 - 0.08), new Vector3(0.18, y, -d / 2 - 0.08), 0.012, 6))
     }
-    emit('deck', mergeParts(railParts, 'rails'), deck, 'rails', kit.graphite)
-    const pod = bevelBox(0.22, 0.14, 0.26, 0.01)
-    pod.translate(0, h + 0.12, 0.2)
-    emit('deck', pod, deck, 'camera', kit.ink)
+    rungs.push(member(new Vector3(-0.18, 0.08, -d / 2 - 0.08), new Vector3(-0.18, h, -d / 2 - 0.08), 0.016, 6))
+    rungs.push(member(new Vector3(0.18, 0.08, -d / 2 - 0.08), new Vector3(0.18, h, -d / 2 - 0.08), 0.016, 6))
+    emit('scaffold', mergeParts(rungs, 'ladder'), scaffold, 'ladder')
+
+    const platform = bevelBox(w, 0.06, d, 0.006)
+    platform.translate(0, h, 0)
+    emit('deck', platform, deck, 'platform', kit.graphite)
+    const kick: BufferGeometry[] = []
+    for (const sz of [-1, 1] as const) {
+      kick.push(bevelBox(w, 0.12, 0.03, 0.004).translate(0, h + 0.08, sz * (d / 2 - 0.01)))
+    }
+    for (const sx of [-1, 1] as const) {
+      kick.push(bevelBox(0.03, 0.12, d, 0.004).translate(sx * (w / 2 - 0.01), h + 0.08, 0))
+    }
+    emit('deck', mergeParts(kick, 'kick'), deck, 'kick', kit.ink)
+
+    const railParts: BufferGeometry[] = []
+    for (const [x, z] of corners) {
+      railParts.push(member(new Vector3(x, h, z), new Vector3(x, h + 0.9, z), 0.018, 8))
+    }
+    for (const sz of [-1, 1] as const) {
+      railParts.push(member(new Vector3(-w / 2, h + 0.9, sz * d / 2), new Vector3(w / 2, h + 0.9, sz * d / 2), 0.016, 6))
+      railParts.push(member(new Vector3(-w / 2, h + 0.45, sz * d / 2), new Vector3(w / 2, h + 0.45, sz * d / 2), 0.014, 6))
+    }
+    for (const sx of [-1, 1] as const) {
+      railParts.push(member(new Vector3(sx * w / 2, h + 0.9, -d / 2), new Vector3(sx * w / 2, h + 0.9, d / 2), 0.016, 6))
+    }
+    emit('deck', mergeParts(railParts, 'rails'), deck, 'rails', kit.steel)
+
+    const body = loftRoundedBox(0.22, 0.16, 0.38, 0.02)
+    body.translate(0, h + 0.2, 0.12)
+    emit('deck', body, deck, 'camera', kit.ink)
+    const hood = bevelBox(0.24, 0.04, 0.22, 0.006)
+    hood.translate(0, h + 0.3, 0.18)
+    emit('deck', hood, deck, 'hood', kit.ink)
+    emit('deck', tubeSection(0.055, 0.16, [0, h + 0.18, 0.38], AXIS_Z, 12), deck, 'lens', kit.slate)
+    const glass = bevelDisc(0.048, 0.012, 0.002, 12)
+    glass.rotateX(Math.PI / 2)
+    glass.translate(0, h + 0.18, 0.47)
+    emit('deck', glass, deck, 'glass', kit.cyan)
+    const pan = bevelBox(0.16, 0.06, 0.16, 0.006)
+    pan.translate(0, h + 0.08, 0.08)
+    emit('deck', pan, deck, 'pan', kit.graphite)
   }
   rebuild()
 
@@ -129,12 +182,12 @@ export function createModel(options: F1CameraPlatformOptions = {}): F1CameraPlat
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ height: 2.4 }), {
+  return createF1Preview(createModel({ height: 2.2 }), {
     aspect,
-    target: [0, 1.4, 0],
-    distance: 5.5,
+    target: [0, 2.35, 0.2],
+    distance: 3.6,
     fov: 28,
-    yaw: 0.5,
-    pitch: 0.08,
+    yaw: 0.55,
+    pitch: 0.16,
   })
 }

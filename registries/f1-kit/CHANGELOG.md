@@ -1,5 +1,14 @@
 # @f1-kit/registry
 
+## 0.0.16
+
+Flag pole, camera platform, medical post, foam monitor, and camera tower.
+The pole flies a 2:3 Dutch tricolor framed on the cloth. The platform is a
+scaffold deck with a broadcast camera. The medical post is a hut with door,
+window, and red cross. The foam monitor is a red cannon on a four-wheel
+trailer. The camera tower keeps an open lattice and frames two camera heads.
+No new ids; kit stays 70.
+
 ## 0.0.15
 
 Weekend extras and the two CHECO boards. Weighbridge is a ribbed scale with KG

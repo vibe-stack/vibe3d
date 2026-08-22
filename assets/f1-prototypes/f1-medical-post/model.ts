@@ -1,4 +1,5 @@
-// f1-medical-post — small white hut with a geometric red cross and numbered plate.
+// f1-medical-post — white trackside hut with a door, window, geometric red cross,
+// and numbered marshal plate. Not a featureless cabinet.
 
 import {
   BufferGeometry,
@@ -98,25 +99,46 @@ export function createModel(options: F1MedicalPostOptions = {}): F1MedicalPostIn
 
   const rebuild = (): void => {
     releaseGenerated()
-    const w = 1.8
-    const d = 1.5
-    const h = 1.9
-    const hutParts: BufferGeometry[] = []
-    hutParts.push(bevelBox(w, h, d, 0.012).translate(0, h / 2 + 0.06, 0))
-    const roof = bevelBox(w + 0.12, 0.08, d + 0.12, 0.008)
-    roof.translate(0, h + 0.1, 0)
-    hutParts.push(roof)
-    emit('hut', mergeParts(hutParts, 'hut'), hut, 'hut')
-    const barV = bevelBox(0.14, 0.62, 0.04, 0.004)
-    barV.translate(0, h * 0.58, d / 2 + 0.02)
-    const barH = bevelBox(0.62, 0.14, 0.04, 0.004)
-    barH.translate(0, h * 0.58, d / 2 + 0.02)
+    const w = 2.2
+    const d = 1.7
+    const h = 2.15
+    const body = bevelBox(w, h, d, 0.014)
+    body.translate(0, h / 2 + 0.06, 0)
+    emit('hut', body, hut, 'hut')
+    const skirt = bevelBox(w + 0.08, 0.1, d + 0.08, 0.008)
+    skirt.translate(0, 0.05, 0)
+    emit('hut', skirt, hut, 'skirt', kit.graphite)
+    const roof = bevelBox(w + 0.28, 0.1, d + 0.28, 0.01)
+    roof.translate(0, h + 0.16, 0)
+    emit('hut', roof, hut, 'roof', kit.graphite)
+    const ridge = bevelBox(w + 0.1, 0.08, 0.16, 0.006)
+    ridge.translate(0, h + 0.24, 0)
+    emit('hut', ridge, hut, 'ridge', kit.ink)
+
+    const door = bevelBox(0.72, 1.55, 0.05, 0.006)
+    door.translate(-0.42, 0.88, d / 2 + 0.02)
+    emit('hut', door, hut, 'door', kit.shell)
+    const handle = bevelBox(0.04, 0.12, 0.05, 0.004)
+    handle.translate(-0.14, 0.9, d / 2 + 0.05)
+    emit('hut', handle, hut, 'handle', kit.steel)
+    const window = bevelBox(0.7, 0.48, 0.04, 0.005)
+    window.translate(0.55, 1.35, d / 2 + 0.02)
+    emit('hut', window, hut, 'window', kit.ink)
+
+    const badge = bevelBox(0.72, 0.72, 0.03, 0.004)
+    badge.translate(0.55, 1.85, d / 2 + 0.025)
+    emit('cross', badge, cross, 'badge', kit.shell)
+    const barV = bevelBox(0.16, 0.56, 0.04, 0.004)
+    barV.translate(0.55, 1.85, d / 2 + 0.05)
+    const barH = bevelBox(0.56, 0.16, 0.04, 0.004)
+    barH.translate(0.55, 1.85, d / 2 + 0.05)
     emit('cross', mergeParts([barV, barH], 'cross'), cross, 'cross')
-    const back = bevelBox(0.42, 0.28, 0.03, 0.004)
-    back.translate(-0.45, 1.35, d / 2 + 0.02)
+
+    const back = bevelBox(0.5, 0.34, 0.03, 0.004)
+    back.translate(-0.55, 1.85, d / 2 + 0.025)
     emit('plate', back, plate, 'back', kit.graphite)
-    const face = new PlaneGeometry(0.38, 0.24)
-    face.translate(-0.45, 1.35, d / 2 + 0.035 + LAYER_CLEARANCE * 3)
+    const face = new PlaneGeometry(0.46, 0.3)
+    face.translate(-0.55, 1.85, d / 2 + 0.042 + LAYER_CLEARANCE * 3)
     if (ownsPlate) {
       const tex = marshalPlateTexture(config.number)
       textures.push(tex)
@@ -157,12 +179,12 @@ export function createModel(options: F1MedicalPostOptions = {}): F1MedicalPostIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ number: 'M2' }), {
+  return createF1Preview(createModel({ number: 'M1' }), {
     aspect,
-    target: [0, 1.0, 0.4],
-    distance: 4.2,
+    target: [0, 1.15, 0.55],
+    distance: 4.0,
     fov: 28,
-    yaw: -0.55,
+    yaw: -0.42,
     pitch: 0.08,
   })
 }

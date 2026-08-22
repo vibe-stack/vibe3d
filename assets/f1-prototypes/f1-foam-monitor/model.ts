@@ -1,4 +1,5 @@
-// f1-foam-monitor — red trackside foam cannon on a trailer base.
+// f1-foam-monitor — red trackside foam cannon on a four-wheel trailer. Tank, swivel
+// monitor, and flared nozzle have to read; not a pink cube on a slab.
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
@@ -8,9 +9,11 @@ import {
   createF1Preview,
   disposeF1Materials,
   mergeParts,
+  revolve,
   tubeSection,
   AXIS_X,
   AXIS_Y,
+  AXIS_Z,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'base' | 'cannon'
@@ -53,19 +56,17 @@ export function createModel(options: F1FoamMonitorOptions = {}): F1FoamMonitorIn
 
   const generated: BufferGeometry[] = []
   const meshesBySlot: Record<Slot, Mesh[]> = { base: [], cannon: [] }
-  let built = false
 
   const releaseGenerated = (): void => {
-    base.clear()
+    base.clear(); nozzle.clear()
     for (const geometry of generated) geometry.dispose()
     generated.length = 0
-    meshesBySlot.base.length = 0
-    if (built) meshesBySlot.cannon.length = 0
+    for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -73,50 +74,51 @@ export function createModel(options: F1FoamMonitorOptions = {}): F1FoamMonitorIn
     group.add(mesh)
   }
 
-  const buildBase = (): void => {
-    base.clear()
-    for (const geometry of generated) geometry.dispose()
-    generated.length = 0
-    meshesBySlot.base.length = 0
-    const chassis = bevelBox(1.6, 0.12, 2.4, 0.012)
-    chassis.translate(0, 0.36, 0)
+  const rebuild = (): void => {
+    releaseGenerated()
+    const chassis = bevelBox(1.35, 0.12, 2.15, 0.012)
+    chassis.translate(0, 0.34, 0)
     emit('base', chassis, base, 'chassis')
+    const hitch = bevelBox(0.18, 0.08, 0.55, 0.008)
+    hitch.translate(0, 0.34, -1.25)
+    emit('base', hitch, base, 'hitch', kit.steel)
+    const wheels: BufferGeometry[] = []
     for (const x of [-0.62, 0.62] as const) {
-      const wheel = tubeSection(0.18, 0.08, [x, 0.18, 0.85], AXIS_X, 12)
-      emit('base', wheel, base, `wheel-${x}`)
+      for (const z of [-0.72, 0.72] as const) {
+        wheels.push(tubeSection(0.2, 0.12, [x, 0.2, z], AXIS_X, 14))
+      }
     }
-    const pivot = bevelBox(0.38, 0.28, 0.38, 0.01)
-    pivot.translate(0, 0.56, -0.15)
-    emit('base', pivot, base, 'pivot')
-  }
+    emit('base', mergeParts(wheels, 'wheels'), base, 'wheels', kit.ink)
 
-  const buildNozzle = (): void => {
-    nozzle.clear()
-    meshesBySlot.cannon.length = 0
-    const parts: BufferGeometry[] = []
-    const barrel = tubeSection(0.12, 1.1, [0.55, 0.72, -0.15], AXIS_X, 14)
-    parts.push(barrel)
-    const tank = bevelBox(0.72, 0.62, 0.72, 0.015)
-    tank.translate(-0.12, 0.78, -0.15)
-    parts.push(tank)
-    const guard = bevelBox(0.18, 0.42, 0.52, 0.008)
-    guard.translate(0.05, 0.72, -0.15)
-    parts.push(guard)
-    const geo = mergeParts(parts, 'cannon')
-    generated.push(geo)
-    const mesh = new Mesh(geo, materialSlots.cannon)
-    mesh.name = 'cannon'
-    mesh.castShadow = true
-    mesh.receiveShadow = true
-    meshesBySlot.cannon.push(mesh)
-    nozzle.add(mesh)
-    nozzle.position.set(0, 0, 0)
+    const tank = tubeSection(0.38, 1.35, [0, 0.82, -0.15], AXIS_Z, 16)
+    emit('cannon', tank, nozzle, 'tank')
+    const strapA = bevelBox(0.82, 0.06, 0.08, 0.004)
+    strapA.translate(0, 0.82, -0.55)
+    const strapB = bevelBox(0.82, 0.06, 0.08, 0.004)
+    strapB.translate(0, 0.82, 0.25)
+    emit('cannon', mergeParts([strapA, strapB], 'straps'), nozzle, 'straps', kit.ink)
+    const cap = tubeSection(0.12, 0.1, [0, 0.82, -0.88], AXIS_Z, 12)
+    emit('cannon', cap, nozzle, 'cap', kit.graphite)
+
+    emit('cannon', tubeSection(0.09, 0.28, [0, 1.18, 0.15], AXIS_Y, 12), nozzle, 'pedestal')
+    const swivel = bevelBox(0.28, 0.16, 0.28, 0.01)
+    swivel.translate(0, 1.36, 0.15)
+    emit('cannon', swivel, nozzle, 'swivel', kit.graphite)
+    emit('cannon', tubeSection(0.07, 0.95, [0.48, 1.42, 0.15], AXIS_X, 14), nozzle, 'barrel')
+    const bell = revolve(
+      [[0, 0.35], [0.35, 0.4], [0.7, 0.7], [1, 1]],
+      { yBot: 0, yTop: 0.22, scaleW: 0.11, segments: 16 },
+    )
+    bell.rotateZ(-Math.PI / 2)
+    bell.translate(1.05, 1.42, 0.15)
+    emit('cannon', bell, nozzle, 'nozzle')
+    const handle = bevelBox(0.06, 0.04, 0.42, 0.004)
+    handle.translate(0.15, 1.52, 0.15)
+    emit('cannon', handle, nozzle, 'handle', kit.ink)
     nozzle.rotation.y = config.yaw
-    built = true
   }
 
-  buildBase()
-  buildNozzle()
+  rebuild()
 
   return {
     root,
@@ -136,7 +138,6 @@ export function createModel(options: F1FoamMonitorOptions = {}): F1FoamMonitorIn
     update: () => {},
     dispose() {
       releaseGenerated()
-      nozzle.clear()
       disposeF1Materials(bundle)
       root.removeFromParent()
     },
@@ -144,12 +145,12 @@ export function createModel(options: F1FoamMonitorOptions = {}): F1FoamMonitorIn
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ yaw: 0.35 }), {
+  return createF1Preview(createModel({ yaw: 0.4 }), {
     aspect,
-    target: [0, 0.7, 0],
-    distance: 4.2,
+    target: [0.15, 0.85, 0],
+    distance: 3.9,
     fov: 28,
-    yaw: -0.65,
-    pitch: 0.1,
+    yaw: -0.72,
+    pitch: 0.16,
   })
 }

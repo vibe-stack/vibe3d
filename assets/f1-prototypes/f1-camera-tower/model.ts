@@ -1,4 +1,5 @@
-// f1-camera-tower — lattice tower with an overhead camera deck.
+// f1-camera-tower — lattice mast with an open-rail deck and two broadcast cameras
+// (hood, lens). Preview frames the head so the cameras read at catalogue distance.
 
 import {
   BufferGeometry,
@@ -12,10 +13,13 @@ import {
 import {
   acquireF1Materials,
   bevelBox,
+  bevelDisc,
   createF1Preview,
   disposeF1Materials,
+  loftRoundedBox,
   member,
   mergeParts,
+  tubeSection,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'tower' | 'deck'
@@ -68,9 +72,9 @@ export function createModel(options: F1CameraTowerOptions = {}): F1CameraTowerIn
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -81,26 +85,25 @@ export function createModel(options: F1CameraTowerOptions = {}): F1CameraTowerIn
   const rebuild = (): void => {
     releaseGenerated()
     const h = config.height
+    const half = 0.35
     const legs: BufferGeometry[] = []
-    for (const [x, z] of [[-0.35, -0.35], [0.35, -0.35], [0.35, 0.35], [-0.35, 0.35]] as const) {
+    const corners: Array<readonly [number, number]> = [
+      [-half, -half], [half, -half], [half, half], [-half, half],
+    ]
+    for (const [x, z] of corners) {
       legs.push(member(new Vector3(x, 0.08, z), new Vector3(x, h, z), 0.028, 8))
     }
     const bays = Math.max(4, Math.round(h / 1.6))
     for (let i = 0; i < bays; i++) {
       const y = 0.5 + (i / bays) * (h - 0.8)
+      for (const sz of [-1, 1] as const) {
+        legs.push(member(new Vector3(-half, y, sz * half), new Vector3(half, y, sz * half), 0.016, 6))
+      }
       for (const sx of [-1, 1] as const) {
-        legs.push(member(
-          new Vector3(-0.35, y, sx * 0.35),
-          new Vector3(0.35, y, sx * 0.35),
-          0.018,
-          6,
-        ))
-        legs.push(member(
-          new Vector3(sx * 0.35, y, -0.35),
-          new Vector3(sx * 0.35, y, 0.35),
-          0.018,
-          6,
-        ))
+        legs.push(member(new Vector3(sx * half, y, -half), new Vector3(sx * half, y, half), 0.016, 6))
+      }
+      if (i % 2 === 0) {
+        legs.push(member(new Vector3(-half, y, -half), new Vector3(half, y + (h - 0.8) / bays, half), 0.014, 6))
       }
     }
     const pier = new CylinderGeometry(0.42, 0.48, 0.14, 16)
@@ -108,21 +111,57 @@ export function createModel(options: F1CameraTowerOptions = {}): F1CameraTowerIn
     legs.push(pier)
     emit('tower', mergeParts(legs, 'lattice'), tower, 'lattice')
 
-    const platform = bevelBox(1.4, 0.06, 1.4, 0.008)
+    const platform = bevelBox(1.45, 0.07, 1.45, 0.008)
     platform.translate(0, h + 0.03, 0)
-    const railParts: BufferGeometry[] = [platform]
-    for (const sx of [-1, 1] as const) {
-      railParts.push(bevelBox(1.4, 0.9, 0.04, 0.006).translate(0, h + 0.48, sx * 0.68))
-      railParts.push(bevelBox(0.04, 0.9, 1.4, 0.006).translate(sx * 0.68, h + 0.48, 0))
+    emit('deck', platform, deck, 'platform')
+    const railParts: BufferGeometry[] = []
+    const deckHalf = 0.68
+    const deckCorners: Array<readonly [number, number]> = [
+      [-deckHalf, -deckHalf], [deckHalf, -deckHalf], [deckHalf, deckHalf], [-deckHalf, deckHalf],
+    ]
+    for (const [x, z] of deckCorners) {
+      railParts.push(member(new Vector3(x, h + 0.04, z), new Vector3(x, h + 0.95, z), 0.018, 8))
     }
-    emit('deck', mergeParts(railParts, 'platform'), deck, 'platform')
-    const pods: BufferGeometry[] = []
-    for (const [x, z] of [[-0.28, 0.28], [0.28, -0.28]] as const) {
-      const pod = bevelBox(0.22, 0.16, 0.28, 0.012)
-      pod.translate(x, h + 0.14, z)
-      pods.push(pod)
+    for (const sz of [-1, 1] as const) {
+      railParts.push(member(
+        new Vector3(-deckHalf, h + 0.95, sz * deckHalf),
+        new Vector3(deckHalf, h + 0.95, sz * deckHalf),
+        0.016,
+        6,
+      ))
+      railParts.push(member(
+        new Vector3(-deckHalf, h + 0.5, sz * deckHalf),
+        new Vector3(deckHalf, h + 0.5, sz * deckHalf),
+        0.014,
+        6,
+      ))
     }
-    emit('deck', mergeParts(pods, 'cameras'), deck, 'cameras')
+    emit('deck', mergeParts(railParts, 'rails'), deck, 'rails', kit.steel)
+
+    const bodies: BufferGeometry[] = []
+    const lenses: BufferGeometry[] = []
+    for (const [x, z, yaw] of [[-0.28, 0.32, 0.35], [0.28, -0.22, -2.4]] as const) {
+      const housing = loftRoundedBox(0.16, 0.13, 0.3, 0.02)
+      housing.rotateY(yaw)
+      housing.translate(x, h + 0.2, z)
+      bodies.push(housing)
+      const hood = bevelBox(0.18, 0.04, 0.2, 0.005)
+      hood.rotateY(yaw)
+      hood.translate(x, h + 0.28, z + Math.cos(yaw) * 0.04)
+      bodies.push(hood)
+      lenses.push(tubeSection(
+        0.045,
+        0.12,
+        [x + Math.sin(yaw) * 0.18, h + 0.18, z + Math.cos(yaw) * 0.18],
+        [Math.sin(yaw), 0, Math.cos(yaw)],
+        12,
+      ))
+    }
+    emit('deck', mergeParts(bodies, 'cameras'), deck, 'cameras', kit.ink)
+    emit('deck', mergeParts(lenses, 'lenses'), deck, 'lenses', kit.slate)
+    const tally = bevelDisc(0.014, 0.01, 0.001, 8)
+    tally.translate(-0.28, h + 0.3, 0.42)
+    emit('deck', tally, deck, 'tally', kit.red)
   }
   rebuild()
 
@@ -151,10 +190,10 @@ export function createModel(options: F1CameraTowerOptions = {}): F1CameraTowerIn
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ height: 6 }), {
     aspect,
-    target: [0, 3.2, 0],
-    distance: 12,
-    fov: 32,
+    target: [0, 6.15, 0.1],
+    distance: 3.5,
+    fov: 28,
     yaw: 0.55,
-    pitch: 0.08,
+    pitch: 0.14,
   })
 }
