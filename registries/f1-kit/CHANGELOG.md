@@ -1,5 +1,14 @@
 # @f1-kit/registry
 
+## 0.0.15
+
+Weekend extras and the two CHECO boards. Weighbridge is a ribbed scale with KG
+cabinet; parc-ferme is a mesh compound with a gate and PF plate; generator is an
+amber genset with louvers and exhaust; tunnel is a dark throat with chevrons;
+bollard is yellow PE with reflective rings; CCTV heads and PA horns read at
+catalogue distance. Pit-board is a handled timing tray (P2 / IN / BOX); nameboard
+stays the hung CHECO 11 plate on a pit-wall stub. No new ids; kit stays 70.
+
 ## 0.0.14
 
 Trackside identity pass. Jersey modules punch a through-drain at the NJ kink. TecPro is stacked amber PE with teeth, handles, and straps. Armco is galvanized W-beam with red/white reflectors. Catch fence uses a coarse chain-link DataTexture plus a trackward overhang. Start lights are five emissive columns (no SpotLights). Grandstand bay keeps InstancedMesh seats and adds amber nosings plus a red fascia board. No new ids; kit stays 70.

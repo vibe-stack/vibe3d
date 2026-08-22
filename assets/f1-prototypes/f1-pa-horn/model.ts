@@ -1,4 +1,5 @@
-// f1-pa-horn — speaker cluster on a stub mast.
+// f1-pa-horn — flared speaker cluster on a stub mast. Bells face the camera.
+// Not four grey boxes on a stick.
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
@@ -8,6 +9,7 @@ import {
   createF1Preview,
   disposeF1Materials,
   mergeParts,
+  revolve,
   tubeSection,
   AXIS_Y,
 } from '../f1-kit-core/index.ts'
@@ -34,6 +36,20 @@ export interface F1PaHornInstance {
 }
 
 const defaults: F1PaHornConfig = { horns: 4 }
+
+function hornBell(): BufferGeometry {
+  const geo = revolve(
+    [
+      [0, 0.018],
+      [0.35, 0.028],
+      [0.7, 0.055],
+      [1, 0.11],
+    ],
+    { yBot: 0, yTop: 0.2, segments: 14 },
+  )
+  geo.rotateX(Math.PI / 2)
+  return geo
+}
 
 export function createModel(options: F1PaHornOptions = {}): F1PaHornInstance {
   const config: F1PaHornConfig = {
@@ -74,12 +90,12 @@ export function createModel(options: F1PaHornOptions = {}): F1PaHornInstance {
 
   const rebuild = (): void => {
     releaseGenerated()
-    emit('mast', tubeSection(0.05, 2.2, [0, 1.1, 0], AXIS_Y, 12), mast, 'post')
+    emit('mast', tubeSection(0.05, 2.15, [0, 1.08, 0], AXIS_Y, 12), mast, 'post')
     const foot = bevelBox(0.32, 0.05, 0.32, 0.008)
     foot.translate(0, 0.025, 0)
     emit('mast', foot, mast, 'foot')
-    const rack = bevelBox(0.9, 0.08, 0.14, 0.008)
-    rack.translate(0, 2.05, 0)
+    const rack = bevelBox(0.95, 0.07, 0.12, 0.008)
+    rack.translate(0, 2.02, 0.02)
     emit('mast', rack, mast, 'rack')
 
     const hornParts: BufferGeometry[] = []
@@ -89,14 +105,12 @@ export function createModel(options: F1PaHornOptions = {}): F1PaHornInstance {
     let placed = 0
     for (let r = 0; r < rows && placed < count; r++) {
       for (let c = 0; c < cols && placed < count; c++) {
-        const x = -0.28 + c * 0.28
-        const y = 2.18 - r * 0.32
-        const bell = bevelBox(0.22, 0.22, 0.18, 0.012)
-        bell.translate(x, y, 0.12)
+        const x = (c - (cols - 1) / 2) * 0.3
+        const y = 2.22 - r * 0.28
+        const bell = hornBell()
+        bell.rotateY((c - 1) * 0.12)
+        bell.translate(x, y, 0.08)
         hornParts.push(bell)
-        const mouth = bevelBox(0.16, 0.16, 0.04, 0.006)
-        mouth.translate(x, y, 0.22)
-        hornParts.push(mouth)
         placed++
       }
     }
@@ -129,10 +143,10 @@ export function createModel(options: F1PaHornOptions = {}): F1PaHornInstance {
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ horns: 6 }), {
     aspect,
-    target: [0, 1.8, 0],
-    distance: 4.5,
+    target: [0, 2.05, 0.15],
+    distance: 3.6,
     fov: 28,
-    yaw: -0.3,
-    pitch: 0.08,
+    yaw: -0.35,
+    pitch: 0.1,
   })
 }

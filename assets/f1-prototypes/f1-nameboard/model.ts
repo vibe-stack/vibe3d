@@ -99,9 +99,17 @@ export function createModel(options: F1NameboardOptions = {}): F1NameboardInstan
     const body = bevelBox(w, h, d, 0.006)
     body.translate(0, 1.15, 0)
     emit('board', body, board, 'body')
-    const bracket = bevelBox(0.08, 0.12, 0.04, 0.003)
-    bracket.translate(0, 1.15 - h / 2 - 0.04, 0)
-    emit('board', bracket, board, 'bracket')
+    const wall = bevelBox(w + 0.5, 0.9, 0.08, 0.01)
+    wall.translate(0, 1.05, -0.12)
+    emit('board', wall, board, 'wall-stub')
+    for (const sx of [-1, 1] as const) {
+      const post = bevelBox(0.06, 1.35, 0.06, 0.006)
+      post.translate(sx * (w / 2 + 0.12), 0.68, -0.12)
+      emit('board', post, board, `clip-post-${sx}`)
+      const clip = bevelBox(0.1, 0.05, 0.12, 0.004)
+      clip.translate(sx * (w / 2 - 0.08), 1.15, -0.04)
+      emit('board', clip, board, `clip-${sx}`)
+    }
     const screen = new PlaneGeometry(w - 0.06, h - 0.06)
     screen.translate(0, 1.15, d / 2 + LAYER_CLEARANCE * 3)
     if (ownsFace) {
@@ -149,6 +157,6 @@ export function createModel(options: F1NameboardOptions = {}): F1NameboardInstan
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
-    aspect, target: [0, 1.15, 0], distance: 4.2, fov: 28, yaw: -0.3, pitch: 0.08,
+    aspect, target: [0, 1.1, 0], distance: 4.0, fov: 28, yaw: -0.55, pitch: 0.1,
   })
 }

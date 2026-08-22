@@ -23,6 +23,8 @@ import {
   disposeF1Materials,
   marshalPlateTexture,
   mergeParts,
+  tubeSection,
+  AXIS_Y,
 } from '../f1-kit-core/index.ts'
 
 type Slot = 'pole' | 'board' | 'card' | 'rail'
@@ -55,10 +57,10 @@ const defaults: F1PitBoardConfig = {
   rowCount: 4,
   cardsPerRow: 3,
   labels: [
-    ['11'],
-    ['L2', 'P2'],
-    ['36.7'],
-    ['36.0'],
+    ['P2'],
+    ['L12', 'IN'],
+    ['+0.3'],
+    ['BOX'],
   ],
 }
 
@@ -233,6 +235,10 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
     gripInner.translate(rightX - CUT_W + FRAME_W, topY + CUT_H / 2, FRAME_PROUD / 2)
     gripParts.push(gripInner)
     emit('pole', mergeParts(gripParts, 'corner-cutout'), pole, 'corner-grip')
+    emit('pole', tubeSection(0.016, 1.18, [0, BOARD_Y - BOARD_H / 2 - 0.58, -0.04], AXIS_Y, 10), pole, 'handle')
+    const stickGrip = bevelBox(0.07, 0.11, 0.04, 0.006)
+    stickGrip.translate(0, 0.14, -0.04)
+    emit('pole', stickGrip, pole, 'stick-grip')
     emit('rail', mergeParts(railParts, 'rails'), board, 'frame')
 
     const addPlate = (x: number, y: number, w: number, h: number, label: string, key: string) => {
@@ -333,6 +339,6 @@ export function createModel(options: F1PitBoardOptions = {}): F1PitBoardInstance
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel(), {
-    aspect, target: [0, 1.52, 0], distance: 2.85, fov: 30, yaw: -0.28, pitch: 0.08,
+    aspect, target: [0, 1.15, 0], distance: 3.15, fov: 30, yaw: -0.62, pitch: 0.12,
   })
 }

@@ -1,4 +1,5 @@
-// f1-tunnel-portal — concrete arch tunnel opening.
+// f1-tunnel-portal — concrete underpass whose opening faces the camera: dark throat,
+// yellow/black chevrons on the mouth. Not a grey U seen from the side.
 
 import { BufferGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
@@ -7,7 +8,6 @@ import {
   bevelBox,
   createF1Preview,
   disposeF1Materials,
-  loftAlongX,
   mergeParts,
 } from '../f1-kit-core/index.ts'
 
@@ -34,8 +34,8 @@ export interface F1TunnelPortalInstance {
 }
 
 const defaults: F1TunnelPortalConfig = { width: 5, height: 3.2 }
-const DEPTH = 1.8
-const WALL = 0.45
+const DEPTH = 3.4
+const WALL = 0.5
 
 export function createModel(options: F1TunnelPortalOptions = {}): F1TunnelPortalInstance {
   const config: F1TunnelPortalConfig = {
@@ -65,9 +65,9 @@ export function createModel(options: F1TunnelPortalOptions = {}): F1TunnelPortal
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -80,26 +80,47 @@ export function createModel(options: F1TunnelPortalOptions = {}): F1TunnelPortal
     const { width, height } = config
     const halfW = width / 2
     const shellParts: BufferGeometry[] = []
-    shellParts.push(bevelBox(WALL, height, DEPTH, 0.012).translate(-(halfW + WALL / 2), height / 2, 0))
-    shellParts.push(bevelBox(WALL, height, DEPTH, 0.012).translate(halfW + WALL / 2, height / 2, 0))
-    shellParts.push(bevelBox(width + WALL * 2, WALL, DEPTH, 0.012).translate(0, WALL / 2, 0))
+    shellParts.push(bevelBox(WALL, height + 0.35, DEPTH, 0.02).translate(-(halfW + WALL / 2), (height + 0.35) / 2, 0))
+    shellParts.push(bevelBox(WALL, height + 0.35, DEPTH, 0.02).translate(halfW + WALL / 2, (height + 0.35) / 2, 0))
+    shellParts.push(bevelBox(width + WALL * 2, 0.45, DEPTH, 0.02).translate(0, height + 0.22, 0))
     emit('shell', mergeParts(shellParts, 'walls'), shell, 'walls')
 
-    const archProfile: Array<readonly [number, number]> = []
-    const segs = 12
-    for (let i = 0; i <= segs; i++) {
-      const t = i / segs
-      const ang = Math.PI * t
-      const x = -halfW + halfW * 2 * t
-      const y = height * 0.55 + Math.sin(ang) * height * 0.45
-      archProfile.push([x, y])
+    const back = bevelBox(width - 0.08, height - 0.08, 0.1, 0.008)
+    back.translate(0, height / 2, -DEPTH / 2 + 0.05)
+    emit('arch', back, arch, 'throat', kit.ink)
+    const cheekL = bevelBox(0.06, height - 0.08, DEPTH - 0.2, 0.006)
+    cheekL.translate(-(halfW - 0.03), height / 2, -0.04)
+    const cheekR = bevelBox(0.06, height - 0.08, DEPTH - 0.2, 0.006)
+    cheekR.translate(halfW - 0.03, height / 2, -0.04)
+    emit('arch', mergeParts([cheekL, cheekR], 'cheeks'), arch, 'cheeks', kit.ink)
+    const floor = bevelBox(width - 0.08, 0.08, DEPTH - 0.12, 0.008)
+    floor.translate(0, 0.04, -0.02)
+    emit('shell', floor, shell, 'deck', kit.graphite)
+
+    const mouthZ = DEPTH / 2 + 0.02
+    const jamb = 0.28
+    const ringParts: BufferGeometry[] = []
+    ringParts.push(bevelBox(jamb, height + 0.2, 0.22, 0.01).translate(-(halfW + jamb / 2 - 0.04), height / 2 + 0.06, mouthZ))
+    ringParts.push(bevelBox(jamb, height + 0.2, 0.22, 0.01).translate(halfW + jamb / 2 - 0.04, height / 2 + 0.06, mouthZ))
+    ringParts.push(bevelBox(width + jamb, 0.28, 0.22, 0.01).translate(0, height + 0.08, mouthZ))
+    emit('arch', mergeParts(ringParts, 'mouth-ring'), arch, 'mouth-ring', kit.graphite)
+
+    const chevrons: BufferGeometry[] = []
+    const inks: BufferGeometry[] = []
+    const bands = 6
+    for (let i = 0; i < bands; i++) {
+      const y = 0.28 + i * ((height - 0.2) / bands)
+      const stripe = bevelBox(0.22, 0.22, 0.05, 0.004)
+      stripe.rotateZ(0.78)
+      stripe.translate(-(halfW + 0.1), y, mouthZ + 0.12)
+      const stripeR = bevelBox(0.22, 0.22, 0.05, 0.004)
+      stripeR.rotateZ(-0.78)
+      stripeR.translate(halfW + 0.1, y, mouthZ + 0.12)
+      if (i % 2 === 0) chevrons.push(stripe, stripeR)
+      else inks.push(stripe, stripeR)
     }
-    archProfile.push([halfW, 0], [-halfW, 0])
-    const ring = loftAlongX(archProfile, DEPTH, { closed: true })
-    emit('arch', ring, arch, 'arch-ring')
-    const lintel = bevelBox(width + WALL * 2, 0.18, DEPTH + 0.12, 0.01)
-    lintel.translate(0, height + 0.08, 0)
-    emit('arch', lintel, arch, 'lintel', kit.graphite)
+    emit('arch', mergeParts(chevrons, 'chevrons'), arch, 'chevrons', kit.amber)
+    emit('arch', mergeParts(inks, 'chevron-ink'), arch, 'chevron-ink', kit.ink)
   }
   rebuild()
 
@@ -127,12 +148,12 @@ export function createModel(options: F1TunnelPortalOptions = {}): F1TunnelPortal
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel({ width: 4.5, height: 3 }), {
+  return createF1Preview(createModel({ width: 4.6, height: 3.1 }), {
     aspect,
-    target: [0, 1.6, 0],
-    distance: 8,
-    fov: 30,
-    yaw: -0.15,
-    pitch: 0.06,
+    target: [0, 1.45, 0.15],
+    distance: 13.6,
+    fov: 32,
+    yaw: 0.46,
+    pitch: 0.14,
   })
 }
