@@ -1,4 +1,5 @@
-// f1-grid-box — painted FIA grid stall (2.7 × 8 m) with a centre guide line and in-ground number.
+// f1-grid-box — painted FIA grid stall (2.7 × 8 m) on asphalt, centre line,
+// front T-mark, and a large in-ground number that reads at catalogue distance.
 
 import {
   BufferGeometry,
@@ -45,8 +46,8 @@ export interface F1GridBoxInstance {
 const defaults: F1GridBoxConfig = { index: 1 }
 const W = GRID_BOX.width
 const D = GRID_BOX.length
-const THICK = 0.008
-const LINE = 0.08
+const THICK = 0.01
+const LINE = 0.1
 
 export function createModel(options: F1GridBoxOptions = {}): F1GridBoxInstance {
   const config: F1GridBoxConfig = {
@@ -96,24 +97,23 @@ export function createModel(options: F1GridBoxOptions = {}): F1GridBoxInstance {
 
   const rebuild = (): void => {
     releaseGenerated()
-    const y = THICK / 2
+    const asphalt = bevelBox(W, 0.006, D, 0.001)
+    asphalt.translate(0, 0.003, 0)
+    emit('pad', asphalt, pad, 'asphalt', kit.ink)
+
+    const y = 0.006 + THICK / 2
     const bars: BufferGeometry[] = []
-    const north = bevelBox(W, THICK, LINE, 0.001)
-    north.translate(0, y, D / 2 - LINE / 2)
-    const south = bevelBox(W, THICK, LINE, 0.001)
-    south.translate(0, y, -D / 2 + LINE / 2)
-    const west = bevelBox(LINE, THICK, D - LINE * 2, 0.001)
-    west.translate(-W / 2 + LINE / 2, y, 0)
-    const east = bevelBox(LINE, THICK, D - LINE * 2, 0.001)
-    east.translate(W / 2 - LINE / 2, y, 0)
-    const centre = bevelBox(0.04, THICK, D - LINE * 2, 0.001)
-    centre.translate(0, y, 0)
-    bars.push(north, south, west, east, centre)
+    bars.push(bevelBox(W, THICK, LINE, 0.001).translate(0, y, D / 2 - LINE / 2))
+    bars.push(bevelBox(W, THICK, LINE, 0.001).translate(0, y, -D / 2 + LINE / 2))
+    bars.push(bevelBox(LINE, THICK, D - LINE * 2, 0.001).translate(-W / 2 + LINE / 2, y, 0))
+    bars.push(bevelBox(LINE, THICK, D - LINE * 2, 0.001).translate(W / 2 - LINE / 2, y, 0))
+    bars.push(bevelBox(0.05, THICK, D - LINE * 4, 0.001).translate(0, y, 0))
+    bars.push(bevelBox(W * 0.55, THICK, LINE, 0.001).translate(0, y, D / 2 - 1.15))
     emit('pad', mergeParts(bars, 'box'), pad, 'box')
 
-    const face = new PlaneGeometry(0.7, 0.5)
+    const face = new PlaneGeometry(1.35, 1.05)
     face.rotateX(-Math.PI / 2)
-    face.translate(0, THICK + LAYER_CLEARANCE * 3, D / 2 - 0.55)
+    face.translate(0, y + THICK / 2 + LAYER_CLEARANCE * 3, -D / 2 + 1.15)
     if (ownsPlate) {
       const tex = marshalPlateTexture(String(config.index))
       textures.push(tex)
@@ -156,10 +156,10 @@ export function createModel(options: F1GridBoxOptions = {}): F1GridBoxInstance {
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ index: 5 }), {
     aspect,
-    target: [0, 0.04, 0],
-    distance: 12,
-    fov: 28,
-    yaw: -0.85,
-    pitch: 0.55,
+    target: [0, 0.02, -2.2],
+    distance: 6.4,
+    fov: 30,
+    yaw: -0.55,
+    pitch: 0.72,
   })
 }

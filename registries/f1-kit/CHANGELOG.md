@@ -1,5 +1,13 @@
 # @f1-kit/registry
 
+## 0.0.17
+
+Race control, sector gantry, spectator bridge, cone, and grid box. Race
+control is a glazed tower with an RC plate and roof dishes. The gantry hangs
+a readable S2 fascia. The bridge is a warren truss with end stairs. The cone
+has a square base and two horizontal white bands. The grid stall sits on
+asphalt with a large in-ground number. No new ids; kit stays 70.
+
 ## 0.0.16
 
 Flag pole, camera platform, medical post, foam monitor, and camera tower.

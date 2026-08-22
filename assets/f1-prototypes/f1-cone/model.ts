@@ -1,9 +1,11 @@
-// f1-cone — traffic cone with orange body and white shell stripe.
+// f1-cone — FIA-style PE traffic cone: square black base, orange body, two
+// white reflective bands. Not a frustum with a sideways washer.
 
 import { BufferGeometry, CylinderGeometry, Group, Mesh, type Material } from 'three/webgpu'
 
 import {
   acquireF1Materials,
+  bevelBox,
   bevelRing,
   createF1Preview,
   disposeF1Materials,
@@ -60,9 +62,9 @@ export function createModel(options: F1ConeOptions = {}): F1ConeInstance {
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const mesh = new Mesh(geometry, materialSlots[slot])
+    const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -73,16 +75,28 @@ export function createModel(options: F1ConeOptions = {}): F1ConeInstance {
   const rebuild = (): void => {
     releaseGenerated()
     const h = config.height
-    const baseR = h * 0.34
-    const topR = h * 0.06
-    const cone = new CylinderGeometry(topR, baseR, h, 16)
-    cone.translate(0, h / 2, 0)
+    const baseR = h * 0.32
+    const topR = h * 0.07
+    const base = bevelBox(h * 0.78, 0.045, h * 0.78, 0.006)
+    base.translate(0, 0.022, 0)
+    emit('body', base, body, 'base', kit.ink)
+    const cone = new CylinderGeometry(topR, baseR, h * 0.92, 18)
+    cone.translate(0, 0.045 + h * 0.46, 0)
     emit('body', cone, body, 'cone')
-    const bandY = h * 0.42
-    const bandR = baseR * (1 - bandY / h) + topR * (bandY / h)
-    const band = bevelRing(bandR * 0.92, bandR * 1.08, h * 0.12, 0.003, 16)
-    band.translate(0, bandY, 0)
-    emit('stripe', band, stripe, 'stripe')
+    const collar = new CylinderGeometry(topR * 1.15, topR * 1.05, h * 0.06, 14)
+    collar.translate(0, 0.045 + h * 0.9, 0)
+    emit('body', collar, body, 'collar', kit.ink)
+
+    const bands: BufferGeometry[] = []
+    for (const t of [0.38, 0.62] as const) {
+      const y = 0.045 + t * h * 0.92
+      const r = baseR * (1 - t) + topR * t
+      const ring = bevelRing(r * 0.92, r * 1.12, h * 0.07, 0.002, 18)
+      ring.rotateX(-Math.PI / 2)
+      ring.translate(0, y, 0)
+      bands.push(ring)
+    }
+    emit('stripe', mergeParts(bands, 'bands'), stripe, 'stripe')
   }
   rebuild()
 
@@ -109,12 +123,12 @@ export function createModel(options: F1ConeOptions = {}): F1ConeInstance {
 }
 
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
-  return createF1Preview(createModel(), {
+  return createF1Preview(createModel({ height: 0.5 }), {
     aspect,
-    target: [0, 0.25, 0],
-    distance: 1.4,
+    target: [0, 0.26, 0],
+    distance: 1.15,
     fov: 28,
-    yaw: -0.6,
-    pitch: 0.1,
+    yaw: -0.55,
+    pitch: 0.18,
   })
 }

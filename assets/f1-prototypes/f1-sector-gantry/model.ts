@@ -1,4 +1,5 @@
-// f1-sector-gantry — compact overhead truss with a blank sector fascia plate.
+// f1-sector-gantry — two-post overhead span with a readable S1/S2/S3 fascia.
+// Preview frames the plate, not a distant blank board.
 
 import {
   BufferGeometry,
@@ -17,7 +18,7 @@ import {
   bevelBox,
   createF1Preview,
   disposeF1Materials,
-  fasciaTexture,
+  circuitSignTexture,
   loftAlongX,
   member,
   mergeParts,
@@ -101,37 +102,50 @@ export function createModel(options: F1SectorGantryOptions = {}): F1SectorGantry
     const half = span / 2
     const trussParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
-      trussParts.push(member(new Vector3(sx * half, 0.08, 0), new Vector3(sx * half, HEIGHT, 0), 0.05, 10))
-      const plate = bevelBox(0.32, 0.05, 0.32, 0.008)
-      plate.translate(sx * half, 0.025, 0)
-      trussParts.push(plate)
+      trussParts.push(member(new Vector3(sx * half, 0.08, 0), new Vector3(sx * half, HEIGHT, 0), 0.07, 10))
+      trussParts.push(bevelBox(0.42, 0.08, 0.42, 0.01).translate(sx * half, 0.04, 0))
+      trussParts.push(member(
+        new Vector3(sx * half, HEIGHT * 0.45, 0),
+        new Vector3(sx * (half - 1.1), HEIGHT * 0.72, 0),
+        0.028,
+        6,
+      ))
     }
     const chord: Array<readonly [number, number]> = [
-      [0.12, -0.12], [0.12, 0.12], [-0.12, 0.12], [-0.12, -0.12],
+      [0.16, -0.14], [0.16, 0.14], [-0.16, 0.14], [-0.16, -0.14],
     ]
-    const beam = loftAlongX(chord, span + 0.2, { closed: true })
+    const beam = loftAlongX(chord, span + 0.28, { closed: true })
     beam.translate(0, HEIGHT, 0)
     trussParts.push(beam)
-    const bays = Math.max(4, Math.round(span / 1.5))
+    const bays = Math.max(4, Math.round(span / 1.4))
     for (let i = 0; i < bays; i++) {
       const x0 = -half + (i / bays) * span
       const x1 = -half + ((i + 1) / bays) * span
       trussParts.push(member(
-        new Vector3(x0, HEIGHT - 0.08, 0.1),
-        new Vector3(x1, HEIGHT - 0.08, -0.1),
-        0.014,
+        new Vector3(x0, HEIGHT - 0.12, 0.12),
+        new Vector3(x1, HEIGHT - 0.12, -0.12),
+        0.018,
         6,
       ))
     }
     emit('truss', mergeParts(trussParts, 'truss'), truss, 'truss')
 
-    const back = bevelBox(span * 0.55, 0.42, 0.05, 0.006)
-    back.translate(0, HEIGHT - 0.22, 0.14)
+    const plateW = Math.min(3.6, span * 0.55)
+    const plateH = 0.85
+    const plateY = HEIGHT - 0.55
+    const hangers: BufferGeometry[] = []
+    for (const sx of [-0.7, 0.7] as const) {
+      hangers.push(bevelBox(0.06, 0.28, 0.06, 0.004).translate(sx * plateW / 2, HEIGHT - 0.14, 0.18))
+    }
+    emit('truss', mergeParts(hangers, 'hangers'), truss, 'hangers', kit.graphite)
+
+    const back = bevelBox(plateW + 0.12, plateH + 0.1, 0.08, 0.008)
+    back.translate(0, plateY, 0.2)
     emit('fascia', back, fascia, 'back', kit.graphite)
-    const face = new PlaneGeometry(span * 0.5, 0.36)
-    face.translate(0, HEIGHT - 0.22, 0.165 + LAYER_CLEARANCE * 3)
+    const face = new PlaneGeometry(plateW, plateH)
+    face.translate(0, plateY, 0.245 + LAYER_CLEARANCE * 3)
     if (ownsFascia) {
-      const tex = fasciaTexture({ legend: 'SECTOR', number: String(sector) })
+      const tex = circuitSignTexture({ kind: `SEC ${Math.min(9, sector)}` })
       textures.push(tex)
       const mat = new MeshStandardMaterial({
         name: `f1-kit / sector ${sector}`,
@@ -144,6 +158,9 @@ export function createModel(options: F1SectorGantryOptions = {}): F1SectorGantry
     } else {
       emit('fascia', face, fascia, 'plate')
     }
+    const lip = bevelBox(plateW + 0.16, 0.06, 0.1, 0.006)
+    lip.translate(0, plateY - plateH / 2 - 0.04, 0.22)
+    emit('fascia', lip, fascia, 'lip', kit.cobalt)
   }
   rebuild()
 
@@ -173,10 +190,10 @@ export function createModel(options: F1SectorGantryOptions = {}): F1SectorGantry
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ span: 7, sector: 2 }), {
     aspect,
-    target: [0, 3.6, 0.1],
-    distance: 12,
-    fov: 32,
-    yaw: -0.1,
-    pitch: 0.05,
+    target: [0, 3.55, 0.25],
+    distance: 8.4,
+    fov: 30,
+    yaw: 0.38,
+    pitch: 0.08,
   })
 }

@@ -1,5 +1,5 @@
-// f1-spectator-bridge — truss span with mesh sides and stairs at both ends.
-// Deck clears this kit's 5 m catch fence.
+// f1-spectator-bridge — warren-truss span, walkable deck, stairs at both ends.
+// Deck clears this kit's 5.5 m catch fence.
 
 import {
   BufferGeometry,
@@ -74,9 +74,9 @@ export function createModel(options: F1SpectatorBridgeOptions = {}): F1Spectator
     for (const slot of Object.keys(meshesBySlot) as Slot[]) meshesBySlot[slot].length = 0
   }
 
-  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string): void => {
+  const emit = (slot: Slot, geometry: BufferGeometry, group: Group, name: string, material?: Material): void => {
     generated.push(geometry)
-    const meshObj = new Mesh(geometry, materialSlots[slot])
+    const meshObj = new Mesh(geometry, material ?? materialSlots[slot])
     meshObj.name = name
     meshObj.castShadow = true
     meshObj.receiveShadow = true
@@ -88,51 +88,67 @@ export function createModel(options: F1SpectatorBridgeOptions = {}): F1Spectator
     releaseGenerated()
     const span = config.span
     const half = span / 2
+    const zL = -WIDTH / 2
+    const zR = WIDTH / 2
     const trussParts: BufferGeometry[] = []
-    for (const sx of [-1, 1] as const) {
-      trussParts.push(member(new Vector3(-half, 0.4, sx * WIDTH / 2), new Vector3(half, 0.4, sx * WIDTH / 2), 0.035, 10))
-      trussParts.push(member(new Vector3(-half, DECK_H, sx * WIDTH / 2), new Vector3(half, DECK_H, sx * WIDTH / 2), 0.035, 10))
+    for (const z of [zL, zR] as const) {
+      trussParts.push(member(new Vector3(-half, 0.35, z), new Vector3(half, 0.35, z), 0.055, 10))
+      trussParts.push(member(new Vector3(-half, DECK_H, z), new Vector3(half, DECK_H, z), 0.055, 10))
     }
-    const bays = Math.max(4, Math.round(span / 2))
+    const bays = Math.max(5, Math.round(span / 1.8))
     for (let i = 0; i <= bays; i++) {
       const x = -half + (i / bays) * span
-      trussParts.push(member(new Vector3(x, 0.4, -WIDTH / 2), new Vector3(x, DECK_H, -WIDTH / 2), 0.022, 8))
-      trussParts.push(member(new Vector3(x, 0.4, WIDTH / 2), new Vector3(x, DECK_H, WIDTH / 2), 0.022, 8))
+      trussParts.push(member(new Vector3(x, 0.35, zL), new Vector3(x, DECK_H, zL), 0.032, 8))
+      trussParts.push(member(new Vector3(x, 0.35, zR), new Vector3(x, DECK_H, zR), 0.032, 8))
+      if (i < bays) {
+        const x1 = -half + ((i + 1) / bays) * span
+        const a = i % 2 === 0
+        trussParts.push(member(
+          new Vector3(a ? x : x1, 0.35, zL),
+          new Vector3(a ? x1 : x, DECK_H, zL),
+          0.024,
+          6,
+        ))
+        trussParts.push(member(
+          new Vector3(a ? x : x1, 0.35, zR),
+          new Vector3(a ? x1 : x, DECK_H, zR),
+          0.024,
+          6,
+        ))
+      }
     }
-    const deck = bevelBox(span, 0.06, WIDTH, 0.008)
-    deck.translate(0, DECK_H, 0)
-    trussParts.push(deck)
     emit('truss', mergeParts(trussParts, 'span'), truss, 'span')
+    const deck = bevelBox(span, 0.08, WIDTH, 0.01)
+    deck.translate(0, DECK_H, 0)
+    emit('truss', deck, truss, 'deck', kit.slate)
 
     const meshParts: BufferGeometry[] = []
-    for (const sx of [-1, 1] as const) {
-      const panel = bevelBox(span - 0.4, 0.9, 0.02, 0.002)
-      panel.translate(0, DECK_H + 0.5, sx * (WIDTH / 2 + 0.01))
-      meshParts.push(panel)
-      const ribs = Math.max(6, Math.round(span / 1.2))
-      for (let i = 0; i < ribs; i++) {
-        const x = -half + 0.2 + (i / Math.max(1, ribs - 1)) * (span - 0.4)
-        const rib = member(
-          new Vector3(x, DECK_H + 0.08, sx * WIDTH / 2),
-          new Vector3(x, DECK_H + 0.92, sx * WIDTH / 2),
-          0.008,
-          6,
-        )
-        meshParts.push(rib)
+    for (const z of [zL, zR] as const) {
+      meshParts.push(member(new Vector3(-half, DECK_H + 1.05, z), new Vector3(half, DECK_H + 1.05, z), 0.022, 8))
+      meshParts.push(member(new Vector3(-half, DECK_H + 0.52, z), new Vector3(half, DECK_H + 0.52, z), 0.018, 6))
+      const posts = Math.max(6, Math.round(span / 1.4))
+      for (let i = 0; i <= posts; i++) {
+        const x = -half + (i / posts) * span
+        meshParts.push(member(new Vector3(x, DECK_H, z), new Vector3(x, DECK_H + 1.05, z), 0.016, 6))
       }
     }
     emit('mesh', mergeParts(meshParts, 'side-mesh'), mesh, 'side-mesh')
 
     const stairParts: BufferGeometry[] = []
     const steps = Math.max(8, Math.round(DECK_H / RISE))
+    const run = 0.3
     for (const sx of [-1, 1] as const) {
-      const x0 = sx * (half + 1.2)
       for (let s = 0; s < steps; s++) {
-        const tread = bevelBox(1.0, 0.05, 0.28, 0.004)
-        tread.translate(x0, (s + 0.5) * (DECK_H / steps), -WIDTH / 2 + s * 0.08)
-        stairParts.push(tread)
+        const y = (s + 0.5) * (DECK_H / steps)
+        const x = sx * (half + 0.12 + (steps - 1 - s) * run)
+        stairParts.push(bevelBox(0.28, 0.05, 1.05, 0.004).translate(x, y, 0))
       }
-      stairParts.push(member(new Vector3(x0, 0.2, -WIDTH / 2), new Vector3(x0, DECK_H, -WIDTH / 2 + steps * 0.08), 0.025, 8))
+      const xGround = sx * (half + 0.12 + (steps - 1) * run)
+      const xDeck = sx * (half + 0.08)
+      for (const z of [-0.5, 0.5] as const) {
+        stairParts.push(member(new Vector3(xGround, 0.08, z), new Vector3(xDeck, DECK_H, z), 0.028, 8))
+        stairParts.push(member(new Vector3(xGround, 0.95, z), new Vector3(xDeck, DECK_H + 0.95, z), 0.02, 6))
+      }
     }
     emit('stairs', mergeParts(stairParts, 'stairs'), stairs, 'stairs')
   }
@@ -163,10 +179,10 @@ export function createModel(options: F1SpectatorBridgeOptions = {}): F1Spectator
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ span: 10 }), {
     aspect,
-    target: [0, 2.8, 0],
-    distance: 28,
-    fov: 34,
-    yaw: 0.25,
-    pitch: 0.12,
+    target: [0, 3.4, 0],
+    distance: 18,
+    fov: 32,
+    yaw: 0.62,
+    pitch: 0.18,
   })
 }
