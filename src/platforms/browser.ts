@@ -82,8 +82,8 @@ export async function startBrowserPlayground(host: HTMLDivElement): Promise<() =
   controls.enableDamping = true
   controls.dampingFactor = 0.055
   const wide = playground.id === 'f1-kit-scene'
-  controls.minDistance = wide ? 12 : 5.5
-  controls.maxDistance = wide ? 140 : 24
+  controls.minDistance = wide ? 14 : 5.5
+  controls.maxDistance = wide ? 150 : 24
   controls.maxPolarAngle = Math.PI * 0.49
   controls.update()
 

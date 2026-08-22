@@ -4,6 +4,9 @@
  * Purpose is to show how the kit composes: 7 m garage pitch, WALL_FITS gates,
  * kerb/turf/gravel modules along a line. Every kit id appears at least once.
  * Repeating furniture uses short `modules` so the scene stays test-fast.
+ *
+ * Cross section (looking along +Z): grandstands (−X-facing) | fence | ribbon |
+ * pit wall | tools against garage doors | garage | paddock.
  */
 
 import {
@@ -19,7 +22,7 @@ import {
   Vector3,
 } from 'three/webgpu'
 
-import { TOKEN, shade } from '../f1-kit-core/index.ts'
+import { GARAGE, GARAGE_BAY_PITCH, PIT_WALL, TOKEN, shade } from '../f1-kit-core/index.ts'
 import { createModel as createTyre } from '../f1-tyre/model.ts'
 import { createModel as createStack } from '../f1-tyre-stack/model.ts'
 import { createModel as createReel } from '../f1-hose-reel/model.ts'
@@ -104,7 +107,22 @@ export interface F1KitScene {
   dispose(): void
 }
 
+/** Local +Z (doors, glass, seats) → world +X. */
+const FACE_PIT = Math.PI / 2
+/** Local +Z → world −X (spectator furniture looking at the ribbon). */
+const FACE_SPEC = -Math.PI / 2
+/** Local-X runs (kerbs, fences, walls) → world Z along the ribbon. */
 const ALONG = Math.PI / 2
+
+const RIBBON_W = 12
+const RIBBON_HALF = RIBBON_W / 2
+const SPAN = 22
+const STAND_X = 22
+const STAND_PITCH = 10
+const DOOR_X = -(RIBBON_HALF + 1.2 + 8)
+const GARAGE_X = DOOR_X - GARAGE.depth / 2
+const WALL_X = -(RIBBON_HALF + 0.6 + PIT_WALL.depth / 2)
+const TOOL_X = DOOR_X + 0.55
 
 export function createScene(): F1KitScene {
   const root = new Group()
@@ -121,13 +139,13 @@ export function createScene(): F1KitScene {
 
   const asphaltMat = new MeshStandardMaterial({
     name: 'f1-kit / scene asphalt',
-    color: shade(TOKEN.INK_950, 0.12),
+    color: shade(TOKEN.INK_950, 0.42),
     roughness: 0.92,
     metalness: 0,
   })
   const groundMat = new MeshStandardMaterial({
     name: 'f1-kit / scene ground',
-    color: shade(TOKEN.GRAPHITE_800, -0.2),
+    color: shade(TOKEN.GRAPHITE_800, -0.45),
     roughness: 0.96,
     metalness: 0,
   })
@@ -146,7 +164,7 @@ export function createScene(): F1KitScene {
   root.add(ground)
   extras.push({ dispose: () => { ground.geometry.dispose() } })
 
-  const ribbon = new Mesh(new PlaneGeometry(12, 88), asphaltMat)
+  const ribbon = new Mesh(new PlaneGeometry(RIBBON_W, 88), asphaltMat)
   ribbon.name = 'scene-asphalt'
   ribbon.rotation.x = -Math.PI / 2
   ribbon.position.set(0, 0.002, 0)
@@ -154,98 +172,104 @@ export function createScene(): F1KitScene {
   root.add(ribbon)
   extras.push({ dispose: () => { ribbon.geometry.dispose() } })
 
-  const hairpin = new Mesh(new PlaneGeometry(28, 12), asphaltMat)
+  const hairpin = new Mesh(new PlaneGeometry(28, 14), asphaltMat)
   hairpin.name = 'scene-hairpin'
   hairpin.rotation.x = -Math.PI / 2
-  hairpin.position.set(8, 0.002, 38)
+  hairpin.position.set(8, 0.002, 40)
   hairpin.receiveShadow = true
   root.add(hairpin)
   extras.push({ dispose: () => { hairpin.geometry.dispose() } })
 
-  // Ribbon — grid, SF, lights, kerbs, runoff tiles.
-  add(createGridBox({ index: 1 }), 0, -6)
-  add(createGridBox({ index: 2 }), 0, 3)
-  add(createGridBox({ index: 3 }), 0, 12)
-  add(createStartFinishLine({ kind: 'SF', width: 12 }), 0, -14, ALONG)
-  add(createStartGantry({ span: 14, height: 7.2 }), 0, -18)
+  // Ribbon — grid, SF, lights, edge runs.
+  add(createGridBox({ index: 1 }), 0, -8)
+  add(createGridBox({ index: 2 }), 0, 0)
+  add(createGridBox({ index: 3 }), 0, 8)
+  add(createStartFinishLine({ kind: 'SF', width: RIBBON_W }), 0, -16, 0)
+  add(createStartGantry({ span: 16, height: 7.2 }), 0, -18)
   add(createStartLights({ lit: 5 }), 0, -18.4, 0, 5.4)
-  add(createChequeredFlag({ waving: true, windXZ: [0.9, -0.4] }), 6.6, -14, -0.4, 0)
-  add(createKerb({ modules: 4 }), 5.6, -8, ALONG)
-  add(createSausageKerb({ modules: 2 }), 6.2, 22, ALONG)
-  add(createSlotDrain({ modules: 3 }), -5.7, 0, ALONG)
-  add(createAstroturf({ modules: 2 }), 7.6, -4, ALONG)
-  add(createGravelTrap({ modules: 1 }), 9.4, 18, ALONG)
+  add(createChequeredFlag({ waving: true, windXZ: [0.9, -0.4] }), RIBBON_HALF + 0.55, -16, -0.35)
+  add(createKerb({ modules: 12 }), RIBBON_HALF - 0.4, -4, ALONG)
+  add(createSausageKerb({ modules: 6 }), RIBBON_HALF + 0.3, 22, ALONG)
+  add(createSlotDrain({ modules: 10 }), -(RIBBON_HALF - 0.35), 0, ALONG)
+  add(createAstroturf({ modules: 8 }), RIBBON_HALF + 1.4, -2, ALONG)
+  add(createGravelTrap({ modules: 2 }), 11, 32, ALONG)
 
-  // Pit (−X).
-  add(createGarageBox({ count: 3, number: '11', legend: 'CHECO' }), -24, 0, ALONG)
-  add(createPitWall({ bays: 3, labels: ['11', '22', '33'] }), -9.2, 0, ALONG)
-  add(createNameboard(), -9.0, -6, ALONG)
-  add(createPitGantry({ span: 5, height: 2.5 }), -12.5, 2)
-  add(createLollipop(), -11.2, 4)
-  add(createPitBoard(), -10.4, 5.2)
-  add(createTyre(), -11.6, -2)
-  add(createStack(), -12.8, -3.4)
-  add(createTyreGun(), -10.8, -1.2)
-  add(createGunRack(), -13.4, 6)
-  add(createPitJack(), -10.6, 0.8)
-  add(createCabinet(), -13.6, 8)
-  add(createExtinguisher(), -10.2, 7.4)
-  add(createReel(), -13.2, -6)
+  // Pit (−X): wall, garage, tools stacked on the door wall.
+  add(createGarageBox({ count: 3, number: '11', legend: 'CHECO' }), GARAGE_X, 0, FACE_PIT)
+  add(createPitWall({ bays: 3, labels: ['11', '22', '33'] }), WALL_X, 0, FACE_PIT)
+  add(createNameboard(), WALL_X + 0.2, -GARAGE_BAY_PITCH, FACE_PIT)
+  add(createPitGantry({ span: 5, height: 2.5 }), (WALL_X + DOOR_X) / 2, -GARAGE_BAY_PITCH)
+  add(createLollipop(), TOOL_X - 1.6, -GARAGE_BAY_PITCH + 1.4)
+  add(createPitBoard(), TOOL_X - 1.4, -GARAGE_BAY_PITCH + 2.6)
+  add(createStack(), TOOL_X, -GARAGE_BAY_PITCH - 1.6)
+  add(createGunRack(), TOOL_X, 0)
+  add(createCabinet(), TOOL_X, GARAGE_BAY_PITCH - 1.2)
+  add(createReel(), TOOL_X, GARAGE_BAY_PITCH + 1.4)
+  add(createTyre(), TOOL_X + 0.7, -GARAGE_BAY_PITCH - 0.2)
+  add(createTyreGun(), TOOL_X + 0.55, -0.8)
+  add(createPitJack(), TOOL_X + 0.7, 0.9)
+  add(createExtinguisher(), TOOL_X + 0.45, GARAGE_BAY_PITCH + 0.2)
 
-  // Spectator (+X).
-  add(createCatchFence({ length: 12, height: 5 }), 7.2, 4, ALONG)
-  add(createCrowdFence({ length: 8 }), 16, 6, ALONG)
-  add(createGrandstandBay({ rows: 4, width: 5 }), 22, 8, Math.PI)
-  add(createJumbotron(), 18, -6, Math.PI)
-  add(createFloodlight({ height: 8 }), 20, 18)
-  add(createPaHorn(), 15, 14)
-  add(createCctvMast(), 14.5, -2)
-  add(createMarshalPost({ number: '11', flag: 'yellow' }), 11, 24, Math.PI)
-  add(createOranjeCan({ lit: true }), 13, 20)
-  add(createLedRibbon({ length: 8 }), 17, -16, Math.PI)
+  // Spectator (+X): fence, then a stand wall facing the ribbon.
+  add(createCatchFence({ length: 24, height: 5 }), RIBBON_HALF + 1.15, 0, ALONG)
+  add(createCrowdFence({ length: 24 }), 14.5, 0, ALONG)
+  add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, -STAND_PITCH, FACE_SPEC)
+  add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, 0, FACE_SPEC)
+  add(createGrandstandBay({ rows: 6, width: 10 }), STAND_X, STAND_PITCH, FACE_SPEC)
+  add(createJumbotron(), 29, -STAND_PITCH, FACE_SPEC)
+  add(createLedRibbon({ length: 8 }), 29, STAND_PITCH, FACE_SPEC)
+  add(createFloodlight({ height: 12 }), 30, 0)
+  add(createPaHorn(), 27, 5, FACE_SPEC)
+  add(createCctvMast(), 16.5, -6)
+  add(createTimingPylon(), 16.2, -14)
+  add(createFlagPole({ height: 6 }), 26, -18)
+  add(createMarshalPost({ number: '11', flag: 'yellow' }), 10.5, 26, FACE_SPEC)
+  add(createOranjeCan({ lit: true }), 12.2, 26)
 
-  // Hairpin / runoff (+Z).
-  add(createArmco({ bays: 4 }), 6.5, 28, ALONG)
-  add(createJersey({ modules: 3 }), 7.0, 36, 0.35)
-  add(createConcreteWall({ bays: 2 }), 14, 42, 1.2)
-  add(createAccessGate({ fits: 'armco', width: 3 }), 6.5, 32, ALONG)
-  add(createCrashCushion({ fits: 'armco' }), 6.5, 24, ALONG)
-  add(createTecpro({ columns: 3, rows: 2 }), 10, 40, 0.6)
-  add(createTyreBarrier({ columns: 4, rows: 3, depth: 1 }), 16, 40, 1.1)
-  add(createChevronBoard(), 8, 34, 0.4)
-  add(createBrakeMarker({ distance: 100 }), 8.4, 20, Math.PI)
-  add(createMarkerPost(), 8.2, 12)
-  add(createCircuitSign({ kind: 'DRS' }), 8.4, 2, Math.PI)
-  add(createFiaLightPanel(), 8.6, -22, Math.PI)
-  add(createCameraTower({ height: 8 }), 18, 28)
-  add(createFoamMonitor(), 12, 30, 0.5)
-  add(createCone(), 5.4, -12)
-  add(createBollard(), -6.4, -20)
+  // Over the ribbon — yaw 0 spans X. Bridge is the mid-straight crossing.
+  add(createSpectatorBridge({ span: SPAN }), 0, 6)
+  add(createSectorGantry({ span: 18, sector: 2 }), 0, 16)
+  add(createStairs({ kind: 'overpass', span: SPAN }), 0, 30)
 
-  // Spans and heroes.
-  add(createSectorGantry({ span: 14, sector: 2 }), 0, 16)
-  add(createSpectatorBridge({ span: 16 }), 0, 8)
-  add(createStairs({ kind: 'overpass', span: 14 }), 0, -28)
-  add(createRaceControl(), -32, 22, ALONG)
-  add(createTimingPylon(), 14, -10)
-  add(createFlagPole({ height: 6 }), 20, -24)
-  add(createCameraPlatform(), 12, -8)
-  add(createTunnelPortal(), 4, 44, Math.PI)
+  // Hairpin / runoff (+Z) — one wall line, then the pad.
+  add(createArmco({ bays: 6 }), RIBBON_HALF + 0.55, 26, ALONG)
+  add(createAccessGate({ fits: 'armco', width: 3 }), RIBBON_HALF + 0.55, 32, ALONG)
+  add(createCrashCushion({ fits: 'armco' }), RIBBON_HALF + 0.55, 22, ALONG)
+  add(createJersey({ modules: 4 }), 8, 38, ALONG)
+  add(createConcreteWall({ bays: 3 }), 16, 42, 1.15)
+  add(createTecpro({ columns: 3, rows: 2 }), 12, 40, 0.4)
+  add(createTyreBarrier({ columns: 4, rows: 3, depth: 1 }), 18, 40, 1.05)
+  add(createChevronBoard(), 9, 34, 0.35)
+  add(createBrakeMarker({ distance: 100 }), 8.6, 18, FACE_SPEC)
+  add(createMarkerPost(), 8.3, 10)
+  add(createCircuitSign({ kind: 'DRS' }), 8.4, 2, FACE_SPEC)
+  add(createFiaLightPanel(), 8.5, -22, FACE_SPEC)
+  add(createCameraTower({ height: 8 }), 20, 28)
+  add(createCameraPlatform(), 16.5, 12)
+  add(createFoamMonitor(), 12, 30, 0.4)
+  add(createCone(), 5.5, -14)
+  add(createBollard(), -(RIBBON_HALF + 0.35), -20)
+  add(createTunnelPortal(), 4, 48, Math.PI)
+  add(createSectorBoard({ sector: 1 }), 10, -20, FACE_SPEC)
 
-  // Paddock / ceremony (−Z).
-  add(createServiceTruck({ kind: 'box', lamps: false, wheelRpm: 0 }), -28, -28, ALONG)
-  add(createParcFerme(), -22, -36, ALONG)
-  add(createWeighbridge(), -16, -32, ALONG)
-  add(createMedicalPost(), -34, -18)
-  add(createGeneratorCabin(), -34, -12)
-  add(createPodium(), -22, -48, Math.PI)
-  add(createTrophyTable(), -22, -51)
-  add(createTrophyCup(), -22, -50.6, 0, 0.75)
-  add(createChampagne(), -21.2, -50.6, 0, 0.75)
-  add(createIceBucket(), -22.8, -50.6, 0, 0.75)
-  add(createInterviewBackdrop(), -16, -48, Math.PI)
-  add(createCooldownBoard(), -18, -46, Math.PI)
-  add(createSectorBoard({ sector: 1 }), 10, -26, Math.PI)
+  // Paddock (behind the garage). Cab toward −Z so the still sees cab+box as one artic.
+  add(createRaceControl(), GARAGE_X - 6, 16, FACE_PIT)
+  const truck = createServiceTruck({ kind: 'box', lamps: true, wheelRpm: 0 })
+  truck.setGround(ground)
+  add(truck, GARAGE_X - 10, -18, FACE_PIT)
+  add(createWeighbridge(), GARAGE_X - 8, 8, FACE_PIT)
+  add(createParcFerme(), GARAGE_X - 10, -16, FACE_PIT)
+  add(createMedicalPost(), GARAGE_X - 18, 10)
+  add(createGeneratorCabin(), GARAGE_X - 18, 4)
+
+  // Ceremony cluster — behind the service row, not on the straight.
+  add(createPodium(), GARAGE_X - 12, -28, Math.PI)
+  add(createTrophyTable(), GARAGE_X - 12, -31)
+  add(createTrophyCup(), GARAGE_X - 12, -30.6, 0, 0.75)
+  add(createChampagne(), GARAGE_X - 11.2, -30.6, 0, 0.75)
+  add(createIceBucket(), GARAGE_X - 12.8, -30.6, 0, 0.75)
+  add(createInterviewBackdrop(), GARAGE_X - 6, -28, Math.PI)
+  add(createCooldownBoard(), GARAGE_X - 8, -26, Math.PI)
 
   return {
     root,
@@ -278,10 +302,10 @@ export function createPreview({ aspect, time }: { aspect: number; time?: number 
   fill.position.set(45, 18, 20)
   scene.add(fill)
 
-  const camera = new PerspectiveCamera(38, aspect > 0 ? aspect : 1, 0.5, 280)
+  const camera = new PerspectiveCamera(40, aspect > 0 ? aspect : 1, 0.5, 280)
   camera.name = 'f1-kit / scene camera'
-  camera.position.set(42, 32, -48)
-  const focus = new Vector3(0, 1.2, 4)
+  camera.position.set(12, 22, -40)
+  const focus = new Vector3(2, 2.5, 4)
   camera.lookAt(focus)
   camera.updateProjectionMatrix()
   scene.add(camera)

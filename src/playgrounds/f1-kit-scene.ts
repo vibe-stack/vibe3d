@@ -24,9 +24,9 @@ export function createF1KitPlayground(options: PlaygroundOptions): Playground {
 
   const camera = new PerspectiveCamera(38, options.aspect, 0.4, 280)
   camera.name = 'CAMERA / F1 STRAIGHT'
-  camera.position.set(48, 34, -52)
+  camera.position.set(14, 24, -44)
 
-  const focus = new Vector3(0, 1.4, 6)
+  const focus = new Vector3(2, 2.5, 4)
   camera.lookAt(focus)
 
   const world = new Group()
