@@ -1,4 +1,5 @@
-// f1-gravel-trap — a placeable raked-gravel TILE, not terrain. Weyl-cycled stones, no PRNG, no canvas map.
+// f1-gravel-trap — a placeable raked-gravel TILE, not terrain. Weyl-cycled
+// pebbles (no PRNG), not sugar-cube pavers. Thin furrows keep the trap readable.
 
 import { BufferGeometry, Group, Mesh, MeshStandardMaterial, type Material } from 'three/webgpu'
 
@@ -6,6 +7,7 @@ import {
   TOKEN,
   acquireF1Materials,
   bevelBox,
+  bevelDisc,
   createF1Preview,
   disposeF1Materials,
   mergeParts,
@@ -37,6 +39,8 @@ const defaults: F1GravelTrapConfig = { modules: 2 }
 const TILE = 2.5
 const THICK = 0.04
 const GOLDEN = 0.6180339887498949
+const FURROWS = 11
+const FURROW_HALF = 0.022
 
 export function createModel(options: F1GravelTrapOptions = {}): F1GravelTrapInstance {
   const config: F1GravelTrapConfig = {
@@ -49,8 +53,8 @@ export function createModel(options: F1GravelTrapOptions = {}): F1GravelTrapInst
     bed: options.materials?.bed ?? (() => {
       const mat = new MeshStandardMaterial({
         name: 'f1-kit / gravel bed',
-        color: shade(TOKEN.DUST_300, -0.48),
-        roughness: 0.97,
+        color: shade(TOKEN.DUST_300, -0.6),
+        roughness: 0.98,
         metalness: 0,
       })
       extras.push(mat)
@@ -59,7 +63,7 @@ export function createModel(options: F1GravelTrapOptions = {}): F1GravelTrapInst
     stone: options.materials?.stone ?? (() => {
       const mat = new MeshStandardMaterial({
         name: 'f1-kit / gravel stone',
-        color: shade(TOKEN.DUST_300, 0.04),
+        color: shade(TOKEN.DUST_300, -0.1),
         roughness: 0.86,
         metalness: 0,
       })
@@ -69,11 +73,17 @@ export function createModel(options: F1GravelTrapOptions = {}): F1GravelTrapInst
   }
   const stoneDark = new MeshStandardMaterial({
     name: 'f1-kit / gravel stone dark',
-    color: shade(TOKEN.DUST_300, -0.4),
-    roughness: 0.9,
+    color: shade(TOKEN.DUST_300, -0.46),
+    roughness: 0.92,
     metalness: 0,
   })
-  extras.push(stoneDark)
+  const rakeMat = new MeshStandardMaterial({
+    name: 'f1-kit / gravel rake',
+    color: shade(TOKEN.DUST_300, -0.78),
+    roughness: 0.99,
+    metalness: 0,
+  })
+  extras.push(stoneDark, rakeMat)
 
   const root = new Group()
   root.name = 'f1-gravel-trap'
@@ -108,21 +118,45 @@ export function createModel(options: F1GravelTrapOptions = {}): F1GravelTrapInst
     slab.translate(0, THICK / 2, 0)
     emit('bed', slab, materialSlots.bed, bed, 'bed')
 
+    const rake: BufferGeometry[] = []
+    const furrowZ: number[] = []
+    for (let f = 0; f < FURROWS; f++) {
+      const z = -TILE / 2 + (f + 0.5) * (TILE / FURROWS)
+      furrowZ.push(z)
+      const groove = bevelBox(length - 0.1, 0.006, 0.028, 0.002)
+      groove.translate(0, THICK + 0.003, z)
+      rake.push(groove)
+    }
+    emit('bed', mergeParts(rake, 'rake'), rakeMat, bed, 'rake')
+
     const light: BufferGeometry[] = []
     const dark: BufferGeometry[] = []
-    const count = config.modules * 140
+    const count = config.modules * 780
     for (let i = 0; i < count; i++) {
       const u = (i * GOLDEN) % 1
       const v = (i * 0.41421356237) % 1
-      const x = (u - 0.5) * (length - 0.2)
-      const z = (v - 0.5) * (TILE - 0.2)
+      const x = (u - 0.5) * (length - 0.16)
+      const z = (v - 0.5) * (TILE - 0.16)
+      let onFurrow = false
+      for (const fz of furrowZ) {
+        if (Math.abs(z - fz) < FURROW_HALF) {
+          onFurrow = true
+          break
+        }
+      }
+      if (onFurrow) continue
       const cls = i % 11
-      const sx = 0.16 + (cls % 4) * 0.05
-      const sy = sx * (0.45 + (cls % 3) * 0.14)
-      const sz = sx * (0.7 + (cls % 5) * 0.1)
-      const pebble = bevelBox(sx, sy, sz, Math.min(0.018, sx * 0.14))
+      const span = 0.032 + (cls % 5) * 0.008
+      const sy = span * (0.38 + (cls % 3) * 0.1)
+      const pebble = cls % 5 === 0
+        ? bevelBox(span, sy, span * (0.7 + (cls % 4) * 0.08), Math.min(0.008, span * 0.24))
+        : (() => {
+          const disc = bevelDisc(span * 0.5, sy, Math.min(0.005, sy * 0.26), 14)
+          disc.rotateX(Math.PI / 2)
+          return disc
+        })()
       pebble.rotateY(((i * 13) % 20) * 0.31)
-      pebble.translate(x, THICK + sy * 0.4, z)
+      pebble.translate(x, THICK + sy * 0.45, z)
       ;(cls % 2 === 0 ? light : dark).push(pebble)
     }
     emit('stone', mergeParts(light, 'stones'), materialSlots.stone, stone, 'stones')
@@ -143,6 +177,7 @@ export function createModel(options: F1GravelTrapOptions = {}): F1GravelTrapInst
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) {
         if (slot === 'stone' && mesh.name === 'stones-dark') continue
+        if (slot === 'bed' && mesh.name === 'rake') continue
         mesh.material = material
       }
     },
@@ -159,10 +194,10 @@ export function createModel(options: F1GravelTrapOptions = {}): F1GravelTrapInst
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ modules: 2 }), {
     aspect,
-    target: [0, 0.1, 0],
-    distance: 4.4,
+    target: [0, 0.04, 0],
+    distance: 3.2,
     fov: 28,
-    yaw: -0.65,
-    pitch: 0.64,
+    yaw: -0.78,
+    pitch: 0.66,
   })
 }

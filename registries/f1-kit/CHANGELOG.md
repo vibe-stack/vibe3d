@@ -1,5 +1,11 @@
 # @f1-kit/registry
 
+## 0.0.18
+
+Astroturf and gravel strips. The verge is a dark soil bed under a two-tone
+mown pile, not a mint slab of card blades. The trap is pebble-scale Weyl-cycled
+stones with rake furrows, not sugar-cube pavers. No new ids; kit stays 70.
+
 ## 0.0.17
 
 Race control, sector gantry, spectator bridge, cone, and grid box. Race

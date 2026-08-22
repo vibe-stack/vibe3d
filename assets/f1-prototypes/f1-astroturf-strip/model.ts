@@ -1,4 +1,5 @@
-// f1-astroturf-strip — 2.0 m Grade 1 artificial-grass verge. Green pile, not a flat green card.
+// f1-astroturf-strip — 2.0 m Grade 1 artificial-grass verge. Dark soil bed,
+// dense two-tone pile with a mown nap. Not a mint slab of card blades.
 
 import { BufferGeometry, Group, Mesh, MeshStandardMaterial, type Material } from 'three/webgpu'
 
@@ -38,8 +39,11 @@ const defaults: F1AstroturfStripConfig = { modules: 6 }
 const BAND = ASTROTURF.pitch
 const WIDTH = ASTROTURF.width
 const THICK = ASTROTURF.thick
-const PILE = 0.055
-const STEP = 0.08
+const PILE = 0.046
+const STEP = 0.05
+const STRIPE = 0.25
+const NAP = -0.28
+const RIM = 0.04
 
 export function createModel(options: F1AstroturfStripOptions = {}): F1AstroturfStripInstance {
   const config: F1AstroturfStripConfig = {
@@ -52,21 +56,27 @@ export function createModel(options: F1AstroturfStripOptions = {}): F1AstroturfS
     mat: options.materials?.mat ?? (() => {
       const mat = new MeshStandardMaterial({
         name: 'f1-kit / astroturf',
-        color: TOKEN.FIELD_500,
-        roughness: 0.94,
+        color: shade(TOKEN.FIELD_500, 0.16),
+        roughness: 0.9,
         metalness: 0,
       })
       extras.push(mat)
       return mat
     })(),
   }
+  const bedMat = new MeshStandardMaterial({
+    name: 'f1-kit / astroturf bed',
+    color: shade(TOKEN.FIELD_500, -0.72),
+    roughness: 1,
+    metalness: 0,
+  })
   const pileDark = new MeshStandardMaterial({
     name: 'f1-kit / astroturf pile',
-    color: shade(TOKEN.FIELD_500, -0.32),
+    color: shade(TOKEN.FIELD_500, -0.55),
     roughness: 0.96,
     metalness: 0,
   })
-  extras.push(pileDark)
+  extras.push(bedMat, pileDark)
 
   const root = new Group()
   root.name = 'f1-astroturf-strip'
@@ -98,26 +108,30 @@ export function createModel(options: F1AstroturfStripOptions = {}): F1AstroturfS
     const length = config.modules * BAND
     const bed = bevelBox(length, THICK, WIDTH, 0.004)
     bed.translate(0, THICK / 2, 0)
-    const light: BufferGeometry[] = [bed]
+    emit(bed, bedMat, 'bed')
+
+    const light: BufferGeometry[] = []
     const dark: BufferGeometry[] = []
-    const nx = Math.max(6, Math.round(length / STEP))
-    const nz = Math.max(5, Math.round(WIDTH / STEP))
+    const innerL = length - RIM * 2
+    const innerW = WIDTH - RIM * 2
+    const nx = Math.max(8, Math.round(innerL / STEP))
+    const nz = Math.max(8, Math.round(innerW / STEP))
     for (let i = 0; i < nx; i++) {
       for (let j = 0; j < nz; j++) {
-        const x = -length / 2 + (i + 0.5) * (length / nx)
-        const z = -WIDTH / 2 + (j + 0.5) * (WIDTH / nz)
-        const h = PILE + ((i * 3 + j * 5) % 5) * 0.006
-        const alongX = ((i + j) % 2) === 0
-        const blade = alongX
-          ? bevelBox(0.042, h, 0.008, 0.0015)
-          : bevelBox(0.008, h, 0.042, 0.0015)
-        blade.rotateY(((i * 7 + j * 3) % 9) * 0.14)
+        const x = -innerL / 2 + (i + 0.5) * (innerL / nx)
+        const z = -innerW / 2 + (j + 0.5) * (innerW / nz)
+        const h = PILE + ((i * 3 + j * 5) % 5) * 0.005
+        const blade = bevelBox(0.026, h, 0.0042, 0.0008)
+        blade.rotateX(NAP)
+        blade.rotateY(((i * 7 + j * 3) % 9) * 0.1)
         blade.translate(x, THICK + h / 2, z)
-        ;((i + j) % 3 === 0 ? dark : light).push(blade)
+        const mown = Math.floor((z + innerW / 2) / STRIPE) % 2 === 0
+        const swap = (i + j) % 9 === 0
+        ;((mown !== swap) ? light : dark).push(blade)
       }
     }
-    emit(mergeParts(light, 'mat'), materialSlots.mat, 'mat')
-    emit(mergeParts(dark, 'pile'), pileDark, 'pile')
+    emit(mergeParts(light, 'pile'), materialSlots.mat, 'pile')
+    emit(mergeParts(dark, 'pile-dark'), pileDark, 'pile-dark')
   }
   rebuild()
 
@@ -133,7 +147,7 @@ export function createModel(options: F1AstroturfStripOptions = {}): F1AstroturfS
     setMaterial(slot, material) {
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) {
-        if (mesh.name === 'mat') mesh.material = material
+        if (mesh.name === 'pile') mesh.material = material
       }
     },
     update: () => {},
@@ -149,10 +163,10 @@ export function createModel(options: F1AstroturfStripOptions = {}): F1AstroturfS
 export function createPreview({ aspect }: { aspect: number; time?: number }) {
   return createF1Preview(createModel({ modules: 3 }), {
     aspect,
-    target: [0, 0.05, 0],
-    distance: 4.2,
+    target: [0, 0.04, 0],
+    distance: 2.85,
     fov: 28,
-    yaw: -0.8,
-    pitch: 0.55,
+    yaw: -1.05,
+    pitch: 0.3,
   })
 }

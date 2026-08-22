@@ -153,11 +153,11 @@ const factories = {
   'f1-oranje-can': () => createOranjeCan({ lit: true }),
   'f1-concrete-wall': () => createConcreteWall(),
   'f1-sausage-kerb': () => createSausageKerb(),
-  'f1-astroturf-strip': () => createAstroturf(),
+  'f1-astroturf-strip': () => createAstroturf({ modules: 2 }),
   'f1-jersey-barrier': () => createJersey(),
   'f1-access-gate': () => createAccessGate(),
   'f1-crash-cushion': () => createCrashCushion(),
-  'f1-gravel-trap': () => createGravelTrap(),
+  'f1-gravel-trap': () => createGravelTrap({ modules: 1 }),
   'f1-crowd-fence': () => createCrowdFence(),
   'f1-marker-post': () => createMarkerPost(),
   'f1-slot-drain': () => createSlotDrain(),
@@ -787,6 +787,29 @@ describe('FIA 1:1 datums', () => {
     model.root.updateMatrixWorld(true)
     const { size } = sizeOf(model.root)
     expect(size.z).toBeCloseTo(2.0, 1)
+    model.dispose()
+  })
+
+  test('astroturf strip is a two-tone pile on a dark bed', () => {
+    const model = createAstroturf({ modules: 3 })
+    expect(model.root.getObjectByName('bed')).toBeDefined()
+    expect(model.root.getObjectByName('pile')).toBeDefined()
+    expect(model.root.getObjectByName('pile-dark')).toBeDefined()
+    const bed = model.root.getObjectByName('bed') as Mesh
+    expect((bed.material as MeshStandardMaterial).color.getHex()).not.toBe(TOKEN.FIELD_500)
+    model.dispose()
+  })
+
+  test('gravel trap is pebble-scale raked stones', () => {
+    const model = createGravelTrap({ modules: 1 })
+    expect(model.root.getObjectByName('bed')).toBeDefined()
+    expect(model.root.getObjectByName('stones')).toBeDefined()
+    expect(model.root.getObjectByName('stones-dark')).toBeDefined()
+    expect(model.root.getObjectByName('rake')).toBeDefined()
+    model.root.updateMatrixWorld(true)
+    const stones = model.root.getObjectByName('stones') as Mesh
+    const size = new Box3().setFromObject(stones).getSize(new Vector3())
+    expect(size.y).toBeLessThan(0.12)
     model.dispose()
   })
 
