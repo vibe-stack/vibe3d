@@ -119,8 +119,8 @@ const ALONG = Math.PI / 2
 
 const RIBBON_W = 12
 const RIBBON_HALF = RIBBON_W / 2
-/** Dark racing ribbon is kerb-to-kerb (12 m). Pit apron is a lighter pad to the doors. */
-const ROAD_W = 12
+/** Dark racing ribbon tucks under the kerbs and meets the turf (13 m). Pit apron is a lighter pad to the doors. */
+const ROAD_W = 13
 const ROAD_X = 0
 const ROAD_LEN = 220
 const ROAD_Z = 20
@@ -151,13 +151,13 @@ export function createScene(): F1KitScene {
 
   const asphaltMat = new MeshStandardMaterial({
     name: 'f1-kit / scene asphalt',
-    color: shade(TOKEN.INK_950, -0.12),
+    color: shade(TOKEN.GRAPHITE_800, 0.08),
     roughness: 0.92,
     metalness: 0,
   })
   const apronMat = new MeshStandardMaterial({
     name: 'f1-kit / scene apron',
-    color: shade(TOKEN.INK_950, 0.28),
+    color: shade(TOKEN.GRAPHITE_800, 0.32),
     roughness: 0.94,
     metalness: 0,
   })
