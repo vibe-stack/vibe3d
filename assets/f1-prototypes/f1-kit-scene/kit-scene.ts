@@ -207,7 +207,8 @@ export function createScene(): F1KitScene {
   add(createGridBox({ index: 3 }), 0, 8)
   add(createStartFinishLine({ kind: 'SF', width: RIBBON_W }), 0, -16, 0)
   add(createStartGantry({ span: 16, height: 7.2 }), 0, -18)
-  add(createStartLights({ lit: 5 }), 0, -18.4, 0, 5.4)
+  // Standalone FIA panel is its own gantry (posts + beam). Do not perch it on the SF truss.
+  add(createStartLights({ lit: 5 }), 0, 64)
   add(createChequeredFlag({ waving: true, windXZ: [0.9, -0.4] }), RIBBON_HALF + 0.55, -16, -0.35)
   add(createKerb({ modules: 100 }), RIBBON_HALF - 0.4, 4, ALONG)
   add(createKerb({ modules: 100 }), RIBBON_HALF - 0.4, 76, ALONG)
