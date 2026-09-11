@@ -1,9 +1,9 @@
 # F1 Kit
 
-71 procedural Formula 1 props for real-time Three.js (`three/webgpu`): a pit
+74 procedural Formula 1 props for real-time Three.js (`three/webgpu`): a pit
 box, circuit furniture to instance along a racing line, and a pit building
 whose fascia accepts a number, a legend, a built-in plate, or your own image
-material. Palette and hardware live in `f1-kit-core`. Colours are generic
+material. Palette and hardware live in `f1-kit-core`. Each model ships a measured compiled-topology sidecar (`*.vtopo`) for collision/LODs; the visual Three.js recipe is unchanged. Colours are generic
 defaults — no team liveries or copied sponsor marks. Driver plates default to
 Checo 11 in black and white (`DRIVER`). Interview / LED fascias default to a
 Three.js step-and-repeat of invented names (`sponsorWallTexture`).

@@ -75,8 +75,14 @@ function clampConfig(config: F1StairsConfig): void {
   config.landing = Boolean(config.landing)
 }
 
-/** Open pan: two channels, four bars, nosing. Gaps stay empty so grating reads at catalog distance. */
-function gratingTread(width: number, y: number, z: number): BufferGeometry[] {
+/**
+ * Open pan: two channels, four bars, nosing. Gaps stay empty so grating reads at catalog distance.
+ *
+ * {@link gratingTread}, {@link stringerStations} and {@link channelStringer} are exported (geometry
+ * untouched) so f1-grandstand-bay's end stair towers are built from this module's ACTUAL tread,
+ * stringer and pitch rather than a lookalike — the two read as one family because they are one.
+ */
+export function gratingTread(width: number, y: number, z: number): BufferGeometry[] {
   const parts: BufferGeometry[] = []
   const left = bevelBox(0.05, STAIRS.treadT, RUN - 0.016, 0.004)
   left.translate(-width / 2 + 0.028, y, z)
@@ -95,12 +101,12 @@ function gratingTread(width: number, y: number, z: number): BufferGeometry[] {
   return parts
 }
 
-function stringerStations(width: number): number[] {
+export function stringerStations(width: number): number[] {
   const hz = width / 2
   return width > 1.8 ? [-hz + 0.05, 0, hz - 0.05] : [-hz + 0.05, hz - 0.05]
 }
 
-function channelStringer(sx: number, hyp: number, ang: number, riseH: number, runLen: number): BufferGeometry[] {
+export function channelStringer(sx: number, hyp: number, ang: number, riseH: number, runLen: number): BufferGeometry[] {
   const web = bevelBox(STAIRS.stringerT, STAIRS.stringer, hyp, 0.006)
   web.rotateX(-ang)
   web.translate(sx, riseH / 2 - 0.03, runLen / 2)
@@ -473,6 +479,7 @@ export function createModel(options: F1StairsOptions = {}): F1StairsInstance {
     generated.push(geometry)
     const mesh = new Mesh(geometry, materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name.includes('rail') || name.includes('bolt') ? 'detail' : 'hull'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

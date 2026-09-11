@@ -447,6 +447,7 @@ export function createModel(options: F1GravelTrapOptions = {}): F1GravelTrapInst
     generated.push(geometry)
     const mesh = new Mesh(geometry, material)
     mesh.name = name
+    mesh.userData.topologyRole = name === 'bed' ? 'hull' : name.startsWith('stones') ? 'scatter' : 'detail'
     mesh.castShadow = name === 'bed' || name === 'rake'
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

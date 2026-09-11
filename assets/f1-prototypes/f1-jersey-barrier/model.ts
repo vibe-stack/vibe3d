@@ -111,6 +111,7 @@ export function createModel(options: F1JerseyBarrierOptions = {}): F1JerseyBarri
     generated.push(geometry)
     const mesh = new Mesh(geometry, material)
     mesh.name = name
+    mesh.userData.topologyRole = name === 'jersey' ? 'hull' : 'detail'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot.barrier.push(mesh)

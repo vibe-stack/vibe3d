@@ -66,6 +66,7 @@ export function createModel(options: F1ConeOptions = {}): F1ConeInstance {
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name === 'cone' || name === 'body' || name === 'shell' ? 'hull' : name.includes('stripe') || name.includes('bolt') || name.includes('collar') ? 'detail' : 'hull'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

@@ -27,6 +27,7 @@ import {
   GARAGE,
   GARAGE_BAY_PITCH,
   LAYER_CLEARANCE,
+  TOKEN,
   acquireF1Materials,
   bevelBox,
   createF1Preview,
@@ -39,7 +40,7 @@ import {
   type FasciaStyle,
 } from '../f1-kit-core/index.ts'
 
-type Slot = 'shell' | 'shutter' | 'fascia' | 'floor' | 'trim'
+type Slot = 'shell' | 'shutter' | 'fascia' | 'floor' | 'trim' | 'glass'
 
 export interface F1GarageBoxConfig {
   count: number
@@ -51,6 +52,18 @@ export interface F1GarageBoxConfig {
   style: FasciaStyle
   /** How many bays, from the first, have the shutter raised. */
   open: number
+  /**
+   * Storeys, ground up: 1 = today's garage box (roof deck, nothing above). 2-3 add glazed Paddock Club
+   * levels — a mullioned curtain wall, a pit-lane terrace with a guard rail, and a red leading-edge
+   * fascia band under each terrace. The top storey caps with a flat roof slab and parapet.
+   * estimate:official-max-height (Madring pit building, 18.5 m official max at floors:3).
+   */
+  floors: number
+  /**
+   * A glazed entry tower, one bay wide, at the model's -X end — rising two storeys above the top floor.
+   * estimate:photo (S/F straight reference).
+   */
+  tower: boolean
 }
 
 export interface F1GarageBoxOptions extends Partial<F1GarageBoxConfig> {
@@ -68,7 +81,9 @@ export interface F1GarageBoxInstance {
   dispose(): void
 }
 
-const defaults: F1GarageBoxConfig = { count: 1, number: '11', legend: 'CHECO', style: 'stamp', open: 0 }
+const defaults: F1GarageBoxConfig = {
+  count: 1, number: '11', legend: 'CHECO', style: 'stamp', open: 0, floors: 1, tower: false,
+}
 
 const BAY = GARAGE_BAY_PITCH
 const D = GARAGE.depth
@@ -180,6 +195,39 @@ const TONE = {
   hoodGear: 0.1,
 } as const
 
+/**
+ * Upper-storey geometry — the Madring pit building (Paddock Club levels + entry tower, #915 CP5).
+ *
+ * `STOREY_H` is solved backward from the circuit's official envelope rather than chosen: garage roof +
+ * two storeys + a roof slab lands at 18.5 m for `floors: 3`. estimate:official-max-height — there is no
+ * measured section drawing to the millimetre, only the published max height and storey count.
+ */
+const MAX_HEIGHT = 18.5
+const MAX_FLOORS = 3
+/** Roof slab capping the top storey. */
+const ROOF_SLAB_T = 0.3
+const PARAPET_H = 0.45
+const STOREY_H = (MAX_HEIGHT - H - ROOF_SLAB_T) / (MAX_FLOORS - 1)
+/** Spandrel band top and bottom of each curtain wall, so the glass never runs slab-to-slab. */
+const SPANDREL_T = 0.35
+const MULLION_PITCH = BAY / 4
+const MULLION_W = 0.09
+const MULLION_D = 0.05
+/** How far the terrace projects past the garage apron line — the catalogue tell in the render. estimate:photo. */
+const TERRACE_D = 1.4
+const TERRACE_T = 0.22
+const GUARD_RAIL_H = 1.1
+const BALUSTER_PITCH = 1.4
+const BALUSTER_W = 0.05
+/** Red leading-edge fascia band under each terrace. */
+const TERRACE_FASCIA_H = 0.3
+/**
+ * Storeys the glazed entry tower rises above the top floor. estimate:photo — in the S/F straight
+ * reference (f1com-YDRAY-foto-pit-building.webp) the tower at the building's start clears the main roof
+ * line by about one storey, not two.
+ */
+const TOWER_EXTRA_STOREYS = 1
+
 function bayNumber(start: string, offset: number): string {
   const n = Number.parseInt(start, 10)
   if (Number.isFinite(n)) return String(n + offset)
@@ -193,6 +241,8 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
     legend: String(options.legend ?? defaults.legend).slice(0, 8),
     style: options.style && isFasciaStyle(options.style) ? options.style : defaults.style,
     open: Math.max(0, Math.round(options.open ?? defaults.open)),
+    floors: Math.min(MAX_FLOORS, Math.max(1, Math.round(options.floors ?? defaults.floors))),
+    tower: Boolean(options.tower ?? defaults.tower),
   }
 
   const bundle = acquireF1Materials()
@@ -200,12 +250,30 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
   const extras: Material[] = []
   const textures: DataTexture[] = []
   let ownsFascia = options.materials?.fascia === undefined
+  // The kit has no shared "glass" token (Materials §glass is per-model, e.g. f1-team-motorhome): a
+  // non-transmissive coat kept local here, same as that model's own glazing — never `transmission`,
+  // which the host forbids for perf. RED_500 direct rather than the shared `kit.red` instance, which is
+  // reserved for fire equipment, not a catalogue accent band.
+  // Near-opaque dark curtain wall, not a see-through box: the reference (pit-building-render.png,
+  // imagen-paddock.webp) reads as blue-black glass with the mullion grid as the only light lines and the
+  // floor plates behind only faintly visible. estimate:render.
+  const localGlass = new MeshStandardMaterial({
+    name: 'f1-kit / garage glazing', color: 0x050a10, roughness: 0.05, metalness: 0.55,
+    transparent: true, opacity: 0.9,
+  })
+  const terraceFasciaMat = new MeshStandardMaterial({
+    name: 'f1-kit / garage terrace fascia', color: TOKEN.RED_500, roughness: 0.42, metalness: 0.04,
+  })
+  const ownedExtras: Material[] = options.materials?.glass === undefined
+    ? [localGlass, terraceFasciaMat]
+    : [terraceFasciaMat]
   const materialSlots: Record<Slot, Material> = {
     shell: options.materials?.shell ?? kit.shell,
     shutter: options.materials?.shutter ?? kit.slate,
     fascia: options.materials?.fascia ?? kit.shell,
     floor: options.materials?.floor ?? kit.graphite,
     trim: options.materials?.trim ?? kit.graphite,
+    glass: options.materials?.glass ?? localGlass,
   }
 
   const root = new Group(); root.name = 'f1-garage-box'
@@ -215,7 +283,9 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
   root.add(shell, shutter, fascia)
 
   const generated: BufferGeometry[] = []
-  const meshesBySlot: Record<Slot, Mesh[]> = { shell: [], shutter: [], fascia: [], floor: [], trim: [] }
+  const meshesBySlot: Record<Slot, Mesh[]> = {
+    shell: [], shutter: [], fascia: [], floor: [], trim: [], glass: [],
+  }
   const bands = new Map<string, MeshStandardMaterial>()
   const bandedSlots = new Set<Slot>()
 
@@ -259,6 +329,7 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name.startsWith('shutter') || name.startsWith('fascia') || name.includes('gear') || name.includes('trim') || name.includes('relief') || name.includes('coping') || name.includes('soffit') || name.includes('threshold') || name.includes('head-box') ? 'detail' : 'hull'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)
@@ -526,6 +597,169 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
         emit('fascia', plate, fascia, `fascia-${i}`)
       }
     }
+
+    // Paddock Club levels: glazed storeys stacked above the garage roof, each the full run wide and the
+    // garage's own depth. `floors: 1` (today's box) takes none of this — the block never runs.
+    if (config.floors > 1) {
+      const upperCount = config.floors - 1
+      for (let s = 0; s < upperCount; s++) {
+        const y0 = H + s * STOREY_H
+        const isTop = s === upperCount - 1
+
+        // Spandrel at the storey's own floor line — the same read as the ground plinth, so the stack
+        // looks poured rather than stacked on.
+        const slab = bevelBox(span, SPANDREL_T, D, 0.02)
+        slab.translate(0, y0 + SPANDREL_T / 2, 0)
+        emit('shell', slab, shell, `floor-slab-${s}`, tone('shell', TONE.flank))
+
+        // Full-depth floor plate at the storey's head — the garage's own depth, read as a thin deck
+        // rather than a solid mass that would sit behind the glass and hide it.
+        const plateT = DECK_T
+        const plate = bevelBox(span, plateT, D, 0.02)
+        plate.translate(0, y0 + STOREY_H - plateT / 2, 0)
+        emit('shell', plate, shell, `floor-plate-${s}`, tone('shell', TONE.deck))
+
+        // Curtain wall: a mullion grid framing glass infill on the pit-lane face.
+        const glazeH = STOREY_H - SPANDREL_T * 2
+        const glazeY = y0 + SPANDREL_T + glazeH / 2
+        const paneZ = FRONT - 0.02
+        const pane = bevelBox(span - MULLION_W, glazeH - MULLION_W, 0.03, 0.006)
+        pane.translate(0, glazeY, paneZ)
+        emit('glass', pane, shell, `floor-glazing-${s}`)
+
+        const divisions = Math.max(1, Math.round(span / MULLION_PITCH))
+        const pitch = span / divisions
+        const mullions: BufferGeometry[] = []
+        for (let m = 0; m <= divisions; m++) {
+          const mx = -span / 2 + m * pitch
+          const mullion = bevelBox(MULLION_W, glazeH, MULLION_D, 0.01)
+          mullion.translate(mx, glazeY, FRONT - MULLION_D / 2)
+          mullions.push(mullion)
+        }
+        const transom = bevelBox(span, MULLION_W, MULLION_D, 0.01)
+        transom.translate(0, glazeY, FRONT - MULLION_D / 2)
+        mullions.push(transom)
+        emit('trim', mergeParts(mullions, `floor-mullions-${s}`), shell, `floor-mullions-${s}`, kit.graphite)
+
+        // Continuous terrace at the storey's floor line, with a glazed guard rail on its outer edge and
+        // the red leading-edge fascia band under it — the catalogue tell in the render.
+        const terrace = bevelBox(span, TERRACE_T, TERRACE_D, 0.02)
+        terrace.translate(0, y0 - TERRACE_T / 2, FRONT + TERRACE_D / 2)
+        emit('floor', terrace, shell, `terrace-${s}`, tone('floor', TONE.apron))
+
+        const railZ = FRONT + TERRACE_D - 0.03
+        const railParts: BufferGeometry[] = []
+        const topRail = bevelBox(span, 0.05, 0.06, 0.012)
+        topRail.translate(0, y0 + GUARD_RAIL_H, railZ)
+        railParts.push(topRail)
+        const postDivisions = Math.max(2, Math.round(span / BALUSTER_PITCH))
+        const postPitch = span / postDivisions
+        for (let p = 0; p <= postDivisions; p++) {
+          const px = -span / 2 + p * postPitch
+          const post = bevelBox(BALUSTER_W, GUARD_RAIL_H, BALUSTER_W, 0.008)
+          post.translate(px, y0 + GUARD_RAIL_H / 2, railZ)
+          railParts.push(post)
+        }
+        emit('trim', mergeParts(railParts, `terrace-rail-${s}`), shell, `terrace-rail-${s}`, kit.graphite)
+
+        const railGlass = bevelBox(span - BALUSTER_W, GUARD_RAIL_H - 0.15, 0.02, 0.004)
+        railGlass.translate(0, y0 + GUARD_RAIL_H / 2, railZ - 0.02)
+        emit('glass', railGlass, shell, `terrace-rail-glass-${s}`)
+
+        const fasciaBand = bevelBox(span, TERRACE_FASCIA_H, 0.08, 0.012)
+        fasciaBand.translate(0, y0 - TERRACE_T - TERRACE_FASCIA_H / 2, FRONT + TERRACE_D - 0.05)
+        emit('trim', fasciaBand, shell, `terrace-fascia-${s}`, terraceFasciaMat)
+
+        if (isTop) {
+          // Flat roof slab and a shallow parapet cap the stack.
+          const roofY = y0 + STOREY_H
+          const roofSlab = bevelBox(span, ROOF_SLAB_T, D, 0.02)
+          roofSlab.translate(0, roofY + ROOF_SLAB_T / 2, 0)
+          emit('shell', roofSlab, shell, 'floors-roof-slab', tone('shell', TONE.deck))
+
+          const parapetParts: BufferGeometry[] = []
+          for (const sz of [-1, 1] as const) {
+            const edge = bevelBox(span, PARAPET_H, 0.12, 0.012)
+            edge.translate(0, roofY + ROOF_SLAB_T + PARAPET_H / 2, sz * (FRONT - 0.06))
+            parapetParts.push(edge)
+          }
+          for (const side of [-1, 1] as const) {
+            const flank = bevelBox(0.12, PARAPET_H, D, 0.012)
+            flank.translate(side * (span / 2 - 0.06), roofY + ROOF_SLAB_T + PARAPET_H / 2, 0)
+            parapetParts.push(flank)
+          }
+          emit('shell', mergeParts(parapetParts, 'floors-parapet'), shell, 'floors-parapet',
+            tone('shell', TONE.coping))
+        }
+      }
+    }
+
+    // Glass entry tower — one bay wide at the model's -X end, rising two storeys above the top floor.
+    if (config.tower) {
+      const towerX = -span / 2 - BAY / 2
+      const towerBaseY = SLAB
+      const towerTopFloorY = H + Math.max(0, config.floors - 1) * STOREY_H
+      const towerTopY = towerTopFloorY + TOWER_EXTRA_STOREYS * STOREY_H
+      const towerH = towerTopY - towerBaseY
+      const towerHalfW = BAY / 2 - 0.08
+      const towerHalfD = D / 2 - 0.08
+
+      const towerPlinth = bevelBox(BAY, SLAB, D, 0.02)
+      towerPlinth.translate(towerX, SLAB / 2, 0)
+      emit('floor', towerPlinth, shell, 'tower-plinth', tone('floor', TONE.plinth))
+
+      // Four corner posts carry the load; everything between them is glass.
+      const posts: BufferGeometry[] = []
+      for (const sx of [-1, 1] as const) {
+        for (const sz of [-1, 1] as const) {
+          const post = bevelBox(0.16, towerH, 0.16, 0.02)
+          post.translate(towerX + sx * towerHalfW, towerBaseY + towerH / 2, sz * towerHalfD)
+          posts.push(post)
+        }
+      }
+      emit('shell', mergeParts(posts, 'tower-posts'), shell, 'tower-posts', tone('shell', TONE.pier))
+
+      // Storey-height transom bands tie the tower's glazing rhythm to the podium below it.
+      const towerStoreys = Math.max(1, Math.round(towerH / STOREY_H))
+      const towerStoreyH = towerH / towerStoreys
+      const bands: BufferGeometry[] = []
+      for (let t = 0; t <= towerStoreys; t++) {
+        const band = bevelBox(BAY, MULLION_W, D, 0.01)
+        band.translate(towerX, towerBaseY + t * towerStoreyH, 0)
+        bands.push(band)
+      }
+      emit('trim', mergeParts(bands, 'tower-bands'), shell, 'tower-bands', kit.graphite)
+
+      const panes: BufferGeometry[] = []
+      for (let t = 0; t < towerStoreys; t++) {
+        const centreY = towerBaseY + (t + 0.5) * towerStoreyH
+        const paneH = towerStoreyH - MULLION_W * 1.5
+        for (const sz of [-1, 1] as const) {
+          const facePane = bevelBox(BAY - MULLION_W * 2, paneH, 0.03, 0.006)
+          facePane.translate(towerX, centreY, sz * towerHalfD)
+          panes.push(facePane)
+        }
+        for (const sx of [-1, 1] as const) {
+          const sidePane = bevelBox(0.03, paneH, D - MULLION_W * 2, 0.006)
+          sidePane.translate(towerX + sx * towerHalfW, centreY, 0)
+          panes.push(sidePane)
+        }
+      }
+      emit('glass', mergeParts(panes, 'tower-glazing'), shell, 'tower-glazing')
+
+      const towerRoof = bevelBox(BAY, ROOF_SLAB_T, D, 0.02)
+      towerRoof.translate(towerX, towerBaseY + towerH + ROOF_SLAB_T / 2, 0)
+      emit('shell', towerRoof, shell, 'tower-roof', tone('shell', TONE.deck))
+
+      const towerParapet: BufferGeometry[] = []
+      for (const sz of [-1, 1] as const) {
+        const edge = bevelBox(BAY, PARAPET_H, 0.1, 0.012)
+        edge.translate(towerX, towerBaseY + towerH + ROOF_SLAB_T + PARAPET_H / 2, sz * (towerHalfD - 0.05))
+        towerParapet.push(edge)
+      }
+      emit('shell', mergeParts(towerParapet, 'tower-parapet'), shell, 'tower-parapet',
+        tone('shell', TONE.coping))
+    }
   }
   rebuild()
 
@@ -540,6 +774,10 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
       if (patch.legend !== undefined) config.legend = String(patch.legend).slice(0, 8)
       if (patch.style !== undefined && isFasciaStyle(patch.style)) config.style = patch.style
       if (patch.open !== undefined) config.open = Math.max(0, Math.round(patch.open))
+      if (patch.floors !== undefined) {
+        config.floors = Math.min(MAX_FLOORS, Math.max(1, Math.round(patch.floors)))
+      }
+      if (patch.tower !== undefined) config.tower = Boolean(patch.tower)
       rebuild()
     },
     setMaterial(slot, material) {
@@ -560,6 +798,7 @@ export function createModel(options: F1GarageBoxOptions = {}): F1GarageBoxInstan
     dispose() {
       releaseGenerated()
       disposeF1Materials(bundle)
+      for (const material of ownedExtras) material.dispose()
       root.removeFromParent()
     },
   }

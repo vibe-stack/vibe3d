@@ -101,6 +101,7 @@ export function createModel(options: F1SausageKerbOptions = {}): F1SausageKerbIn
     generated.push(geometry)
     const mesh = new Mesh(geometry, material)
     mesh.name = name
+    mesh.userData.topologyRole = name === 'sausage' ? 'hull' : 'detail'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot.sausage.push(mesh)
@@ -114,6 +115,7 @@ export function createModel(options: F1SausageKerbOptions = {}): F1SausageKerbIn
     const bay = BAND - GAP
     const profile = sausageProfile()
     const bodyParts: BufferGeometry[] = []
+    const grooveParts: BufferGeometry[] = []
     const padParts: BufferGeometry[] = []
 
     for (let i = 0; i < config.modules; i++) {
@@ -125,7 +127,7 @@ export function createModel(options: F1SausageKerbOptions = {}): F1SausageKerbIn
       for (const z of [-0.22, 0, 0.22]) {
         const groove = bevelBox(bay - 0.06, 0.01, 0.028, 0.003)
         groove.translate(x, CROWN - 0.012, z)
-        bodyParts.push(groove)
+        grooveParts.push(groove)
       }
 
       const pad = bevelBox(bay - 0.04, 0.012, SAUSAGE_KERB.width - 0.08, 0.003)
@@ -144,6 +146,7 @@ export function createModel(options: F1SausageKerbOptions = {}): F1SausageKerbIn
     }
 
     emit(mergeParts(bodyParts, 'sausage'), materialSlots.sausage, 'sausage')
+    if (grooveParts.length) emit(mergeParts(grooveParts, 'grooves'), materialSlots.sausage, 'grooves')
     emit(mergeParts(padParts, 'pads'), padMat, 'pads')
   }
   rebuild()
@@ -160,7 +163,7 @@ export function createModel(options: F1SausageKerbOptions = {}): F1SausageKerbIn
     setMaterial(slot, material) {
       materialSlots[slot] = material
       for (const mesh of meshesBySlot[slot]) {
-        if (mesh.name === 'sausage') mesh.material = material
+        if (mesh.name === 'sausage' || mesh.name === 'grooves') mesh.material = material
       }
     },
     update: () => {},

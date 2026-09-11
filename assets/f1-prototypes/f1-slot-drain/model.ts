@@ -69,6 +69,7 @@ export function createModel(options: F1SlotDrainOptions = {}): F1SlotDrainInstan
     generated.push(geometry)
     const mesh = new Mesh(geometry, materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name === 'trough' ? 'hull' : 'detail'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

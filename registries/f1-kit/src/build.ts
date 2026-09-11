@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { registrySchema, type RegistryFile, type RegistryItem } from '@vibe3djs/schema'
+import {
+  COMPILED_TOPOLOGY_FORMAT,
+  COMPILED_TOPOLOGY_MEDIA_TYPE,
+  decodeCompiledTopology,
+} from '../../../packages/terrain/src/index.ts'
+import { registrySchema, type RegistryArtifact, type RegistryFile, type RegistryItem } from '@vibe3djs/schema'
 import { categoryFromId } from './categories.ts'
 
 const registryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -10,23 +15,24 @@ const repositoryRoot = resolve(registryRoot, '../..')
 const prototypesRoot = join(repositoryRoot, 'assets/f1-prototypes')
 const outputRoot = join(registryRoot, 'dist')
 
+const KIT_CORE_SKIP = new Set(['topology.ts', 'compile.ts', 'catalog.ts'])
+
 function titleFromId(id: string): string {
   return id.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 }
 
-
-function hash(content: string): string {
+function hash(content: string | Uint8Array): string {
   return createHash('sha256').update(content).digest('hex')
 }
 
-async function collectTypeScriptFiles(root: string): Promise<string[]> {
+async function collectTypeScriptFiles(root: string, skip = new Set<string>()): Promise<string[]> {
   const files: string[] = []
   const visit = async (directory: string): Promise<void> => {
     const entries = await readdir(directory, { withFileTypes: true })
     for (const entry of entries) {
       const path = join(directory, entry.name)
       if (entry.isDirectory()) await visit(path)
-      else if (entry.isFile() && entry.name.endsWith('.ts')) files.push(path)
+      else if (entry.isFile() && entry.name.endsWith('.ts') && !skip.has(entry.name)) files.push(path)
     }
   }
   await visit(root)
@@ -48,9 +54,34 @@ async function registryFile(path: string, target: string): Promise<RegistryFile>
   return { path: relative(repositoryRoot, path), target, content, hash: hash(content) }
 }
 
+async function topologyArtifact(modelId: string): Promise<{ artifact: RegistryArtifact; topologyKey: string; recipeHash: string; compilerHash: string } | null> {
+  const path = join(prototypesRoot, modelId, `${modelId}.vtopo`)
+  try {
+    const bytes = new Uint8Array(await readFile(path))
+    const topology = decodeCompiledTopology(bytes)
+    return {
+      artifact: {
+        path: relative(repositoryRoot, path),
+        target: `{models}/f1-kit/${modelId}/${modelId}.vtopo`,
+        mediaType: COMPILED_TOPOLOGY_MEDIA_TYPE,
+        encoding: 'base64',
+        content: Buffer.from(bytes).toString('base64'),
+        hash: hash(bytes),
+        byteLength: bytes.byteLength,
+      },
+      topologyKey: topology.topologyKey,
+      recipeHash: topology.recipeHash,
+      compilerHash: topology.compilerHash,
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
+
 async function buildSupportItem(itemId: string): Promise<RegistryItem> {
   const directory = join(prototypesRoot, itemId)
-  const paths = await collectTypeScriptFiles(directory)
+  const paths = await collectTypeScriptFiles(directory, KIT_CORE_SKIP)
   const files = await Promise.all(paths.map((path) => registryFile(
     path,
     `{models}/f1-kit/${itemId}/${relative(directory, path).split(sep).join('/')}`,
@@ -63,6 +94,7 @@ async function buildSupportItem(itemId: string): Promise<RegistryItem> {
     dependencies: ['three@>=0.185.0'],
     registryDependencies: [],
     files,
+    artifacts: [],
   }
 }
 
@@ -80,6 +112,10 @@ async function buildModelItem(modelId: string): Promise<RegistryItem> {
   )))
   const title = titleFromId(modelId)
   const category = categoryFromId(modelId)
+  const compiled = await topologyArtifact(modelId)
+  if (!compiled) {
+    throw new Error(`${modelId}: missing ${modelId}.vtopo — run bun run f1:compile-topology`)
+  }
   return {
     name: modelId,
     type: 'vibe3d:model',
@@ -88,6 +124,24 @@ async function buildModelItem(modelId: string): Promise<RegistryItem> {
     dependencies: ['three@>=0.185.0'],
     registryDependencies: [...dependencies].sort(),
     files,
+    artifacts: [compiled.artifact],
+    representations: {
+      source: {
+        entry: `assets/f1-prototypes/${modelId}/model.ts#createModel`,
+        capabilities: ['webgpu', 'tsl'],
+      },
+      compiled: [{
+        id: 'game',
+        kind: 'compiled-topology',
+        artifact: compiled.artifact.path,
+        format: COMPILED_TOPOLOGY_FORMAT,
+        topologyKey: compiled.topologyKey,
+        recipeHash: compiled.recipeHash,
+        compilerHash: compiled.compilerHash,
+        profile: 'game',
+        capabilities: ['webgpu', 'tsl'],
+      }],
+    },
     meta: {
       title,
       description: `Inspect, configure, and export the ${title.toLocaleLowerCase()} directly from your project.`,
@@ -125,11 +179,12 @@ async function main(): Promise<void> {
     dependencies: [],
     registryDependencies: modelIds.map((id) => `@f1-kit/${id}`),
     files: [],
+    artifacts: [],
   })
 
   const registry = registrySchema.parse({
     $schema: 'https://vibe3d.dev/schema/registry.json',
-    schemaVersion: 1,
+    schemaVersion: 2,
     namespace: '@f1-kit',
     name: 'F1 Kit',
     description: 'A procedural Formula-1 pit-lane prop library for building motorsport scenes in Three.js — tyres, pit tools, garage equipment, and signage, with no real-team branding baked in.',

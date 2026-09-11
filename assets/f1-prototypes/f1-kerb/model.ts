@@ -279,6 +279,7 @@ export function createModel(options: F1KerbOptions = {}): F1KerbInstance {
     generated.push(geometry)
     const mesh = new Mesh(geometry, materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = 'hull'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

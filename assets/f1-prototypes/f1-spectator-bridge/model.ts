@@ -1,6 +1,8 @@
 // f1-spectator-bridge — an architectural circuit overpass: a shallow warren girder on
 // battered portal piers, clad parapets, and a switchback stair tower at each abutment.
-// Deck clears this kit's 5.5 m catch fence.
+// Deck clears this kit's 5.5 m catch fence by default; `deckHeight` is configurable
+// (a consumer sitting the crossing on a raised structure — a cut-and-cover lid, say —
+// passes its own clearance), and the piers, stairs and handrails scale with it.
 
 import {
   BufferGeometry,
@@ -28,6 +30,15 @@ type Slot = 'truss' | 'mesh' | 'stairs'
 
 export interface F1SpectatorBridgeConfig {
   span: number
+  /**
+   * Deck height above the ground plane, in metres. The bridge SITS on whatever the caller's
+   * datum is — a flush trackside pad by default, but a cut-and-cover lid or a graded verge
+   * needs its own clearance — so this belongs to the consumer, not to the model. Default 5.5
+   * is this kit's standard catch-fence clearance. The piers, the stair towers and their
+   * handrails all scale to reach the deck at this height; the girder depth and parapet/rail
+   * proportions do not change.
+   */
+  deckHeight: number
 }
 
 export interface F1SpectatorBridgeOptions extends Partial<F1SpectatorBridgeConfig> {
@@ -45,9 +56,17 @@ export interface F1SpectatorBridgeInstance {
   dispose(): void
 }
 
-const defaults: F1SpectatorBridgeConfig = { span: 12 }
+const defaults: F1SpectatorBridgeConfig = { span: 12, deckHeight: SPECTATOR_BRIDGE.deckHeight }
 
-const DECK_H = SPECTATOR_BRIDGE.deckHeight
+/** Finite and `>= 4` (a shorter clearance leaves no room for the switchback stair). */
+function clampDeckHeight(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback
+  return Math.max(4, value)
+}
+
+// DECK_H and every quantity derived from it are `let`s recomputed by `applyDeckHeight()` at
+// the top of each `rebuild()` — see that function, right after the derivation chain below.
+let DECK_H: number = SPECTATOR_BRIDGE.deckHeight
 const WIDTH = SPECTATOR_BRIDGE.width
 const HZ = WIDTH / 2
 
@@ -74,8 +93,8 @@ const FASCIA_Z = HZ + 0.06
 const GIRDER_D = 1.52
 const CHORD_H = 0.34
 const CHORD_W = 0.24
-const CHORD_TOP = DECK_H - DECK_T - CHORD_H / 2 - 0.01
-const CHORD_BOT = CHORD_TOP - GIRDER_D
+let CHORD_TOP = DECK_H - DECK_T - CHORD_H / 2 - 0.01
+let CHORD_BOT = CHORD_TOP - GIRDER_D
 const GIRDER_Z = HZ - 0.18
 const DIAGONAL_R = 0.115
 const GUSSET = 0.26
@@ -127,23 +146,23 @@ const PIER_BASE_Y = PIER_PAD_T + PIER_PLINTH_H
 const PIER_HEAD_H = 0.40
 /** The head sits exactly one bearing plate below the bottom chord it carries. */
 const PIER_BEARING_H = 0.11
-const PIER_HEAD_Y = CHORD_BOT - CHORD_H / 2 - PIER_BEARING_H - PIER_HEAD_H / 2
-const PIER_LEG_TOP = PIER_HEAD_Y - PIER_HEAD_H / 2 - 0.01
+let PIER_HEAD_Y = CHORD_BOT - CHORD_H / 2 - PIER_BEARING_H - PIER_HEAD_H / 2
+let PIER_LEG_TOP = PIER_HEAD_Y - PIER_HEAD_H / 2 - 0.01
 const PIER_HEAD_Z = (PIER_Z_TOP + PIER_W_TOP) * 2 + 0.48
 
 /** Switchback stair tower: two equal flights about a half-height landing. */
-const HALF_RISE = DECK_H / 2
-const FLIGHT_STEPS = Math.ceil(HALF_RISE / STAIRS.rise)
-const STEP_RISE = HALF_RISE / FLIGHT_STEPS
-const FLIGHT_RUN = FLIGHT_STEPS * STAIRS.run
+let HALF_RISE = DECK_H / 2
+let FLIGHT_STEPS = Math.ceil(HALF_RISE / STAIRS.rise)
+let STEP_RISE = HALF_RISE / FLIGHT_STEPS
+let FLIGHT_RUN = FLIGHT_STEPS * STAIRS.run
 const LAND = STAIRS.landing
-const TOWER_LEN = LAND * 2 + FLIGHT_RUN
+let TOWER_LEN = LAND * 2 + FLIGHT_RUN
 const FLIGHT_W = HZ - 0.14
 const FLIGHT_Z = HZ / 2
-const RAKE = Math.atan2(STEP_RISE, STAIRS.run)
+let RAKE = Math.atan2(STEP_RISE, STAIRS.run)
 const COL_S = 0.26
 const COL_Z = HZ + 0.13
-const CAP_Y = DECK_H + RAIL_H - 0.05
+let CAP_Y = DECK_H + RAIL_H - 0.05
 /**
  * The towers land on the pier's own courses — pad, plinth, cap — and arrive at exactly
  * `PIER_BASE_Y`. Matching the datum rather than approximating it puts one masonry line under the
@@ -168,6 +187,30 @@ const TOWER_PIER_Y = TOWER_BASE_Y + 0.12
 const FACE_BAYS = 3
 /** Parapet-height wall capping the tower, picking up the deck fascia band it runs into. */
 const PARAPET_CLAD = (CAP_Y - DECK_H) * 0.72
+
+/**
+ * Recomputes every DECK_H-derived quantity above for a new deck height. Called once at the
+ * top of `rebuild()`, synchronously, before any geometry is built from these — so two bridge
+ * instances with different `deckHeight` configs never interleave a build against the other's
+ * derived values; each rebuild bakes vertex positions from whatever this last set.
+ *
+ * `PARAPET_CLAD` is deliberately NOT recomputed here: `CAP_Y - DECK_H` is `RAIL_H - 0.05`
+ * regardless of deck height, so it stays the module-level constant it already was.
+ */
+function applyDeckHeight(deckHeight: number): void {
+  DECK_H = deckHeight
+  CHORD_TOP = DECK_H - DECK_T - CHORD_H / 2 - 0.01
+  CHORD_BOT = CHORD_TOP - GIRDER_D
+  PIER_HEAD_Y = CHORD_BOT - CHORD_H / 2 - PIER_BEARING_H - PIER_HEAD_H / 2
+  PIER_LEG_TOP = PIER_HEAD_Y - PIER_HEAD_H / 2 - 0.01
+  HALF_RISE = DECK_H / 2
+  FLIGHT_STEPS = Math.ceil(HALF_RISE / STAIRS.rise)
+  STEP_RISE = HALF_RISE / FLIGHT_STEPS
+  FLIGHT_RUN = FLIGHT_STEPS * STAIRS.run
+  TOWER_LEN = LAND * 2 + FLIGHT_RUN
+  RAKE = Math.atan2(STEP_RISE, STAIRS.run)
+  CAP_Y = DECK_H + RAIL_H - 0.05
+}
 
 /**
  * Geometry is collected per destination rather than per material slot: the deck slab is
@@ -700,6 +743,7 @@ function placeTower(bag: Bag, tower: Bag, xOrigin: number, flip: boolean): void 
 export function createModel(options: F1SpectatorBridgeOptions = {}): F1SpectatorBridgeInstance {
   const config: F1SpectatorBridgeConfig = {
     span: Math.max(6, options.span ?? defaults.span),
+    deckHeight: clampDeckHeight(options.deckHeight ?? defaults.deckHeight, defaults.deckHeight),
   }
 
   const bundle = acquireF1Materials()
@@ -738,6 +782,7 @@ export function createModel(options: F1SpectatorBridgeOptions = {}): F1Spectator
 
   const rebuild = (): void => {
     releaseGenerated()
+    applyDeckHeight(config.deckHeight)
     const half = config.span / 2
     const pierX = Math.max(half * 0.4, half - PIER_INSET)
     const bag = newBag()
@@ -763,6 +808,9 @@ export function createModel(options: F1SpectatorBridgeOptions = {}): F1Spectator
     getConfig: () => ({ ...config }),
     configure(patch) {
       if (patch.span !== undefined) config.span = Math.max(6, patch.span)
+      if (patch.deckHeight !== undefined) {
+        config.deckHeight = clampDeckHeight(patch.deckHeight, config.deckHeight)
+      }
       rebuild()
     },
     setMaterial(slot, material) {

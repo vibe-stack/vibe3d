@@ -1,5 +1,11 @@
 # @f1-kit/registry
 
+## 0.0.20
+
+Compiled topology sidecars (`.vtopo`) for every catalog model. Registry schema
+v2 ships `artifacts[]` + `representations.compiled[]`. Kit is 74 models
+(includes team motorhome and Hot Wheels exhibition tracks).
+
 ## 0.0.19
 
 Handheld chequered finish flag and a pit-straight evaluation scene. The flag

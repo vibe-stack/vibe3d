@@ -115,6 +115,7 @@ export function createModel(options: F1FireExtinguisherOptions = {}): F1FireExti
     generated.push(geometry)
     const mesh = new Mesh(geometry, materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name === 'body' || name === 'cylinder' || name === 'tank' ? 'hull' : 'detail'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

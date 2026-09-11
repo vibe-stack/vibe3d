@@ -219,6 +219,7 @@ export function createModel(options: F1IceBucketOptions = {}): F1IceBucketInstan
     generated.push(geometry)
     const mesh = new Mesh(geometry, materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name === 'shell' || name === 'liner' ? 'hull' : 'detail'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

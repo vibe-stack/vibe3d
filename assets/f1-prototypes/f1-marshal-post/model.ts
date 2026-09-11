@@ -180,6 +180,7 @@ export function createModel(options: F1MarshalPostOptions = {}): F1MarshalPostIn
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name.includes('glass') || name.includes('lamp') || name.includes('flag') ? 'detail' : 'hull'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

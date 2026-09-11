@@ -49,6 +49,16 @@ export interface F1StartLightsConfig {
   color?: number
   /** Lamp rows per column. FIA TV unit is 4. */
   rows: number
+  /**
+   * Post-to-post span, in metres. The rig STRADDLES the racing surface, so this belongs to the
+   * circuit, not to the model: a consumer that knows its track width should pass it (track width
+   * plus a kerb, so the posts stand on the verge rather than on the kerb blocks). Default 6.4 is
+   * the standalone display figure and is narrower than any real F1 start straight.
+   *
+   * The lamp panel is NOT scaled by this — it stays its own FIA size, centred under the beam, which
+   * is how the real structure reads.
+   */
+  span: number
 }
 
 export interface F1StartLightsOptions extends Partial<F1StartLightsConfig> {
@@ -67,7 +77,7 @@ export interface F1StartLightsInstance {
 }
 
 const FIA_START_RED = 0xc41820
-const defaults: F1StartLightsConfig = { lit: 5, sequence: false, mode: 'start', rows: 4 }
+const defaults: F1StartLightsConfig = { lit: 5, sequence: false, mode: 'start', rows: 4, span: 6.4 }
 const COLS = 5
 const PITCH = 0.36
 const MODULE_W = 0.29
@@ -95,6 +105,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
     mode: options.mode ?? defaults.mode,
     color: options.color,
     rows: Math.min(6, Math.max(1, Math.round(options.rows ?? defaults.rows))),
+    span: Math.max(4, options.span ?? defaults.span),
   }
   let elapsed = 0
 
@@ -188,7 +199,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
   const rebuild = (): void => {
     releaseGenerated()
     const rows = config.rows
-    const span = 6.4
+    const span = config.span
     const half = span / 2
     const postParts: BufferGeometry[] = []
     for (const sx of [-1, 1] as const) {
@@ -291,6 +302,7 @@ export function createModel(options: F1StartLightsOptions = {}): F1StartLightsIn
       if (patch.lit !== undefined) config.lit = Math.min(5, Math.max(0, Math.round(patch.lit)))
       if (patch.sequence !== undefined) config.sequence = patch.sequence
       if (patch.rows !== undefined) config.rows = Math.min(6, Math.max(1, Math.round(patch.rows)))
+      if (patch.span !== undefined) config.span = Math.max(4, patch.span)
       let dirtyLamps = false
       if (patch.mode !== undefined) {
         config.mode = patch.mode

@@ -69,6 +69,7 @@ export function createModel(options: F1BollardOptions = {}): F1BollardInstance {
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name.includes('reflect') || name.includes('band') ? 'detail' : 'hull'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

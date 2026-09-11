@@ -80,6 +80,7 @@ export function createModel(options: F1TrophyCupOptions = {}): F1TrophyCupInstan
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name === 'cup' || name === 'bowl' || name === 'stem' || name === 'base' || name === 'body' ? 'hull' : 'detail'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

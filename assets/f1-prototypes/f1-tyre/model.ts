@@ -361,6 +361,7 @@ export function createModel(options: F1TyreOptions = {}): F1TyreInstance {
     generated.push(geometry)
     const mesh = new Mesh(geometry, materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name === 'tread' || name === 'carcass' || name === 'sidewall' || name === 'tyre' || name === 'body' ? 'hull' : 'detail'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

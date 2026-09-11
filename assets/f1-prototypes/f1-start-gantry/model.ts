@@ -125,6 +125,7 @@ export function createModel(options: F1StartGantryOptions = {}): F1StartGantryIn
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name.includes('lamp') || name.includes('panel') || name.includes('sign') || name.includes('light') ? 'detail' : 'hull'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)

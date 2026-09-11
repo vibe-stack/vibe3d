@@ -89,6 +89,7 @@ export function createModel(options: F1ArmcoOptions = {}): F1ArmcoInstance {
     generated.push(geometry)
     const mesh = new Mesh(geometry, material ?? materialSlots[slot])
     mesh.name = name
+    mesh.userData.topologyRole = name === 'posts' || name === 'rails' ? 'hull' : 'detail'
     mesh.castShadow = true
     mesh.receiveShadow = true
     meshesBySlot[slot].push(mesh)
